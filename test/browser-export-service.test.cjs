@@ -4,12 +4,10 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
 let server;
 let BrowserExportService;
-let previewMetrics;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24692 } } });
   ({ BrowserExportService } = await server.ssrLoadModule('/src/platform/BrowserExportService.ts'));
-  ({ previewMetrics } = await server.ssrLoadModule('/src/perf/preview-metrics.ts'));
 });
 
 after(async () => server?.close());
@@ -144,7 +142,7 @@ test('browser PDF export cleans up the print target when printing fails', async 
   }
 });
 
-test('browser PDF export writes only the paginated document and explicit print CSS', async () => {
+test('browser PDF export writes only the paginated preview stage and explicit print CSS', async () => {
   const previousWindow = global.window;
   const previousDocument = global.document;
   let written = '';
@@ -177,6 +175,7 @@ test('browser PDF export writes only the paginated document and explicit print C
     assert.equal(result, true);
     assert.equal(printCount, 1);
     assert.match(written, /id="clear-writer-pdf-document"/);
+    assert.match(written, /id="paged-stage" class="paged-stage"/);
     assert.match(written, /class="pagedjs_page"/);
     assert.match(written, /size: 148mm 210mm/);
     const bodyMarkup = written.match(/<body>([\s\S]*)<\/body>/)?.[1] || '';
@@ -187,7 +186,7 @@ test('browser PDF export writes only the paginated document and explicit print C
   }
 });
 
-test('browser PDF export filters unrelated application CSS from the print document', async () => {
+test('browser PDF export preserves all preview CSS in stylesheet order', async () => {
   const previousWindow = global.window;
   const previousDocument = global.document;
   let written = '';
@@ -206,33 +205,26 @@ test('browser PDF export filters unrelated application CSS from the print docume
     print: () => {},
     close: () => { popup.closed = true; }
   };
-  const stylesheet = {
-    href: 'https://clear-writer.test/assets/app.css',
-    cssRules: [
-      { cssText: '.workspace { display: grid; }' },
-      { cssText: '.pagedjs_page_content { color: #111; }' },
-      { cssText: ':root { --font-ui: Inter; }' }
-    ]
-  };
-  const link = { href: stylesheet.href };
+  const link = { tagName: 'LINK', href: 'https://clear-writer.test/assets/app.css', media: '' };
+  const style = { tagName: 'STYLE', textContent: '.workspace { display: grid; }.pagedjs_page_content { color: #111; }' };
   global.window = { open: () => popup, location: { href: 'https://clear-writer.test/' } };
   global.document = {
-    styleSheets: [stylesheet],
-    querySelectorAll: selector => selector.includes('link') ? [link] : []
+    querySelectorAll: () => [link, style]
   };
   try {
     const service = new BrowserExportService();
     assert.equal(await service.exportPdf('<p>Document</p>', { paperWidth: 210, paperHeight: 297 }, {}, {}, {}, {}, null, popup), true);
-    assert.doesNotMatch(written, /\.workspace\s*\{/);
+    assert.match(written, /<link rel="stylesheet" href="https:\/\/clear-writer\.test\/assets\/app\.css">/);
+    assert.match(written, /\.workspace\s*\{/);
     assert.match(written, /\.pagedjs_page_content\s*\{/);
-    assert.match(written, /:root\s*\{/);
+    assert.ok(written.indexOf('assets/app.css') < written.indexOf('.workspace'), 'print styles should retain preview stylesheet order');
   } finally {
     global.window = previousWindow;
     global.document = previousDocument;
   }
 });
 
-test('browser PDF export filters unmarked inline CSS while preserving marked document styles', async () => {
+test('browser PDF export preserves ordinary and generated inline preview styles', async () => {
   const previousWindow = global.window;
   const previousDocument = global.document;
   let written = '';
@@ -251,32 +243,22 @@ test('browser PDF export filters unmarked inline CSS while preserving marked doc
     print: () => {},
     close: () => { popup.closed = true; }
   };
-  const viteStyleSheet = {
-    href: null,
-    cssRules: [
-      { cssText: '.workspace { display: grid; }' },
-      { cssText: '.pagedjs_page_content { color: #111; }' }
-    ]
-  };
   const viteStyle = {
+    tagName: 'STYLE',
     textContent: '.workspace { display: grid; }.pagedjs_page_content { color: #111; }',
-    sheet: viteStyleSheet,
-    hasAttribute: () => false
   };
   const documentStyle = {
+    tagName: 'STYLE',
     textContent: '.custom-document-rule { color: #123456; }',
-    sheet: null,
-    hasAttribute: name => name === 'data-clear-writer-print-style'
   };
   global.window = { open: () => popup, location: { href: 'https://clear-writer.test/' } };
   global.document = {
-    styleSheets: [viteStyleSheet],
-    querySelectorAll: selector => selector.includes('link') ? [] : [viteStyle, documentStyle]
+    querySelectorAll: () => [viteStyle, documentStyle]
   };
   try {
     const service = new BrowserExportService();
     assert.equal(await service.exportPdf('<p>Document</p>', { paperWidth: 210, paperHeight: 297 }, {}, {}, {}, {}, null, popup), true);
-    assert.doesNotMatch(written, /\.workspace\s*\{/);
+    assert.match(written, /\.workspace\s*\{/);
     assert.match(written, /\.pagedjs_page_content\s*\{/);
     assert.match(written, /\.custom-document-rule\s*\{/);
   } finally {
@@ -285,7 +267,7 @@ test('browser PDF export filters unmarked inline CSS while preserving marked doc
   }
 });
 
-test('browser PDF export records when CSS filtering falls back to a stylesheet link', async () => {
+test('browser PDF export preserves stylesheet links without reading the CSSOM', async () => {
   const previousWindow = global.window;
   const previousDocument = global.document;
   const popup = {
@@ -303,21 +285,17 @@ test('browser PDF export records when CSS filtering falls back to a stylesheet l
     print: () => {},
     close: () => { popup.closed = true; }
   };
-  const stylesheet = {
-    href: 'https://clear-writer.test/assets/app.css',
-    get cssRules() { throw new Error('CSSOM blocked'); }
-  };
-  const link = { href: stylesheet.href };
-  previewMetrics.reset();
+  let written = '';
+  const link = { tagName: 'LINK', href: 'https://clear-writer.test/assets/app.css', media: 'print' };
   global.window = { open: () => popup, location: { href: 'https://clear-writer.test/' } };
   global.document = {
-    styleSheets: [stylesheet],
-    querySelectorAll: selector => selector.includes('link') ? [link] : []
+    querySelectorAll: () => [link]
   };
+  popup.document.write = value => { written = value; };
   try {
     const service = new BrowserExportService();
     assert.equal(await service.exportPdf('<p>Document</p>', { paperWidth: 210, paperHeight: 297 }, {}, {}, {}, {}, null, popup), true);
-    assert.equal(previewMetrics.snapshot().buckets['pdfPrintCssFallback:cssom-unreadable'].count, 1);
+    assert.match(written, /<link rel="stylesheet" href="https:\/\/clear-writer\.test\/assets\/app\.css" media="print">/);
   } finally {
     global.window = previousWindow;
     global.document = previousDocument;

@@ -185,6 +185,7 @@ const fixtures = [
       expect(result.forcedBreakPage === 2, `Expected forced page-break anchor on page 2, got ${result.forcedBreakPage}.`);
       expect(result.headersPresent === true, 'PDF visual smoke lost expected header content.');
       expect(result.footersPresent === true, 'PDF visual smoke lost expected footer content.');
+      expect(result.chapterFootersResolved === true, 'PDF visual smoke duplicated or lost the resolved chapter footer.');
     }
   }
 ];

@@ -34,9 +34,12 @@ const chapterMarginOverrideCss = `
 const formatContent = (content: string) => {
   if (!content) return '""';
 
+  // Chapter labels are resolved per physical page after Paged.js has laid out
+  // the document. Do not also generate this margin box in CSS: Paged.js keeps
+  // its generated page counter alongside the resolved DOM text otherwise.
+  if (/\{chapter:[^{}]*\}/i.test(content)) return '""';
+
   let formatted = resolveMarginContent(content);
-  // Chapter labels are resolved per paginated page by RenderEngine.
-  formatted = formatted.replace(/\{chapter:[^{}]*\}/gi, '');
 
   // Preserve requested line breaks while escaping CSS string metacharacters.
   formatted = formatted.replace(/\\n/g, '\uE000').replace(/<br\s*\/?>/gi, '\uE000');

@@ -33,7 +33,7 @@ const pageSetup: PageSetup = {
   footer: {
     centerWidth: '160px',
     left: marginCell('VISUAL QA', 'left'),
-    center: marginCell('Page {page}', 'center'),
+    center: marginCell('Chapter {chapter:} - Page {page}', 'center'),
     right: marginCell('CONFIDENTIAL', 'right')
   }
 };
@@ -82,13 +82,13 @@ async function run() {
   engine.applyListSetup(listSetup);
 
   const html = `
-    <section class="document-section" data-section-index="0">
+    <section class="document-section" data-section-index="0" data-number-headings="true">
       <h1>Layout Contract</h1>
       <p><span class="visual-glyph">◆</span><strong>GLYPH_ANCHOR</strong> validates prefix alignment and Unicode rendering.</p>
       <p>MARGIN_ANCHOR_LEFT begins inside the configured content box. This paragraph provides enough material to establish stable line wrapping without approaching the footer.</p>
       <ul><li>First controlled list item</li><li>Second controlled list item</li></ul>
     </section>
-    <section class="document-section" data-section-index="1">
+    <section class="document-section" data-section-index="1" data-number-headings="true">
       <div class="section-break" aria-hidden="true"></div>
       <h1>Forced Section Page</h1>
       <p>PAGE_BREAK_ANCHOR must appear on the second physical page.</p>
@@ -105,6 +105,8 @@ async function run() {
     if (!element) return '';
     return `${getComputedStyle(element, '::before').content} ${getComputedStyle(element, '::after').content}`;
   };
+  const resolvedFooter = (page: HTMLElement) =>
+    page.querySelector<HTMLElement>('.pagedjs_margin-bottom-center .pagedjs_margin-content')?.textContent?.trim() || '';
   window.__HARNESS_RESULT__ = {
     ok: renderResult.status === 'rendered',
     renderStatus: renderResult.status,
@@ -114,6 +116,7 @@ async function run() {
     forcedBreakPage: pageFor('PAGE_BREAK_ANCHOR'),
     headersPresent: pages.every(page => generatedContent(page, '.pagedjs_margin-top-center .pagedjs_margin-content').includes('Regression Spec')),
     footersPresent: pages.every(page => generatedContent(page, '.pagedjs_margin-bottom-left .pagedjs_margin-content').includes('VISUAL QA')),
+    chapterFootersResolved: pages.every((page, index) => resolvedFooter(page) === `Chapter ${index + 1} - Page ${index + 1}`),
     scrollHeight: document.documentElement.scrollHeight
   };
 }

@@ -210,6 +210,37 @@ test('CSS header content preserves quotes and Windows image paths in one string 
   assert.doesNotMatch(css, /leader\(/);
 });
 
+test('chapter-aware footers defer all content to the resolved page DOM', () => {
+  global.window = { location: { search: '' } };
+  state.setFullDocMode();
+  const cell = (content) => ({
+    content,
+    fontFamily: 'Inter',
+    fontSize: 9,
+    color: '#000',
+    isBold: false,
+    isItalic: false
+  });
+  const css = generatePageCss({
+    paperWidth: 210,
+    paperHeight: 297,
+    marginTop: 25,
+    marginRight: 20,
+    marginBottom: 25,
+    marginLeft: 20,
+    header: { centerWidth: '100px', left: cell(''), center: cell(''), right: cell('') },
+    footer: {
+      centerWidth: '100px',
+      left: cell(''),
+      center: cell(''),
+      right: cell('Chapter {chapter:} - Page {page}')
+    }
+  });
+
+  assert.match(css, /@bottom-right\s*\{\s*content: "";/);
+  assert.doesNotMatch(css, /@bottom-right\s*\{[\s\S]*counter\(page\)/);
+});
+
 test('section visibility markers do not emit named page rules', () => {
   global.window = { location: { search: '' } };
   const css = generatePageCss({
