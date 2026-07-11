@@ -2,7 +2,7 @@ export const projectSearchDrawerTemplate = (): string => `
   <div id="project-search-drawer" class="drawer hidden" aria-label="Project Search">
     <div class="drawer-header">
       <div class="drawer-title-block">
-        <h2>Search Project</h2>
+        <span>Search Project</span>
       </div>
       <button class="drawer-close-button" type="button" aria-label="Close search" title="Close search" aria-controls="project-search-drawer">
         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false" fill="currentColor">

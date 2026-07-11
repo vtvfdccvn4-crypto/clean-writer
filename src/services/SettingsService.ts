@@ -16,7 +16,8 @@ export const SettingsService = {
         tableSetup: settings.tableSetup,
         projectMetadata: settings.projectMetadata,
         customStyles: settings.customStyles,
-        customBlockStyles: settings.customBlockStyles
+        customBlockStyles: settings.customBlockStyles,
+        editorSetup: settings.editorSetup
       });
     } catch (e) {
       console.error('Failed to load settings.json', e);
@@ -34,7 +35,8 @@ export const SettingsService = {
     projectMetadata?: ProjectMetadata,
     customStyles?: CustomStyle[],
     customBlockStyles?: CustomBlockStyle[],
-    tableSetup?: TableSetup
+    tableSetup?: TableSetup,
+    editorSetup?: import('../types').EditorSetup
   ): Promise<void> {
     try {
       await session.mutateSettings({
@@ -47,7 +49,8 @@ export const SettingsService = {
           tableSetup: tableSetup ?? state.current.tableSetup,
           projectMetadata: projectMetadata ?? state.current.projectMetadata,
           customStyles: customStyles ?? state.current.customStyles,
-          customBlockStyles: customBlockStyles ?? state.current.customBlockStyles
+          customBlockStyles: customBlockStyles ?? state.current.customBlockStyles,
+          editorSetup: editorSetup ?? state.current.editorSetup
         }
       });
     } catch (e) {

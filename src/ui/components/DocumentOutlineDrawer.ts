@@ -2,7 +2,7 @@ export const documentOutlineDrawerTemplate = (): string => `
   <div id="document-outline-drawer" class="drawer hidden" aria-label="Document Outline">
     <div class="drawer-header">
       <div class="drawer-title-block">
-        <h2>Document Outline</h2>
+        <span>Document Outline</span>
       </div>
       <button class="drawer-close-button" type="button" aria-label="Close outline" title="Close outline" aria-controls="document-outline-drawer">
         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false" fill="currentColor">

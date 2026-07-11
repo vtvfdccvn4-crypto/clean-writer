@@ -4,8 +4,7 @@ export const typographyDrawerContentTemplate = (): string => `
     <div class="drawer-body">
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Target element</h5>
-          <span>Choose what to edit</span>
+          <span>Target element</span>
         </div>
         <label class="drawer-control">
           <span>Element</span>
@@ -23,8 +22,7 @@ export const typographyDrawerContentTemplate = (): string => `
 
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Font</h5>
-          <span>Family, size, color</span>
+          <span>Font</span>
         </div>
         ${renderDrawerFontStyleStack({
           fontId: 'typo-font-family',
@@ -39,8 +37,7 @@ export const typographyDrawerContentTemplate = (): string => `
 
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Spacing</h5>
-          <span>Line height and margins</span>
+          <span>Spacing</span>
         </div>
         <div class="drawer-grid drawer-grid-2">
           <label class="drawer-control">
@@ -49,7 +46,7 @@ export const typographyDrawerContentTemplate = (): string => `
           </label>
           <span class="drawer-spacer" aria-hidden="true"></span>
         </div>
-        <div class="drawer-grid drawer-grid-2">
+        <div class="drawer-control-stack">
           <label class="drawer-control">
             <span>Margin top (pt)</span>
             <input type="number" id="typo-margin-top" min="0" max="100">

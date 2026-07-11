@@ -17,6 +17,7 @@ import { initProjectReviewDrawer } from '../ui/project-review';
 import { initWritingWorkflow } from '../ui/keyboard-shortcuts';
 import { registerServiceWorker } from '../sw-registration';
 import { setupEditorSettingsDrawer } from '../ui/editor-settings-setup';
+import { APP_STATE_EVENTS } from '../state';
 import { previewMetrics } from '../perf/preview-metrics';
 import { initTablesDrawer } from '../ui/tables-setup';
 import { initTocSetupDrawer } from '../ui/toc-setup';
@@ -108,6 +109,21 @@ export async function bootApp(platform: Platform) {
       throw error;
     }
   }
+
+  state.on(APP_STATE_EVENTS.editorSetupChanged, () => {
+    if (!state.current.projectRef) return;
+    void saveSettingsWithNotice((session) => SettingsService.saveSettings(
+      session,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      state.current.editorSetup
+    ));
+  });
 
   const btnExportPdf = document.getElementById('btn-export-pdf');
   if (btnExportPdf) {

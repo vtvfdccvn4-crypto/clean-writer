@@ -42,17 +42,6 @@ class AppState extends EventTarget {
     super();
     // Deep clone the default state to avoid reference mutations
     this.data = freezeSnapshot(cloneValue(DEFAULT_APP_STATE));
-    try {
-      const saved = localStorage.getItem('clear-writer-editor-setup');
-      if (saved) {
-        this.data = freezeSnapshot({
-          ...this.data,
-          editorSetup: { ...this.data.editorSetup, ...JSON.parse(saved) }
-        });
-      }
-    } catch {
-      // Storage is optional (and unavailable in non-browser test environments).
-    }
   }
 
   get current(): Readonly<AppStateData & { projectPath: string | null }> {
@@ -129,6 +118,7 @@ class AppState extends EventTarget {
 
   commitSettingsSnapshot(settings: ProjectSettingsSnapshot) {
     this.replaceProject(settings);
+    this.replace({ editorSetup: settings.editorSetup });
     this.emit(APP_STATE_EVENTS.settingsSnapshotChanged);
   }
 
@@ -179,11 +169,6 @@ class AppState extends EventTarget {
 
   setEditorSetup(setup: EditorSetup) {
     this.replace({ editorSetup: setup });
-    try {
-      localStorage.setItem('clear-writer-editor-setup', JSON.stringify(setup));
-    } catch {
-      // Keep the in-memory setting when storage is unavailable.
-    }
     this.emit(APP_STATE_EVENTS.editorSetupChanged);
   }
 }

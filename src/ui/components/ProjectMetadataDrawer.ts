@@ -10,14 +10,14 @@ export const projectMetadataDrawerTemplate = (): string => `
     <div class="drawer-header">
       <div class="drawer-title-block">
         <span class="drawer-eyebrow">Project</span>
-        <h3>Metadata</h3>
+        <span>Metadata</span>
       </div>
       <button id="btn-close-metadata-drawer" class="drawer-close-button" type="button" aria-label="Close project metadata">✕</button>
     </div>
     <div class="drawer-body">
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Document identity</h5>
+          <span>Document identity</span>
           <span>Author and title</span>
         </div>
         ${renderField('meta-author', 'Author', 'Author name')}
@@ -27,7 +27,7 @@ export const projectMetadataDrawerTemplate = (): string => `
 
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Tracking</h5>
+          <span>Tracking</span>
           <span>Numbers and versions</span>
         </div>
         ${renderField('meta-doc-number', 'Document number', 'Document number')}
@@ -37,7 +37,7 @@ export const projectMetadataDrawerTemplate = (): string => `
 
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Product</h5>
+          <span>Product</span>
           <span>Model context</span>
         </div>
         ${renderField('meta-prod-name', 'Product name', 'Product name')}

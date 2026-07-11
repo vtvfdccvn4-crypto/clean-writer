@@ -1,25 +1,24 @@
 .symbol-search-field {
   display: grid;
   gap: 6px;
+  font-size: inherit;
+  color: inherit;
 }
 
 .symbol-search-field span {
-  color: #64748b;
-  font-size: 10pt;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: none;
+  color: var(--drawer-field-label-color);
 }
 
 .symbol-search-field input {
   width: 100%;
   min-height: 30px;
   padding: 5px 8px;
-  color: #0f172a;
   background: #ffffff;
   border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 4px;
   outline: 0;
+  font-size: var(--drawer-font-size);
+  color: var(--drawer-control-text-color);
 }
 
 .symbol-picker-section {
@@ -35,12 +34,18 @@
   gap: 10px;
 }
 
-.symbol-picker-section-head h3,
+.symbol-picker-section-head > :first-child,
 .symbol-group-title {
+  font-size: var(--drawer-card-header-size);
+  font-weight: var(--drawer-card-header-weight);
+  color: var(--drawer-card-header-color);
   margin: 0;
-  color: #0f172a;
-  font-size: 10pt;
-  font-weight: 700;
+}
+
+.symbol-picker-section-head > :last-child:not(:first-child) {
+  font-size: var(--drawer-font-size);
+  font-weight: 400;
+  color: var(--drawer-field-label-color);
 }
 
 .symbol-picker-categories {
@@ -65,7 +70,6 @@
   min-height: 32px;
   place-items: center;
   padding: 0;
-  color: #0f172a;
   background: #ffffff;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 4px;
@@ -74,28 +78,27 @@
     border-color 120ms ease,
     background-color 120ms ease,
     transform 120ms ease;
+  color: var(--drawer-control-text-color);
 }
 
 .symbol-tile:hover,
 .symbol-tile:focus-visible {
   background: rgba(224, 234, 228, 0.9);
-  border-color: rgba(93, 117, 97, 0.2);
+  border-color: rgba(64, 90, 120, 0.2);
 }
 
 .symbol-tile:focus-visible {
-  outline: 2px solid rgba(93, 117, 97, 0.22);
+  outline: 2px solid rgba(64, 90, 120, 0.22);
   outline-offset: 2px;
 }
 
 .symbol-tile-glyph {
   display: block;
-  font-family: var(--font-ui);
-  font-size: 10pt;
   line-height: 1;
 }
 
 .symbol-tile-recent {
-  background: rgba(93, 117, 97, 0.06);
+  background: rgba(64, 90, 120, 0.06);
 }
 
 .symbol-picker-empty {

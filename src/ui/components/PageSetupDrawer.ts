@@ -34,7 +34,6 @@ const renderRowConfig = (type: 'header' | 'footer') => `
   <details class="drawer-details drawer-card" open>
     <summary class="drawer-summary">
       <span>${type === 'header' ? 'Header' : 'Footer'} settings</span>
-      <span class="drawer-summary-hint">Row layout</span>
     </summary>
     <div class="drawer-details-body">
       <label class="drawer-control">
@@ -58,8 +57,7 @@ export const pageSetupDrawerContentTemplate = (): string => `
     <div class="drawer-body">
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Paper size</h5>
-          <span>Page preset</span>
+          <span>Paper size</span>
         </div>
         <label class="drawer-control">
           <span>Paper size</span>
@@ -75,8 +73,7 @@ export const pageSetupDrawerContentTemplate = (): string => `
 
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Margins</h5>
-          <span>Millimeters</span>
+          <span>Margins</span>
         </div>
         <div class="drawer-grid drawer-grid-2">
           <label class="drawer-control">
@@ -100,7 +97,6 @@ export const pageSetupDrawerContentTemplate = (): string => `
 
       <section class="drawer-card">
         ${renderDrawerControl('Show guidelines', renderDrawerSwitchControl('show-guidelines', 'Show guidelines', 'drawer-switch--full'))}
-        <p class="drawer-note">Displays outlines around the document body and header/footer boxes.</p>
       </section>
 
       ${renderRowConfig('header')}
@@ -108,10 +104,8 @@ export const pageSetupDrawerContentTemplate = (): string => `
 
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Section configuration</h5>
-          <span>Header and footer</span>
+          <span>Section configuration</span>
         </div>
-        <p class="drawer-note">Folders control all files within them.</p>
         <label class="drawer-control">
           <span>Section</span>
           <select id="page-section-visibility-select" title="Section to configure"></select>

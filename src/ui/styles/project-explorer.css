@@ -255,12 +255,12 @@
 
 /* Full Doc Artifact styling */
 .artifact-full-doc {
-  background: linear-gradient(135deg, rgba(224, 234, 228, 0.9) 0%, rgba(212, 224, 217, 0.72) 100%);
-  border: 1px solid rgba(93, 117, 97, 0.2);
+  background: linear-gradient(135deg, rgba(221, 231, 242, 0.9) 0%, rgba(203, 216, 230, 0.72) 100%);
+  border: 1px solid rgba(64, 90, 120, 0.2);
   margin-bottom: 20px;
 }
 .artifact-full-doc.active {
-  background: linear-gradient(135deg, rgba(224, 234, 228, 0.96) 0%, rgba(212, 224, 217, 0.86) 100%);
+  background: linear-gradient(135deg, rgba(221, 231, 242, 0.96) 0%, rgba(203, 216, 230, 0.86) 100%);
 }
 
 /* Inline Editor Styles */

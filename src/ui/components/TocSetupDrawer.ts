@@ -6,25 +6,21 @@ const renderHeadingLevelOptions = () => [1, 2, 3, 4, 5, 6]
 
 export const tocSetupDrawerContentTemplate = (): string => `
     <div class="drawer-body">
-      <p class="drawer-intro">Choose which heading levels appear and style each level from a single selector.</p>
       <section class="drawer-card toc-section-selector">
         <div class="drawer-card-head">
-          <h5>Sections</h5>
-          <span>TOC and numbering</span>
+          <span>Sections</span>
         </div>
         ${renderDrawerControl(
           'Section',
           '<select id="toc-section-select"></select>'
         )}
-        <p class="drawer-note">Choose a folder or file, then set whether it appears in the table of contents and uses heading numbers.</p>
       </section>
       <div id="toc-section-list" class="drawer-grid">
         <!-- Rendered dynamically -->
       </div>
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Heading depth</h5>
-          <span>Included entries</span>
+          <span>Heading depth</span>
         </div>
         ${renderDrawerControl(
           'Show entries through',
@@ -40,8 +36,7 @@ export const tocSetupDrawerContentTemplate = (): string => `
       </section>
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Heading style</h5>
-          <span>One level at a time</span>
+          <span>Heading style</span>
         </div>
         ${renderDrawerControl(
           'Heading level',

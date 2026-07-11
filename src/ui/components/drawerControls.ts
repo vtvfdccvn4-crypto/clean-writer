@@ -190,6 +190,17 @@ export function renderDrawerSizeSelect(id: string, selectedValue: number | strin
   `;
 }
 
+export function renderDrawerColorControl(id: string, label: string, value = '#000000', className = ''): string {
+  const classes = ['drawer-color-field', className].filter(Boolean).join(' ');
+  const normalized = value.toUpperCase();
+  return `
+    <div class="${classes}" data-drawer-color-field>
+      <input id="${id}" type="color" value="${value}" aria-label="${label}">
+      <input class="drawer-color-code" type="text" value="${normalized}" readonly tabindex="-1" aria-hidden="true">
+    </div>
+  `;
+}
+
 export function renderDrawerControl(label: string, controlHtml: string, className = ''): string {
   const classes = ['drawer-control', className].filter(Boolean).join(' ');
   return `
@@ -198,6 +209,22 @@ export function renderDrawerControl(label: string, controlHtml: string, classNam
       <div class="drawer-control-value">${controlHtml}</div>
     </div>
   `;
+}
+
+export function initializeDrawerColorControls(root: ParentNode = document): void {
+  root.querySelectorAll<HTMLElement>('[data-drawer-color-field]').forEach((field) => {
+    const colorInput = field.querySelector<HTMLInputElement>('input[type="color"]');
+    const codeField = field.querySelector<HTMLInputElement>('.drawer-color-code');
+    if (!colorInput || !codeField) return;
+
+    const sync = () => {
+      codeField.value = colorInput.value.toUpperCase();
+    };
+
+    sync();
+    colorInput.addEventListener('input', sync);
+    colorInput.addEventListener('change', sync);
+  });
 }
 
 export interface DrawerFontStyleStackOptions {
@@ -239,7 +266,7 @@ export function renderDrawerFontStyleStack(options: DrawerFontStyleStackOptions)
       )}
       ${renderDrawerControl(
         'Colour',
-        `<input id="${colorId}" type="color" value="${colorValue}" title="Colour">`,
+        renderDrawerColorControl(colorId, 'Colour', colorValue),
       )}
       ${renderDrawerControl(
         'Bold',

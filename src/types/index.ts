@@ -225,6 +225,7 @@ export interface ProjectSettingsData {
   projectMetadata: ProjectMetadata;
   customStyles: CustomStyle[];
   customBlockStyles: CustomBlockStyle[];
+  editorSetup: EditorSetup;
 }
 
 export interface AppStateData {
@@ -252,6 +253,7 @@ export interface ProjectSettingsSnapshot {
   projectMetadata: ProjectMetadata;
   customStyles: CustomStyle[];
   customBlockStyles: CustomBlockStyle[];
+  editorSetup: EditorSetup;
 }
 
 export interface ProjectSnapshot extends ProjectSettingsSnapshot {

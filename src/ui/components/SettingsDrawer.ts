@@ -47,7 +47,7 @@ export const settingsDrawerTemplate = (): string => `
     <div class="drawer-header">
       <div class="drawer-title-block">
         <span class="drawer-eyebrow">Document</span>
-        <h3>Settings</h3>
+        <span>Settings</span>
       </div>
       <button id="btn-close-settings-drawer" class="drawer-close-button" type="button" aria-label="Close settings">✕</button>
     </div>

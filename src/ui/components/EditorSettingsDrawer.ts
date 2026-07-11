@@ -2,20 +2,16 @@ import { renderDrawerControl, renderDrawerSizeSelect, renderDrawerSwitchControl 
 
 export const editorSettingsDrawerContentTemplate = (): string => `
     <div class="drawer-body">
-      <p class="drawer-intro">Tune the editor chrome and source highlighting to match the rest of the app.</p>
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Typography</h5>
-          <span>Source text</span>
+          <span>Typography</span>
         </div>
         ${renderDrawerControl('Font size', renderDrawerSizeSelect('drawer-editor-font-size', '11pt'))}
       </section>
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Markdown appearance</h5>
-          <span>Rendered tokens</span>
+          <span>Markdown appearance</span>
         </div>
-        <p class="drawer-section-copy">Style rendered Markdown tokens while keeping the source visible.</p>
         ${renderDrawerControl('Bold headings', renderDrawerSwitchControl('editor-heading-bold', 'Bold headings'))}
         ${renderDrawerControl('Heading colors', renderDrawerSwitchControl('editor-heading-colors', 'Heading colors'))}
         ${renderDrawerControl('Bold **text**', renderDrawerSwitchControl('editor-strong-bold', 'Bold **text**'))}
@@ -24,8 +20,7 @@ export const editorSettingsDrawerContentTemplate = (): string => `
       </section>
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Layout and gutters</h5>
-          <span>Code view</span>
+          <span>Layout and gutters</span>
         </div>
         ${renderDrawerControl('Line wrapping', renderDrawerSwitchControl('editor-line-wrapping', 'Line wrapping'))}
         ${renderDrawerControl('Line numbers', renderDrawerSwitchControl('editor-line-numbers', 'Line numbers'))}
@@ -43,8 +38,7 @@ export const editorSettingsDrawerContentTemplate = (): string => `
       </section>
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Editing assists</h5>
-          <span>Typing help</span>
+          <span>Editing assists</span>
         </div>
         ${renderDrawerControl('Special characters', renderDrawerSwitchControl('editor-special-characters', 'Show special characters'))}
         ${renderDrawerControl('Bracket matching', renderDrawerSwitchControl('editor-bracket-matching', 'Bracket matching'))}
@@ -54,8 +48,7 @@ export const editorSettingsDrawerContentTemplate = (): string => `
       </section>
       <section class="drawer-card">
         <div class="drawer-card-head">
-          <h5>Selection</h5>
-          <span>Pointer behavior</span>
+          <span>Selection</span>
         </div>
         ${renderDrawerControl('Multiple selections', renderDrawerSwitchControl('editor-multiple-selections', 'Multiple selections'))}
         ${renderDrawerControl('Rectangular selection', renderDrawerSwitchControl('editor-rectangular-selection', 'Rectangular selection'))}

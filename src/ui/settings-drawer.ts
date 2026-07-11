@@ -1,4 +1,5 @@
-import { closeDrawer, openDrawer } from './drawer-manager';
+import { closeAllDrawers, closeDrawer, openDrawer } from './drawer-manager';
+import { initializeDrawerColorControls } from './components/drawerControls';
 
 export const SETTINGS_TAB_ACTIVATED_EVENT = 'clear-writer-settings-tab-activated';
 
@@ -59,6 +60,7 @@ export function initSettingsDrawer(): void {
   const drawer = document.getElementById('settings-drawer');
   const openButton = document.getElementById('btn-settings');
   const closeButton = document.getElementById('btn-close-settings-drawer');
+  const backdrop = document.getElementById('drawer-backdrop');
   if (!drawer || !openButton || !closeButton) return;
 
   openButton.addEventListener('click', () => {
@@ -69,10 +71,16 @@ export function initSettingsDrawer(): void {
     closeDrawer(drawer);
   });
 
+  backdrop?.addEventListener('click', () => {
+    closeAllDrawers();
+  });
+
   drawer.querySelectorAll<HTMLButtonElement>('[data-settings-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       const tabId = button.dataset.settingsTab as SettingsTabId | undefined;
       if (tabId) activateSettingsTab(tabId);
     });
   });
+
+  initializeDrawerColorControls(drawer);
 }

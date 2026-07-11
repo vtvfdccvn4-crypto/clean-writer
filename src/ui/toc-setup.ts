@@ -224,7 +224,7 @@ function renderTocSectionControls(container: HTMLElement, selectedPath: string |
 
   const titleDiv = document.createElement('div');
   titleDiv.className = 'drawer-card-head section-visibility-card-title';
-  const title = document.createElement('h5');
+  const title = document.createElement('span');
   title.textContent = node.name;
   const kind = document.createElement('span');
   kind.textContent = node.isDir ? 'Folder' : 'File';

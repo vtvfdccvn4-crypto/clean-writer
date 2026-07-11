@@ -1,11 +1,10 @@
-import { renderDrawerControl, renderDrawerFontStyleStack } from './drawerControls';
+import { renderDrawerColorControl, renderDrawerControl, renderDrawerFontStyleStack } from './drawerControls';
 
 export const listsDrawerContentTemplate = (): string => {
   const renderListConfig = (prefix: string, title: string, typeLabel: string, selectHtml: string, markerHtml: string) => `
     <section class="drawer-card">
       <div class="drawer-card-head">
-        <h5>${title}</h5>
-        <span>${typeLabel}</span>
+        <span>${title}</span>
       </div>
       ${renderDrawerControl('List style', selectHtml)}
       ${renderDrawerFontStyleStack({
@@ -20,10 +19,7 @@ export const listsDrawerContentTemplate = (): string => {
 
       <div class="drawer-grid drawer-grid-2">
         ${renderDrawerControl(typeLabel === 'Ordered' ? 'Counter style' : 'Bullet icon', markerHtml)}
-        <label class="drawer-control">
-          <span>Icon color</span>
-          <input id="${prefix}-bullet-color" type="color" value="#000000">
-        </label>
+        ${renderDrawerControl('Icon color', renderDrawerColorControl(`${prefix}-bullet-color`, 'Icon color', '#000000'))}
       </div>
 
       <div class="drawer-grid drawer-grid-2">
@@ -41,8 +37,6 @@ export const listsDrawerContentTemplate = (): string => {
 
   return `
       <div class="drawer-body">
-        <p class="drawer-intro">Configure your list styling in a compact, consistent inspector.</p>
-
         ${renderListConfig(
           'ul-selected',
           'Unordered lists',

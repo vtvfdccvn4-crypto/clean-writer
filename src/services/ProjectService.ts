@@ -41,7 +41,8 @@ export const ProjectService = {
         tableSetup: settings.tableSetup,
         projectMetadata: settings.projectMetadata,
         customStyles: settings.customStyles,
-        customBlockStyles: settings.customBlockStyles
+        customBlockStyles: settings.customBlockStyles,
+        editorSetup: settings.editorSetup
       });
       loaded = true;
     } catch (e) {

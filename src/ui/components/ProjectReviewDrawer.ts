@@ -2,7 +2,7 @@ export const projectReviewDrawerTemplate = (): string => `
   <aside id="project-review-drawer" class="drawer hidden" aria-label="Project review">
     <div class="drawer-header">
       <div class="drawer-title-block">
-        <h2>Project Review</h2>
+        <span>Project Review</span>
         <p class="drawer-subtitle">Lightweight structural checks</p>
       </div>
       <button class="drawer-close-button" type="button" aria-label="Close project review" title="Close project review" aria-controls="project-review-drawer">×</button>

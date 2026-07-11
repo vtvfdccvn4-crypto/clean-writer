@@ -77,6 +77,24 @@ export function createEditor(
   };
   const changeQueue = new ChangeCommitQueue(callbacks.onChange, reportBackgroundSaveError);
 
+  const styleSearchPanelButtons = () => {
+    const panel = view?.dom?.querySelector('.cm-panel.cm-search');
+    if (!panel) return;
+    const buttons = Array.from(panel.querySelectorAll<HTMLButtonElement>('button'));
+    for (const button of buttons) {
+      const label = button.textContent?.trim().toLowerCase();
+      if (label === 'next') {
+        button.textContent = '→';
+        button.setAttribute('aria-label', 'Next match');
+        button.title = 'Next match';
+      } else if (label === 'previous') {
+        button.textContent = '←';
+        button.setAttribute('aria-label', 'Previous match');
+        button.title = 'Previous match';
+      }
+    }
+  };
+
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.selectionSet || update.docChanged) {
       const state = update.state;
@@ -212,6 +230,10 @@ export function createEditor(
       )
     });
   };
+  const searchPanelObserver = new MutationObserver(() => {
+    styleSearchPanelButtons();
+  });
+  searchPanelObserver.observe(view.dom, { childList: true, subtree: true });
   
   appState.addEventListener('custom-styles-changed', onCustomStylesChanged);
   appState.addEventListener('custom-block-styles-changed', onCustomBlockStylesChanged);
@@ -266,6 +288,7 @@ export function createEditor(
     hasUnsavedChanges: () => changeQueue.hasUnsavedChanges(),
     destroy: () => {
       changeQueue.cancel();
+      searchPanelObserver.disconnect();
       appState.removeEventListener('custom-styles-changed', onCustomStylesChanged);
       appState.removeEventListener('custom-block-styles-changed', onCustomBlockStylesChanged);
       appState.removeEventListener('editor-setup-changed', onEditorSetupChanged);
@@ -273,7 +296,11 @@ export function createEditor(
       view.destroy();
     },
     updateCustomStyles: () => updateCustomStyles(view),
-    openSearchPanel: () => openSearchPanel(view),
+    openSearchPanel: () => {
+      openSearchPanel(view);
+      requestAnimationFrame(styleSearchPanelButtons);
+      setTimeout(styleSearchPanelButtons, 0);
+    },
     get view() { return view; }
   };
 }

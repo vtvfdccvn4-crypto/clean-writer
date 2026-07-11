@@ -66,15 +66,15 @@ export const DEFAULT_LIST_SETUP: ListSetup = {
 export const DEFAULT_TABLE_SETUP: TableSetup = {
   table1: {
     fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 10,
-    headerTextColor: '#ffffff', headerBackground: '#5d7561', headerBold: true,
-    bodyTextColor: '#1f2937', bodyBackground: '#ffffff', alternateRowColor: '#f4f6f4',
-    borderColor: '#cbd5cf', borderWidth: 0.75, cellPadding: 6, marginTop: 8, marginBottom: 12
+    headerTextColor: '#ffffff', headerBackground: '#405a78', headerBold: true,
+    bodyTextColor: '#1f2937', bodyBackground: '#ffffff', alternateRowColor: '#edf2f8',
+    borderColor: '#b8c7d9', borderWidth: 0.75, cellPadding: 6, marginTop: 8, marginBottom: 12
   },
   table2: {
     fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 10,
     headerTextColor: '#1f2937', headerBackground: '#e8ece8', headerBold: true,
     bodyTextColor: '#1f2937', bodyBackground: '#ffffff', alternateRowColor: '#ffffff',
-    borderColor: '#829087', borderWidth: 1, cellPadding: 8, marginTop: 8, marginBottom: 12
+    borderColor: '#95a8bd', borderWidth: 1, cellPadding: 8, marginTop: 8, marginBottom: 12
   }
 };
 

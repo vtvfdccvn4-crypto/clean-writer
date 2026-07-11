@@ -29,8 +29,9 @@ export const appShellTemplate = (): string => `
         </div>
       </div>
       <div class="app-actions">
-        <button id="btn-settings" class="toolbar-icon-button" type="button" aria-label="Settings" title="Settings" aria-controls="settings-drawer" aria-expanded="false">
+        <button id="btn-settings" class="icon-text-button" type="button" aria-label="Settings" title="Settings" aria-controls="settings-drawer" aria-expanded="false">
           ${settingsIconMarkup()}
+          <span>Settings</span>
         </button>
       </div>
     </header>
@@ -42,6 +43,7 @@ export const appShellTemplate = (): string => `
       </div>
     </main>
     <div id="drawer-container" class="drawer-container">
+      <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
       ${settingsDrawerTemplate()}
       ${documentOutlineDrawerTemplate()}
       ${projectSearchDrawerTemplate()}

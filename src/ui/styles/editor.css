@@ -4,6 +4,74 @@
   border-right: 1px solid var(--border-color);
 }
 
+/* CodeMirror search panel */
+.cm-panel.cm-search {
+  width: calc(100% - 12px);
+  min-width: 0;
+  max-width: none;
+  padding: 6px 8px;
+  gap: 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  background: var(--ui-surface-strong);
+  box-shadow: var(--ui-shadow-strong);
+  font-family: var(--font-ui);
+  font-size: 10.5pt;
+}
+
+.cm-panel.cm-search form {
+  width: 100%;
+}
+
+.cm-panel.cm-search label {
+  color: var(--ui-muted);
+  font-size: 9pt;
+  font-weight: 300;
+}
+
+.cm-panel.cm-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 8px;
+  color: var(--ui-text);
+  background: #fff;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 10pt;
+  font-weight: 300;
+}
+
+.cm-panel.cm-search input::placeholder {
+  color: rgba(112, 106, 98, 0.7);
+}
+
+.cm-panel.cm-search button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 8px;
+  color: var(--ui-text);
+  background: var(--ui-surface-muted);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 9pt;
+  font-weight: 300;
+}
+
+.cm-panel.cm-search button:hover,
+.cm-panel.cm-search button:focus-visible {
+  background: #ede6d8;
+  border-color: rgba(64, 90, 120, 0.24);
+}
+
+.cm-panel.cm-search input:focus-visible,
+.cm-panel.cm-search button:focus-visible {
+  outline: 2px solid rgba(64, 90, 120, 0.22);
+  outline-offset: 2px;
+}
+
 .editor-toolbar {
   min-height: 50px;
 }

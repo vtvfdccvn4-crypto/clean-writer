@@ -18,6 +18,7 @@ import type {
   SectionPlacement
 } from './types';
 import {
+  DEFAULT_EDITOR_SETUP,
   DEFAULT_PAGE_SETUP,
   DEFAULT_TYPOGRAPHY_SETUP,
   DEFAULT_LIST_SETUP,
@@ -118,7 +119,8 @@ export class InMemoryWorkspaceSession implements WorkspaceSession {
       tableSetup: { ...DEFAULT_TABLE_SETUP },
       projectMetadata: { ...DEFAULT_PROJECT_METADATA },
       customStyles: [],
-      customBlockStyles: []
+      customBlockStyles: [],
+      editorSetup: { ...DEFAULT_EDITOR_SETUP }
     };
   }
 

@@ -139,6 +139,8 @@ export class EditorManager {
       return;
     }
 
+    this.editorContainer.closest('.editor-pane')?.classList.remove('is-welcome');
+    this.editorContainer.closest('.workspace')?.classList.remove('is-welcome');
     this.setPreviewVisible(true);
 
     if (isFullDocMode) {
@@ -160,24 +162,35 @@ export class EditorManager {
       this.currentEditorView = null;
     }
     this.currentFilePath = null;
+    this.editorContainer.closest('.editor-pane')?.classList.add('is-welcome');
+    this.editorContainer.closest('.workspace')?.classList.add('is-welcome');
     
-    // Clear editor
+    // Keep the welcome page deliberately lightweight: project actions remain
+    // owned by SidebarController, and this page simply invokes them.
     this.editorContainer.innerHTML = `
-      <div class="empty-canvas">
-        <div class="empty-canvas-mark" aria-hidden="true">✎</div>
-        <h2 class="empty-canvas-title">No project opened</h2>
-        <p class="empty-canvas-copy">Open a local folder or start a new browser project to begin writing.</p>
-        <div class="empty-canvas-actions">
-          <button
-            id="empty-canvas-open-folder"
-            type="button"
-            class="empty-canvas-cta drawer-primary-button"
-          >Open local folder</button>
-          <button
-            id="empty-canvas-new-project"
-            type="button"
-            class="empty-canvas-secondary toolbar-icon-button"
-          >New project</button>
+      <div class="empty-canvas welcome-screen">
+        <div class="welcome-content">
+          <header class="welcome-brand">
+            <span class="welcome-brand-mark" aria-hidden="true">C</span>
+            <h1>Clear Writer</h1>
+          </header>
+          <section class="welcome-section" aria-labelledby="welcome-start-title">
+            <h2 id="welcome-start-title">Start</h2>
+            <div class="welcome-actions">
+              <button id="empty-canvas-new-project" type="button" class="welcome-action">
+                <span class="welcome-action-icon" aria-hidden="true">+</span>
+                <span>New Document</span>
+              </button>
+              <button id="empty-canvas-open-folder" type="button" class="welcome-action">
+                <span class="welcome-action-icon welcome-action-icon-folder" aria-hidden="true"></span>
+                <span>Open Document</span>
+              </button>
+            </div>
+          </section>
+          <section id="welcome-recents" class="welcome-section welcome-recents" aria-labelledby="welcome-recent-title" hidden>
+            <h2 id="welcome-recent-title">Recent</h2>
+            <div id="welcome-recent-list" class="welcome-recent-list"></div>
+          </section>
         </div>
       </div>
     `;
@@ -188,8 +201,45 @@ export class EditorManager {
     this.editorContainer.querySelector('#empty-canvas-new-project')?.addEventListener('click', () => {
       document.getElementById('btn-new')?.click();
     });
+    this.populateWelcomeRecents();
 
     this.previewController.clear();
+  }
+
+  private async populateWelcomeRecents() {
+    const recentSection = this.editorContainer.querySelector<HTMLElement>('#welcome-recents');
+    const recentList = this.editorContainer.querySelector<HTMLElement>('#welcome-recent-list');
+    const listKnownWorkspaces = this.platform.workspaceRepository.listKnownBrowserWorkspaces;
+    if (!recentSection || !recentList || !listKnownWorkspaces) return;
+
+    try {
+      const recents = await listKnownWorkspaces.call(this.platform.workspaceRepository);
+      // The user may have already opened a document while the asynchronous
+      // catalogue lookup was in progress.
+      if (!this.editorContainer.contains(recentSection) || recents.length === 0) return;
+
+      for (const entry of recents.slice(0, 8)) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'welcome-recent-item';
+        button.title = entry.displayName;
+
+        const name = document.createElement('span');
+        name.className = 'welcome-recent-name';
+        name.textContent = entry.displayName;
+        const kind = document.createElement('span');
+        kind.className = 'welcome-recent-kind';
+        kind.textContent = entry.ref.kind === 'directory' ? 'Local folder' : 'Browser storage';
+        button.append(name, kind);
+        button.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('clear-writer-open-recent', { detail: { ref: entry.ref } }));
+        });
+        recentList.append(button);
+      }
+      recentSection.hidden = recentList.childElementCount === 0;
+    } catch (error) {
+      console.warn('Unable to load recent documents for the welcome page:', error);
+    }
   }
 
   private setPreviewVisible(visible: boolean) {

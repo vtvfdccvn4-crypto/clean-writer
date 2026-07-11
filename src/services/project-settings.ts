@@ -1,5 +1,5 @@
-import { DEFAULT_LIST_SETUP, DEFAULT_PAGE_SETUP, DEFAULT_PROJECT_METADATA, DEFAULT_TABLE_SETUP, DEFAULT_TYPOGRAPHY_SETUP } from '../config/defaults';
-import type { CustomBlockStyle, CustomStyle, ListSetup, PageSetup, ProjectMetadata, TableSetup, TypographySetup } from '../types';
+import { DEFAULT_EDITOR_SETUP, DEFAULT_LIST_SETUP, DEFAULT_PAGE_SETUP, DEFAULT_PROJECT_METADATA, DEFAULT_TABLE_SETUP, DEFAULT_TYPOGRAPHY_SETUP } from '../config/defaults';
+import type { CustomBlockStyle, CustomStyle, EditorSetup, ListSetup, PageSetup, ProjectMetadata, TableSetup, TypographySetup } from '../types';
 import { normalizeExplorerPath } from '../utils/path-utils';
 import { resolveFontFamily } from '../config/font-families';
 
@@ -20,6 +20,7 @@ export interface ProjectSettingsData {
   projectMetadata: ProjectMetadata;
   customStyles: CustomStyle[];
   customBlockStyles: CustomBlockStyle[];
+  editorSetup: EditorSetup;
 }
 
 export type ProjectSettingsInput = Partial<ProjectSettingsData> & Record<string, unknown>;
@@ -43,7 +44,8 @@ const KNOWN_SETTING_KEYS = new Set([
   'tableSetup',
   'projectMetadata',
   'customStyles',
-  'customBlockStyles'
+  'customBlockStyles',
+  'editorSetup'
 ]);
 
 // DATA-INTEGRITY BOUNDARY: every read-modify-write for one project must share
@@ -297,7 +299,8 @@ export function createDefaultProjectSettings(): ProjectSettingsData {
     tableSetup: cloneValue(DEFAULT_TABLE_SETUP),
     projectMetadata: cloneValue(DEFAULT_PROJECT_METADATA),
     customStyles: [],
-    customBlockStyles: []
+    customBlockStyles: [],
+    editorSetup: cloneValue(DEFAULT_EDITOR_SETUP)
   };
 }
 
@@ -321,7 +324,8 @@ export function normalizeProjectSettings(raw: unknown): { settings: ProjectSetti
     tableSetup: mergeWithDefaults(DEFAULT_TABLE_SETUP, firstPresent(input, ['tableSetup', 'tables', 'tableStyles'])),
     projectMetadata: mergeWithDefaults(DEFAULT_PROJECT_METADATA, firstPresent(input, ['projectMetadata', 'metadata', 'documentMetadata'])),
     customStyles: normalizeStyleList<CustomStyle>(firstPresent(input, ['customStyles', 'styles', 'inlineStyles'])),
-    customBlockStyles: normalizeStyleList<CustomBlockStyle>(firstPresent(input, ['customBlockStyles', 'blockStyles', 'customBlocks']))
+    customBlockStyles: normalizeStyleList<CustomBlockStyle>(firstPresent(input, ['customBlockStyles', 'blockStyles', 'customBlocks'])),
+    editorSetup: mergeWithDefaults(DEFAULT_EDITOR_SETUP, firstPresent(input, ['editorSetup', 'editor', 'editorSettings']))
   };
 
   for (const [key, value] of Object.entries(input)) {

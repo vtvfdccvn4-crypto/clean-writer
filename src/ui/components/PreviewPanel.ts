@@ -31,18 +31,9 @@ export const previewPanelTemplate = (): string => `
     <div class="preview-toolbar panel-bar">
       <div class="toolbar-status">
         <span class="status-dot"></span>
-        <span>Live Preview</span>
-        <span id="preview-diagnostics" class="preview-diagnostics" aria-live="polite">idle</span>
-      </div>
-      <div class="panel-actions">
-        <button id="btn-full-doc" class="toolbar-icon-button is-active" type="button" aria-pressed="true" title="Merged preview" aria-label="Merged preview">
+        <button id="btn-full-doc" class="toolbar-icon-button toolbar-text-button is-active" type="button" aria-pressed="true" title="Merged preview" aria-label="Merged preview">
           ${previewEyeIconMarkup()}
-        </button>
-        <button id="btn-export-pdf" class="toolbar-icon-button" type="button" aria-label="Export PDF" title="Export to PDF">
-          ${previewExportIconMarkup()}
-        </button>
-        <button id="btn-export-docx" class="toolbar-icon-button" type="button" aria-label="Export Word" title="Export to Word (Docx)">
-          ${previewWordIconMarkup()}
+          <span class="toolbar-button-label">Preview</span>
         </button>
       </div>
     </div>
@@ -50,6 +41,18 @@ export const previewPanelTemplate = (): string => `
     <div class="preview-scroll-container">
       <div id="paged-stage" class="paged-stage">
         <!-- Paged.js injects pages here -->
+      </div>
+    </div>
+
+    <div class="preview-footer-toolbar panel-bar">
+      <span id="preview-diagnostics" class="preview-diagnostics" aria-live="polite">idle</span>
+      <div class="panel-actions preview-export-actions">
+        <button id="btn-export-pdf" class="toolbar-icon-button" type="button" aria-label="Export PDF" title="Export to PDF">
+          ${previewExportIconMarkup()}
+        </button>
+        <button id="btn-export-docx" class="toolbar-icon-button" type="button" aria-label="Export Word" title="Export to Word (Docx)">
+          ${previewWordIconMarkup()}
+        </button>
       </div>
     </div>
   </aside>

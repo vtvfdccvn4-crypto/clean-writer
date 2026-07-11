@@ -112,7 +112,7 @@
 
 .pane {
   display: grid;
-  grid-template-rows: 50px minmax(0, 1fr);
+  grid-template-rows: 50px minmax(0, 1fr) 50px;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -145,6 +145,10 @@
   gap: 8px;
   min-width: 0;
   color: var(--ui-muted);
+}
+
+.toolbar-status .toolbar-text-button {
+  margin-right: 2px;
 }
 
 .active-section-label {
@@ -230,10 +234,12 @@
 }
 
 .toolbar-icon-button {
-  display: grid;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 36px;
   height: 36px;
-  place-items: center;
   flex-shrink: 0;
   color: var(--text-muted);
   background: var(--ui-surface-strong);
@@ -246,7 +252,23 @@
     border-color 140ms ease,
     background-color 140ms ease,
     color 140ms ease,
-    transform 140ms ease;
+  transform 140ms ease;
+}
+
+.toolbar-text-button {
+  width: auto;
+  min-width: 288px;
+  padding: 0 22px 0 16px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.toolbar-text-button .toolbar-icon {
+  flex-shrink: 0;
+}
+
+.toolbar-button-label {
+  white-space: nowrap;
 }
 
 .toolbar-icon-button:hover,
@@ -264,7 +286,7 @@
 .toolbar-icon-button.is-active,
 .toolbar-icon-button[aria-expanded="true"] {
   color: var(--ui-accent);
-  background: var(--ui-surface-muted);
+  background: rgba(92, 107, 94, 0.08);
   border-color: var(--ui-accent);
 }
 
@@ -278,8 +300,8 @@
 }
 
 #btn-export-pdf[data-export-status="exported"] {
-  color: #4f7658;
-  border-color: rgba(79, 118, 88, 0.5);
+  color: #405a78;
+  border-color: rgba(64, 90, 120, 0.5);
 }
 
 #btn-export-pdf[data-export-status="failed"] {
@@ -413,7 +435,7 @@
 }
 
 .modal-dialog .btn-primary:hover {
-  background: #4c5a4e;
+  background: #314761;
 }
 
 .modal-dialog .btn-outline {
@@ -495,8 +517,8 @@
 
 .editor-font-size input:focus,
 .font-size-selector:focus {
-  border-color: rgba(93, 117, 97, 0.28);
-  box-shadow: 0 0 0 3px rgba(93, 117, 97, 0.12);
+  border-color: rgba(64, 90, 120, 0.28);
+  box-shadow: 0 0 0 3px rgba(64, 90, 120, 0.12);
 }
 
 .preview-zoom-control {
@@ -643,6 +665,10 @@
     padding: 8px 12px;
   }
 
+  .pane {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
   .toolbar-status {
     flex-wrap: wrap;
   }
@@ -693,6 +719,10 @@
   .project-explorer-action-button {
     width: 34px;
     height: 34px;
+  }
+
+  .toolbar-text-button {
+    min-width: 240px;
   }
 
   .preview-toolbar .panel-actions {

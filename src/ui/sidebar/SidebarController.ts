@@ -133,54 +133,16 @@ export class SidebarController {
           ref = choice.ref;
         }
 
-        if (ref) {
-          await this.onSaveActiveFile();
-          this.prepareForProjectTransition();
-          
-          let health: ProjectHealthReport | null = null;
-          try {
-            const session = await this.platform.workspaceRepository.open(ref);
-            health = await ProjectService.checkProjectHealth(session);
-          } catch (e) {
-            console.warn('Could not read settings directly, trying recovery...', e);
-          }
-
-          if (health && health.issues.some(issue => issue.code === 'settings-invalid' || issue.code === 'settings-missing')) {
-            const proceed = await showConfirmDialog({
-              title: 'Settings Recovery',
-              message: buildRecoveryPromptMessage(health),
-              confirmLabel: 'Recover',
-              tone: 'default'
-            });
-            if (proceed) {
-              const session = await this.platform.workspaceRepository.open(ref);
-              const recoveredReport = await session.recoverProjectSettings();
-              if (!recoveredReport.valid) {
-                showNotice(buildProjectHealthFailureMessage(recoveredReport), 'error');
-                return;
-              }
-              showNotice(buildRecoverySuccessMessage(recoveredReport), 'info');
-            } else {
-              return;
-            }
-          }
-
-          if (health && !health.valid && !health.recoverable) {
-            showNotice(buildProjectHealthFailureMessage(health), 'error');
-            return;
-          }
-
-          state.setProjectRef(ref);
-          const session = await this.platform.workspaceRepository.open(ref);
-          this.updateWorkspaceChip(session);
-          await this.onLoadProject(session);
-          state.setFullDocMode();
-        }
+        if (ref) await this.openProject(ref);
       } catch (error) {
-        console.error('Failed to open project:', error);
+        console.error('Failed to choose a project:', error);
         showNotice(describeWorkspaceError(error, 'open'), 'warning');
       }
     });
+
+    document.addEventListener('clear-writer-open-recent', ((event: CustomEvent<{ ref: WorkspaceRef }>) => {
+      void this.openProject(event.detail.ref);
+    }) as EventListener);
 
     if (this.btnCloseProject) {
       this.btnCloseProject.addEventListener('click', async () => {
@@ -324,6 +286,52 @@ export class SidebarController {
           }
         }
       });
+    }
+  }
+
+  private async openProject(ref: WorkspaceRef): Promise<void> {
+    try {
+      await this.onSaveActiveFile();
+      this.prepareForProjectTransition();
+
+      let health: ProjectHealthReport | null = null;
+      try {
+        const session = await this.platform.workspaceRepository.open(ref);
+        health = await ProjectService.checkProjectHealth(session);
+      } catch (error) {
+        console.warn('Could not read settings directly, trying recovery...', error);
+      }
+
+      if (health && health.issues.some(issue => issue.code === 'settings-invalid' || issue.code === 'settings-missing')) {
+        const proceed = await showConfirmDialog({
+          title: 'Settings Recovery',
+          message: buildRecoveryPromptMessage(health),
+          confirmLabel: 'Recover',
+          tone: 'default'
+        });
+        if (!proceed) return;
+        const session = await this.platform.workspaceRepository.open(ref);
+        const recoveredReport = await session.recoverProjectSettings();
+        if (!recoveredReport.valid) {
+          showNotice(buildProjectHealthFailureMessage(recoveredReport), 'error');
+          return;
+        }
+        showNotice(buildRecoverySuccessMessage(recoveredReport), 'info');
+      }
+
+      if (health && !health.valid && !health.recoverable) {
+        showNotice(buildProjectHealthFailureMessage(health), 'error');
+        return;
+      }
+
+      state.setProjectRef(ref);
+      const session = await this.platform.workspaceRepository.open(ref);
+      this.updateWorkspaceChip(session);
+      await this.onLoadProject(session);
+      state.setFullDocMode();
+    } catch (error) {
+      console.error('Failed to open project:', error);
+      showNotice(describeWorkspaceError(error, 'open'), 'warning');
     }
   }
 
