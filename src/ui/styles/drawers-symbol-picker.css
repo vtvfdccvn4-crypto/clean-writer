@@ -1,0 +1,128 @@
+.symbol-search-field {
+  display: grid;
+  gap: 6px;
+}
+
+.symbol-search-field span {
+  color: #64748b;
+  font-size: 10pt;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+
+.symbol-search-field input {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 4px;
+  outline: 0;
+}
+
+.symbol-picker-section {
+  display: grid;
+  gap: 8px;
+  margin-top: 0;
+}
+
+.symbol-picker-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.symbol-picker-section-head h3,
+.symbol-group-title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 10pt;
+  font-weight: 700;
+}
+
+.symbol-picker-categories {
+  display: grid;
+  gap: 10px;
+}
+
+.symbol-group {
+  display: grid;
+  gap: 6px;
+}
+
+.symbol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 6px;
+}
+
+.symbol-tile {
+  display: grid;
+  min-width: 0;
+  min-height: 32px;
+  place-items: center;
+  padding: 0;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+.symbol-tile:hover,
+.symbol-tile:focus-visible {
+  background: rgba(224, 234, 228, 0.9);
+  border-color: rgba(93, 117, 97, 0.2);
+}
+
+.symbol-tile:focus-visible {
+  outline: 2px solid rgba(93, 117, 97, 0.22);
+  outline-offset: 2px;
+}
+
+.symbol-tile-glyph {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 10pt;
+  line-height: 1;
+}
+
+.symbol-tile-recent {
+  background: rgba(93, 117, 97, 0.06);
+}
+
+.symbol-picker-empty {
+  margin: 0;
+}
+
+.drawer-details summary {
+  cursor: pointer;
+}
+
+.drawer-spacer {
+  min-height: 1px;
+}
+
+@media print {
+  .drawer-container {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .drawer {
+    width: 100vw;
+  }
+
+  .drawer-grid-2,
+  .drawer-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}

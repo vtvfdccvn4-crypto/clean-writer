@@ -1,0 +1,111 @@
+.editor-pane {
+  position: relative;
+  background: var(--bg-editor);
+  border-right: 1px solid var(--border-color);
+}
+
+.editor-toolbar {
+  min-height: 50px;
+}
+
+.editor-toolbar .panel-actions {
+  gap: 6px;
+  min-width: 0;
+}
+
+.markdown-toolbar {
+  display: flex;
+  flex: 0 0 48px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  max-height: 100%;
+  padding: 2px;
+  overflow-y: auto;
+}
+
+.toolbar-text-button {
+  width: 44px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--ui-muted);
+  background: transparent;
+  font: 600 11px var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.toolbar-text-button:hover,
+.toolbar-text-button:focus-visible {
+  border-color: var(--ui-border);
+  color: var(--text-primary);
+  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
+}
+
+.editor-stage {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 2.5pt;
+  overflow: hidden;
+}
+
+.editor-container {
+  display: flex;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cm-editor {
+  height: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  font-family: var(--font-mono);
+  font-size: var(--editor-font-size, 12pt);
+  background-color: var(--bg-editor) !important;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px 0 0 8px;
+}
+
+.cm-scroller {
+  font-family: var(--font-mono);
+  border-radius: inherit;
+}
+
+.cm-content {
+  padding: 42px 48px !important;
+}
+
+.cm-line {
+  padding: 0 4px !important;
+  line-height: 1.6;
+}
+
+.cm-gutters {
+  background-color: var(--bg-editor) !important;
+  border-right: 1px solid var(--ui-border) !important;
+  color: var(--ui-muted) !important;
+}
+
+.section-save-indicator {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.section-save-indicator[data-state="dirty"] { background: var(--accent-color); }
+.section-save-indicator[data-state="saving"] { background: var(--warning-color, #b7791f); }
+.section-save-indicator[data-state="error"] { background: var(--danger-color, #c53030); }

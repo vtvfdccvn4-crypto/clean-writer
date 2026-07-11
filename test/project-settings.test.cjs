@@ -1,0 +1,194 @@
+const assert = require('node:assert/strict');
+const { after, before, test } = require('node:test');
+const { createTestServer } = require('./helpers/vite-test-server.cjs');
+
+let server;
+let normalizeProjectSettings;
+let updateProjectSettings;
+
+before(async () => {
+  server = await createTestServer();
+  ({ normalizeProjectSettings, updateProjectSettings } = await server.ssrLoadModule('/src/services/project-settings.ts'));
+});
+
+test('concurrent settings updates are serialized without losing fields', async () => {
+  let stored = JSON.stringify(normalizeProjectSettings({}).settings);
+  const io = {
+    async readFile() {
+      await new Promise(resolve => setTimeout(resolve, 5));
+      return stored;
+    },
+    async writeFile(_path, content) {
+      await new Promise(resolve => setTimeout(resolve, 5));
+      stored = content;
+      return true;
+    }
+  };
+
+  await Promise.all([
+    updateProjectSettings('D:\\Concurrent Project', settings => {
+      settings.pageBreaks = ['chapter.md'];
+    }, io),
+    updateProjectSettings('D:\\Concurrent Project', settings => {
+      settings.hiddenHeaders = ['appendix.md'];
+    }, io)
+  ]);
+
+  const saved = JSON.parse(stored);
+  assert.deepEqual(saved.pageBreaks, ['chapter.md']);
+  assert.deepEqual(saved.hiddenHeaders, ['appendix.md']);
+});
+
+test('untrusted settings values are clamped before CSS generation', () => {
+  const { settings } = normalizeProjectSettings({
+    pageSetup: {
+      paperWidth: Number.POSITIVE_INFINITY,
+      header: { centerWidth: '1fr; background:url(https://evil.test)' },
+      toc: { fontFamily: 'serif; color:red', fontSize: 99999, color: 'expression(alert(1))', isBold: 'yes', isItalic: true, isAllCaps: 'yes' }
+    },
+    typographySetup: {
+      paragraph: { fontFamily: 'serif; color:red', fontSize: 99999, color: 'expression(alert(1))' }
+    }
+  });
+
+  assert.equal(settings.pageSetup.paperWidth, 210);
+  assert.equal(settings.pageSetup.header.centerWidth, '100px');
+  assert.equal(settings.pageSetup.toc.maxLevel, 6);
+  assert.equal(settings.pageSetup.toc.h1.fontFamily, 'Times New Roman');
+  assert.equal(settings.pageSetup.toc.h1.fontSize, 200);
+  assert.equal(settings.pageSetup.toc.h1.color, '#000000');
+  assert.equal(settings.pageSetup.toc.h1.isBold, false);
+  assert.equal(settings.pageSetup.toc.h1.isItalic, true);
+  assert.equal(settings.pageSetup.toc.h1.isAllCaps, false);
+  assert.deepEqual(settings.pageSetup.toc.h6, settings.pageSetup.toc.h1);
+  assert.equal(settings.typographySetup.paragraph.fontFamily, 'Times New Roman');
+  assert.equal(settings.typographySetup.paragraph.fontSize, 200);
+  assert.equal(settings.typographySetup.paragraph.color, '#000000');
+});
+
+after(async () => {
+  await server?.close();
+});
+
+test('legacy project settings are migrated to the current schema', () => {
+  const { settings, migrated } = normalizeProjectSettings({
+    order: ['Folder\\Subfolder', 'root.md', 'Folder\\Subfolder'],
+    pageBreaks: ['Folder\\Subfolder\\nested.md'],
+    hiddenHeaders: ['Folder\\Subfolder'],
+    pageSetup: {
+      marginTop: 30
+    },
+    customStyles: [
+      {
+        id: 'style-1',
+        name: 'Emphasis',
+        openingPair: '{{',
+        closingPair: '}}',
+        fontFamily: 'Inter',
+        fontSize: 11,
+        color: '#111111',
+        isBold: false,
+        isItalic: true
+      }
+    ],
+    legacyFlag: true
+  });
+
+  assert.equal(settings.schemaVersion, 4);
+  assert.deepEqual(settings.order, ['Folder/Subfolder', 'root.md']);
+  assert.deepEqual(settings.pageBreaks, ['Folder/Subfolder/nested.md']);
+  assert.deepEqual(settings.hiddenHeaders, ['Folder/Subfolder']);
+  assert.deepEqual(settings.hiddenFooters, []);
+  assert.deepEqual(settings.numberedHeadings, []);
+  assert.deepEqual(settings.tocSections, []);
+  assert.equal(settings.pageSetup.marginTop, 30);
+  assert.equal(settings.pageSetup.marginBottom, 25);
+  assert.equal(settings.pageSetup.header.centerWidth, '100px');
+  assert.equal(settings.pageSetup.toc.maxLevel, 6);
+  assert.deepEqual(settings.pageSetup.toc.h1, {
+    fontFamily: 'Times New Roman',
+    fontSize: 11,
+    color: '#000000',
+    isBold: false,
+    isItalic: false,
+    isAllCaps: false
+  });
+  assert.deepEqual(settings.pageSetup.toc.h6, settings.pageSetup.toc.h1);
+  assert.equal(settings.projectMetadata.documentTitle, '');
+  assert.equal(settings.listSetup.ol.bulletIcon, 'decimal');
+  assert.equal(settings.listSetup.olParen.bulletIcon, 'decimal');
+  assert.equal(settings.tableSetup.table1.headerBackground, '#5d7561');
+  assert.equal(settings.tableSetup.table2.headerBackground, '#e8ece8');
+  assert.equal(settings.customStyles.length, 1);
+  assert.equal(settings.customBlockStyles.length, 0);
+  assert.equal(settings.legacyFlag, true);
+  assert.equal(migrated, true);
+});
+
+test('older configuration aliases preserve styles instead of falling back to defaults', () => {
+  const { settings } = normalizeProjectSettings({
+    settings: {
+      page: {
+        marginTop: '42',
+        marginLeft: '12',
+        header: {
+          left: { content: 'Header', fontFamily: 'Arial', fontSize: '10', color: '#123456', bold: 'true' }
+        }
+      },
+      typography: {
+        paragraph: {
+          fontFamily: 'Georgia',
+          fontSize: '13',
+          color: '#654321',
+          bold: 'true',
+          italic: 'false',
+          lineHeight: '1.4',
+          marginTop: '3',
+          marginBottom: '9'
+        }
+      },
+      metadata: {
+        documentTitle: 'Migrated Title',
+        author: 'Migrated Author'
+      },
+      styles: [{
+        id: 'legacy-inline',
+        name: 'Legacy Inline',
+        openingPair: '{{',
+        closingPair: '}}',
+        fontFamily: 'Arial',
+        fontSize: '12',
+        color: '#abcdef',
+        bold: 'true',
+        italic: 'true'
+      }],
+      blockStyles: [{
+        id: 'legacy-block',
+        name: 'Legacy Block',
+        prefix: '!!',
+        icon: '',
+        fontFamily: 'Arial',
+        fontSize: '11',
+        color: '#fedcba',
+        bold: 'true',
+        marginTop: '4',
+        marginBottom: '5'
+      }]
+    }
+  });
+
+  assert.equal(settings.pageSetup.marginTop, 42);
+  assert.equal(settings.pageSetup.marginLeft, 12);
+  assert.equal(settings.pageSetup.header.left.fontSize, 10);
+  assert.equal(settings.pageSetup.header.left.isBold, true);
+  assert.equal(settings.typographySetup.paragraph.fontFamily, 'Georgia');
+  assert.equal(settings.typographySetup.paragraph.fontSize, 13);
+  assert.equal(settings.typographySetup.paragraph.isBold, true);
+  assert.equal(settings.typographySetup.paragraph.marginBottom, 9);
+  assert.equal(settings.projectMetadata.documentTitle, 'Migrated Title');
+  assert.equal(settings.projectMetadata.author, 'Migrated Author');
+  assert.equal(settings.customStyles[0].isBold, true);
+  assert.equal(settings.customStyles[0].isItalic, true);
+  assert.equal(settings.customBlockStyles[0].isBold, true);
+  assert.equal(settings.customBlockStyles[0].marginTop, 4);
+});

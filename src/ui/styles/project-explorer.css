@@ -1,0 +1,373 @@
+/* --- Sidebar --- */
+.sidebar {
+  width: 320px;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  height: 56px;
+  min-height: 56px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--ui-surface-muted);
+}
+
+.sidebar-header h2 {
+  font-size: 10pt;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+}
+
+.icon-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent-color);
+}
+
+.sidebar-content {
+  padding: 16px 12px;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.sidebar-section {
+  margin-top: 24px;
+}
+
+.section-title {
+  font-size: 10pt;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  padding-left: 8px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.section-title::-webkit-details-marker {
+  /* You can hide the marker or style it here. If left default, it shows the native triangle. */
+}
+
+.file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-children {
+  margin: 2px 0 4px 14px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.tree-node {
+  list-style: none;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-muted);
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tree-row {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tree-row .item-actions {
+  display: none;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tree-row-main {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tree-row .item-info {
+  min-width: 0;
+}
+
+.sidebar-item.folder-row {
+  user-select: none;
+}
+
+.sidebar-item.folder-collapsed {
+  opacity: 0.95;
+}
+
+.sidebar-item.tree-hidden {
+  display: none;
+}
+
+.sidebar-item.dragging {
+  opacity: 0.5;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-item.drag-over-top::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--accent-color);
+  border-radius: 2px;
+  z-index: 10;
+}
+
+.sidebar-item.drag-over-bottom::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--accent-color);
+  border-radius: 2px;
+  z-index: 10;
+}
+
+.sidebar-item:hover {
+  background-color: var(--ui-surface-muted);
+  color: var(--text-main);
+  transform: none;
+}
+
+.sidebar-item.active {
+  background-color: var(--accent-glow);
+  color: var(--accent-color);
+  border: 1px solid var(--ui-border-strong);
+}
+
+.sidebar-item .icon {
+  margin-right: 12px;
+  font-size: 1.2rem;
+  opacity: 0.8;
+}
+
+.btn-toggle-folder {
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10pt;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.btn-toggle-folder:hover {
+  color: var(--text-main);
+}
+
+.folder-toggle-spacer {
+  width: 18px;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.tree-inline-create {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.tree-row .btn-new-file,
+.tree-row .btn-rename,
+.tree-row .btn-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10pt;
+  font-weight: bold;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.tree-row .btn-new-file {
+  color: var(--explorer-accent);
+}
+
+.tree-row .btn-rename {
+  color: #666;
+}
+
+.tree-row .btn-delete {
+  color: #8b5650;
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-title {
+  font-size: 10pt;
+  font-weight: 500;
+}
+
+.item-subtitle {
+  font-size: 10pt;
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
+/* Full Doc Artifact styling */
+.artifact-full-doc {
+  background: linear-gradient(135deg, rgba(224, 234, 228, 0.9) 0%, rgba(212, 224, 217, 0.72) 100%);
+  border: 1px solid rgba(93, 117, 97, 0.2);
+  margin-bottom: 20px;
+}
+.artifact-full-doc.active {
+  background: linear-gradient(135deg, rgba(224, 234, 228, 0.96) 0%, rgba(212, 224, 217, 0.86) 100%);
+}
+
+/* Inline Editor Styles */
+.inline-editor {
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+  padding: 8px !important;
+}
+
+.inline-input {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: #fff;
+  font-family: var(--font-ui);
+  font-size: 10pt;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.inline-input:focus {
+  border-color: var(--accent-color);
+}
+
+.section-template-select {
+  min-width: 92px;
+  max-width: 120px;
+  padding: 4px 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--font-color, #333);
+  font-family: var(--font-ui);
+  font-size: 9pt;
+}
+
+.inline-btn {
+  padding: 4px 10px;
+  font-size: 10pt;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.inline-btn:hover {
+  opacity: 0.8;
+}
+
+.btn-page-break-toggle {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--explorer-muted);
+  cursor: pointer;
+  opacity: 0.35;
+  transition: all 120ms ease;
+  flex-shrink: 0;
+}
+
+.tree-row:hover .btn-page-break-toggle,
+.btn-page-break-toggle.is-active {
+  opacity: 1;
+}
+
+.btn-page-break-toggle:hover {
+  background: rgba(84, 112, 95, 0.12);
+  color: var(--explorer-text);
+}
+
+.btn-page-break-toggle.is-active {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.btn-page-break-toggle svg {
+  pointer-events: none;
+}
+
+.save-btn {
+  background: var(--accent-color);
+  color: #fff;
+  align-self: flex-start;
+  margin-right: 6px;
+}
+
+.cancel-btn {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.tree-row .btn-new-file:hover,
+.tree-row .btn-rename:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #000 !important;
+}
+
+.tree-row .btn-delete:hover {
+  background: rgba(211, 47, 47, 0.1) !important;
+}

@@ -1,0 +1,254 @@
+@import '@fontsource/inter-tight/400.css';
+@import '@fontsource/inter-tight/500.css';
+@import '@fontsource/inter-tight/600.css';
+@import '@fontsource/inter-tight/700.css';
+
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+
+@import './ui/styles/workspace.css';
+@import './ui/styles/project-explorer.css';
+@import './ui/styles/project-explorer-compact.css';
+@import './ui/styles/editor.css';
+@import './ui/styles/preview.css';
+@import './ui/styles/drawers.css';
+@import './ui/styles/drawers-symbol-picker.css';
+
+:root {
+  color-scheme: light;
+  font-size: 10pt;
+  --font-ui: "Inter", "Segoe UI", Calibri, Arial, sans-serif;
+  --font-ui-tight: "Inter Tight", "Inter", "Segoe UI", Calibri, Arial, sans-serif;
+  --font-mono: Consolas, "Courier New", monospace;
+  --ui-surface: rgba(251, 249, 245, 0.94);
+  --ui-surface-strong: #fbf9f5;
+  --ui-surface-muted: #f5f0e6;
+  --ui-border: rgba(92, 107, 94, 0.12);
+  --ui-border-strong: rgba(92, 107, 94, 0.22);
+  --ui-text: #2c2927;
+  --ui-muted: #706a62;
+  --ui-accent: #5c6b5e;
+  --ui-accent-soft: rgba(92, 107, 94, 0.12);
+  --ui-shadow: 0 8px 24px rgba(92, 107, 94, 0.04);
+  --ui-shadow-strong: 0 12px 36px rgba(92, 107, 94, 0.06);
+  --bg-sidebar: #fbf9f5;
+  --bg-editor: #faf4eb;
+  --bg-preview: #fbf9f5;
+  --bg-panel-paper: #faf4eb;
+  --bg-panel-paper-strong: #f5f0e6;
+  --text-main: var(--ui-text);
+  --text-muted: var(--ui-muted);
+  --text-active: #2c2927;
+  --accent-color: var(--ui-accent);
+  --accent-glow: var(--ui-accent-soft);
+  --border-color: var(--ui-border);
+  --paper-width: 210mm;
+  --paper-height: 297mm;
+  --paper-bg: #ffffff;
+  --paper-color: #2c2927;
+  color: var(--ui-text);
+  background: #fbf9f5;
+  font-family: var(--font-ui);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-text);
+  background: #fbf9f5;
+  font-family: var(--font-ui);
+}
+
+button,
+textarea,
+select,
+input {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+.text-button,
+.icon-button,
+.secondary-button {
+  border: 0;
+  cursor: pointer;
+}
+
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--text-main);
+  background: var(--ui-surface-strong);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  font-size: 10pt;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.text-button:hover {
+  color: var(--text-active);
+  background: var(--ui-surface-muted);
+  border-color: rgba(92, 107, 94, 0.3);
+}
+
+.text-button:focus-visible {
+  color: var(--text-active);
+  background: var(--ui-surface-muted);
+  border-color: rgba(92, 107, 94, 0.3);
+  outline: 2px solid rgba(92, 107, 94, 0.24);
+  outline-offset: 2px;
+}
+
+.icon-button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--ui-surface-strong);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  font-size: 10pt;
+  line-height: 1;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.icon-button:hover {
+  background: var(--ui-surface-muted);
+  border-color: rgba(92, 107, 94, 0.3);
+}
+
+.icon-button:focus-visible {
+  background: var(--ui-surface-muted);
+  border-color: rgba(92, 107, 94, 0.3);
+  outline: 2px solid rgba(92, 107, 94, 0.24);
+  outline-offset: 2px;
+}
+
+.secondary-button {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--text-main);
+  background: var(--ui-surface-strong);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  font-size: 10pt;
+  font-weight: 650;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.secondary-button:hover {
+  background: var(--ui-surface-muted);
+  border-color: rgba(92, 107, 94, 0.3);
+}
+
+.secondary-button:focus-visible {
+  outline: 2px solid rgba(92, 107, 94, 0.24);
+  outline-offset: 2px;
+}
+
+.empty-canvas {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 100%;
+  padding: 32px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.empty-canvas-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  color: var(--ui-accent);
+  background: rgba(93, 117, 97, 0.08);
+  border: 1px solid rgba(93, 117, 97, 0.14);
+  border-radius: 14px;
+  font-size: 10pt;
+}
+
+.empty-canvas-title {
+  margin: 8px 0 0;
+  color: var(--text-active);
+  font-size: 10pt;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.empty-canvas-copy {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 10pt;
+  line-height: 1.5;
+}
+
+body.is-worker,
+body.is-worker .app-layout,
+body.is-worker .workspace-shell,
+body.is-worker .workspace,
+body.is-worker .preview-pane {
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+@media (max-width: 1280px) {
+  .workspace {
+    grid-template-columns: 288px minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+}
+
+.workspace-mode-chip { font-size: 11px; color: var(--text-secondary); background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
+.workspace-mode-chip[data-kind="opfs"] { color: #285b76; background: #e4f1f8; }
+.workspace-mode-chip[data-kind="directory"] { color: #76551f; background: #f7edd6; }
+.workspace-mode-chip[hidden] { display: none; }
