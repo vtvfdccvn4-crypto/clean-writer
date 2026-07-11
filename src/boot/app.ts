@@ -16,7 +16,6 @@ import { initProjectSearchDrawer } from '../ui/project-search';
 import { initProjectReviewDrawer } from '../ui/project-review';
 import { initWritingWorkflow } from '../ui/keyboard-shortcuts';
 import { registerServiceWorker } from '../sw-registration';
-import { setupAppInstallPrompt } from '../pwa-install';
 import { setupEditorSettingsDrawer } from '../ui/editor-settings-setup';
 import { previewMetrics } from '../perf/preview-metrics';
 import { initTablesDrawer } from '../ui/tables-setup';
@@ -74,7 +73,6 @@ export async function bootApp(platform: Platform) {
   (window as any).__CLEAR_WRITER_EDITOR_MANAGER__ = editorManager;
   
   setupPreviewDiagnosticsChip();
-  setupAppInstallPrompt();
   initializeSymbolPicker(() => editorManager.getEditorView());
   initSettingsDrawer();
 
