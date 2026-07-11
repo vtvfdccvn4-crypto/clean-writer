@@ -1,6 +1,8 @@
 const CLEAR_WRITER_CACHE_PREFIX = 'clear-writer-shell-';
 
 async function unregisterDevelopmentServiceWorker(): Promise<void> {
+  const baseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
+  const serviceWorkerPath = new URL('sw.js', baseUrl).pathname;
   const registrations = await navigator.serviceWorker.getRegistrations();
   await Promise.all(
     registrations
@@ -12,7 +14,7 @@ async function unregisterDevelopmentServiceWorker(): Promise<void> {
           '';
         if (!scriptUrl) return false;
         const url = new URL(scriptUrl);
-        return url.origin === window.location.origin && url.pathname === '/sw.js';
+        return url.origin === window.location.origin && url.pathname === serviceWorkerPath;
       })
       .map((registration) => registration.unregister())
   );
@@ -37,7 +39,8 @@ export function registerServiceWorker(): void {
     return;
   }
 
-  void navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(error => {
+  const serviceWorkerUrl = new URL('sw.js', import.meta.env.BASE_URL).toString();
+  void navigator.serviceWorker.register(serviceWorkerUrl, { updateViaCache: 'none' }).catch(error => {
     console.warn('[Clear Writer] Service worker registration failed:', error);
   });
 }

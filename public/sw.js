@@ -1,5 +1,4 @@
 const CACHE_NAME = 'clear-writer-shell-v3';
-const APP_SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
 
 function referencedAssetPaths(text, baseUrl) {
   const paths = new Set();
@@ -55,7 +54,12 @@ async function pruneStaleAssets() {
 }
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  event.waitUntil((async () => {
+    const scope = self.registration.scope;
+    const appShell = [scope, new URL('index.html', scope).pathname, new URL('favicon.svg', scope).pathname, new URL('manifest.webmanifest', scope).pathname];
+    const cache = await caches.open(CACHE_NAME);
+    await cache.addAll(appShell);
+  })());
   self.skipWaiting();
 });
 
@@ -73,7 +77,9 @@ self.addEventListener('fetch', event => {
 
   // Always check the network for the HTML shell so a new build is visible
   // immediately. Hashed assets remain cacheable through the fallback below.
-  if (request.mode === 'navigate' || new URL(request.url).pathname === '/index.html') {
+  const scopePath = new URL(self.registration.scope).pathname;
+  const indexPath = new URL('index.html', self.registration.scope).pathname;
+  if (request.mode === 'navigate' || new URL(request.url).pathname === indexPath) {
     event.respondWith(
       fetch(request).then(response => {
         if (response.ok) {

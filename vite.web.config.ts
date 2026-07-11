@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 import { manualChunks } from './vite.shared';
 
 export default defineConfig({
-  base: '/',
+  base: './',
   server: {
     port: 5274
   },
