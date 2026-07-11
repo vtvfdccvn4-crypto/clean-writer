@@ -17,6 +17,16 @@ function previewExportIconMarkup(): string {
   `;
 }
 
+function previewInstallIconMarkup(): string {
+  return `
+    <svg class="toolbar-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M8 2.25v7.1" />
+      <path d="m5.55 6.95 2.45 2.45 2.45-2.45" />
+      <path d="M3 10.8v1.45c0 .41.34.75.75.75h8.5c.41 0 .75-.34.75-.75V10.8" />
+    </svg>
+  `;
+}
+
 function previewWordIconMarkup(): string {
   return `
     <svg class="toolbar-icon toolbar-icon--docx" viewBox="0 0 16 16" aria-hidden="true" focusable="false" style="color: #2b579a;">
@@ -37,6 +47,9 @@ export const previewPanelTemplate = (): string => `
       <div class="panel-actions">
         <button id="btn-full-doc" class="toolbar-icon-button is-active" type="button" aria-pressed="true" title="Merged preview" aria-label="Merged preview">
           ${previewEyeIconMarkup()}
+        </button>
+        <button id="btn-install-app" class="toolbar-icon-button" type="button" hidden aria-label="Install Clear Writer" title="Install Clear Writer">
+          ${previewInstallIconMarkup()}
         </button>
         <button id="btn-export-pdf" class="toolbar-icon-button" type="button" aria-label="Export PDF" title="Export to PDF">
           ${previewExportIconMarkup()}

@@ -56,7 +56,14 @@ async function pruneStaleAssets() {
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const scope = self.registration.scope;
-    const appShell = [scope, new URL('index.html', scope).pathname, new URL('favicon.svg', scope).pathname, new URL('manifest.webmanifest', scope).pathname];
+    const appShell = [
+      scope,
+      new URL('index.html', scope).pathname,
+      new URL('favicon.svg', scope).pathname,
+      new URL('icon-192.png', scope).pathname,
+      new URL('icon-512.png', scope).pathname,
+      new URL('manifest.webmanifest', scope).pathname
+    ];
     const cache = await caches.open(CACHE_NAME);
     await cache.addAll(appShell);
   })());
