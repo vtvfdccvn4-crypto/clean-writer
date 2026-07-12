@@ -5,6 +5,7 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 let server;
 let classifyDocumentMode;
 let buildFullDocumentMarkdown;
+let buildFullDocumentPreviewInput;
 let buildExplorerTree;
 let getSectionVisibilityNodes;
 let compileMarkdown;
@@ -13,7 +14,8 @@ before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24681 } } });
   ({
     classifyDocumentMode,
-    buildFullDocumentMarkdown
+    buildFullDocumentMarkdown,
+    buildFullDocumentPreviewInput
   } = await server.ssrLoadModule('/src/preview/document-rendering/index.ts'));
   ({ buildExplorerTree } = await server.ssrLoadModule('/src/utils/tree-utils.ts'));
   ({ getSectionVisibilityNodes } = await server.ssrLoadModule('/src/ui/components/SectionVisibilityDrawer.ts'));
@@ -76,6 +78,28 @@ test('compiled sections preserve preview control metadata', async () => {
   assert.match(html, /data-number-headings="true"/);
   assert.match(html, /data-include-in-toc="true"/);
   assert.match(html, /class="toc-placeholder"/);
+});
+
+test('full-document preview input records source segments for each section', () => {
+  const previewInput = buildFullDocumentPreviewInput([
+    { path: 'one.md', isDir: false, pageBreak: false },
+    { path: 'two.md', isDir: false, pageBreak: true }
+  ], [
+    { path: 'one.md', markdown: '# One\nBody' },
+    { path: 'two.md', markdown: '# Two' , pageBreak: true }
+  ]);
+
+  assert.deepEqual(previewInput.sourceSegments, [
+    { filePath: 'one.md', generatedStartLine: 3, generatedEndLine: 4, sourceStartLine: 1 },
+    { filePath: 'two.md', generatedStartLine: 13, generatedEndLine: 13, sourceStartLine: 1 }
+  ]);
+  assert.equal(buildFullDocumentMarkdown([
+    { path: 'one.md', isDir: false, pageBreak: false },
+    { path: 'two.md', isDir: false, pageBreak: true }
+  ], [
+    { path: 'one.md', markdown: '# One\nBody' },
+    { path: 'two.md', markdown: '# Two', pageBreak: true }
+  ]), previewInput.markdown);
 });
 
 after(async () => {

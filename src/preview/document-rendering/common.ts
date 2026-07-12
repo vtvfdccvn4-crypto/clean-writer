@@ -10,6 +10,18 @@ export interface DocumentSectionInput {
   pageBreak?: boolean;
 }
 
+export interface DocumentPreviewSourceSegment {
+  filePath: string;
+  generatedStartLine: number;
+  generatedEndLine: number;
+  sourceStartLine: number;
+}
+
+export interface DocumentPreviewInput {
+  markdown: string;
+  sourceSegments: DocumentPreviewSourceSegment[];
+}
+
 export { getParentPath } from '../../utils/path-utils';
 
 export function classifyDocumentMode(sections: Pick<FileNode, 'path' | 'isDir'>[]): DocumentMode {
@@ -26,6 +38,14 @@ export function buildDocumentMarkdown(
   blocks: DocumentSectionInput[],
   mode: DocumentMode
 ): string {
+  return buildDocumentPreviewInput(sections, blocks, mode).markdown;
+}
+
+export function buildDocumentPreviewInput(
+  sections: Pick<FileNode, 'path' | 'isDir' | 'pageBreak' | 'hideHeader' | 'hideFooter' | 'numberHeadings' | 'includeInToc'>[],
+  blocks: DocumentSectionInput[],
+  mode: DocumentMode
+): DocumentPreviewInput {
   const includeBlock = (block: DocumentSectionInput) => {
     const parentPath = getParentPath(block.path);
     if (mode === 'single-files') return parentPath === null;
@@ -33,10 +53,29 @@ export function buildDocumentMarkdown(
     return true;
   };
 
-  return blocks
+  const renderedSections = blocks
     .filter(includeBlock)
-    .map((block, index) => renderDocumentSection(block, sections, index))
-    .join('\n\n');
+    .map((block, index) => ({ block, markdown: renderDocumentSection(block, sections, index) }));
+  const sourceSegments: DocumentPreviewSourceSegment[] = [];
+  let generatedLine = 1;
+
+  renderedSections.forEach(({ block, markdown }, index) => {
+    const sourceStartLine = generatedLine + (block.pageBreak ? 4 : 2);
+    const sourceLineCount = Math.max(1, block.markdown.split(/\r?\n/).length);
+    sourceSegments.push({
+      filePath: block.path,
+      generatedStartLine: sourceStartLine,
+      generatedEndLine: sourceStartLine + sourceLineCount - 1,
+      sourceStartLine: 1
+    });
+    generatedLine += markdown.split('\n').length;
+    if (index < renderedSections.length - 1) generatedLine += 2;
+  });
+
+  return {
+    markdown: renderedSections.map(section => section.markdown).join('\n\n'),
+    sourceSegments
+  };
 }
 
 export function renderDocumentSection(

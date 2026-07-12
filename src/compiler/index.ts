@@ -6,8 +6,8 @@ import rehypeStringify from 'rehype-stringify';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 
-import { listMarkerPlugin, imageAttributesPlugin, imageSourcePlugin, sourceLinePlugin, customStylesPlugin, customBlockStylesPlugin, specialHeadingsPlugin, metadataSubstitutionPlugin, tableStylePlugin } from './remark-plugins';
-import { listLayoutPlugin, tocPlaceholderPlugin } from './rehype-plugins';
+import { listMarkerPlugin, imageAttributesPlugin, imageSourcePlugin, customStylesPlugin, customBlockStylesPlugin, specialHeadingsPlugin, metadataSubstitutionPlugin, tableStylePlugin } from './remark-plugins';
+import { listLayoutPlugin, tocPlaceholderPlugin, previewManifestPlugin, type PreviewSourceManifestEntry } from './rehype-plugins';
 
 const documentSchema = {
   ...defaultSchema,
@@ -47,15 +47,81 @@ const createMarkdownCompiler = (assetResolver?: AssetResolver | null) => unified
   .use(tocPlaceholderPlugin)
   .use(listLayoutPlugin)
   .use(imageSourcePlugin, { assetResolver })
-  .use(sourceLinePlugin)
   .use(customStylesPlugin)
   .use(customBlockStylesPlugin, { assetResolver })
   .use(specialHeadingsPlugin)
+  .use(previewManifestPlugin)
   .use(rehypeStringify, { allowDangerousHtml: true });
 
+export interface CompiledPreview {
+  html: string;
+  manifest: PreviewSourceManifestEntry[];
+}
+
+export interface PreviewCompilationOptions {
+  /** Number of generated wrapper lines preceding the editor's Markdown. */
+  sourceLineOffset?: number;
+  /** Source-file ranges embedded in a generated multi-section document. */
+  sourceSegments?: readonly PreviewSourceSegment[];
+}
+
+export interface PreviewSourceSegment {
+  filePath: string;
+  generatedStartLine: number;
+  generatedEndLine: number;
+  sourceStartLine: number;
+}
+
 export async function compileMarkdown(markdown: string, assetResolver?: AssetResolver | null): Promise<string> {
+  return (await compilePreviewDocument(markdown, assetResolver)).html;
+}
+
+/** Compiles preview HTML and an in-memory source manifest without emitting source markers. */
+export async function compilePreviewDocument(
+  markdown: string,
+  assetResolver?: AssetResolver | null,
+  options: PreviewCompilationOptions = {}
+): Promise<CompiledPreview> {
   const file = await createMarkdownCompiler(assetResolver).process(markdown);
-  return String(file);
+  const manifest = file.data.previewSourceManifest;
+  const sourceLineOffset = Math.max(0, options.sourceLineOffset ?? 0);
+  return {
+    html: String(file),
+    manifest: Array.isArray(manifest)
+      ? rebaseManifest(manifest as PreviewSourceManifestEntry[], sourceLineOffset, options.sourceSegments)
+      : []
+  };
+}
+
+function rebaseManifest(
+  manifest: readonly PreviewSourceManifestEntry[],
+  sourceLineOffset: number,
+  sourceSegments: readonly PreviewSourceSegment[] | undefined
+): PreviewSourceManifestEntry[] {
+  return manifest.map(entry => {
+    const segment = sourceSegments?.find(candidate =>
+      entry.range.startLine >= candidate.generatedStartLine
+      && entry.range.endLine <= candidate.generatedEndLine
+    );
+    if (segment) {
+      return {
+        ...entry,
+        filePath: segment.filePath,
+        range: {
+          startLine: segment.sourceStartLine + entry.range.startLine - segment.generatedStartLine,
+          endLine: segment.sourceStartLine + entry.range.endLine - segment.generatedStartLine
+        }
+      };
+    }
+    if (sourceLineOffset === 0) return { ...entry };
+    return {
+      ...entry,
+      range: {
+        startLine: Math.max(1, entry.range.startLine - sourceLineOffset),
+        endLine: Math.max(1, entry.range.endLine - sourceLineOffset)
+      }
+    };
+  });
 }
 
 export function sliceMarkdownChunks(markdown: string): string[] {

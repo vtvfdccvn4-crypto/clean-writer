@@ -157,9 +157,8 @@ Should cover:
 
 - Live preview pane.
 - Full document preview versus single section preview.
-- Fast lane and exact lane rendering model.
-- Scroll synchronization from editor line to preview position.
-- Source-anchor navigation for multi-line blocks, Paged.js fragments, scaled previews, and pending exact pagination.
+- Revision-aware preview navigation from the editor selection into the committed preview.
+- Debounced exact pagination after edits.
 - Paged.js pagination.
 - Header/footer rendering.
 - Heading numbering.
@@ -170,11 +169,10 @@ Should cover:
 
 Source map:
 
-- `src/preview/PreviewController.ts`: fast/exact lane behavior.
+- `src/preview/PreviewController.ts`: exact render scheduling.
 - `src/preview/RenderEngine.ts`: Paged.js render lifecycle.
 - `src/preview/PagedJsAdapter.ts`: Paged.js integration.
-- `src/preview/ScrollSync.ts`: scroll sync and zoom.
-- `src/preview/SourceAnchorIndex.ts` and `src/preview/SourceAnchorResolver.ts`: source-range to committed-page navigation.
+- `src/preview/PreviewViewport.ts`: responsive preview zoom and viewport controls.
 - `src/preview/CssGenerator.ts`: dynamic page, typography, list, and table CSS.
 - `src/preview/headingNumbering.ts`: heading numbering transform.
 - `src/preview/tableOfContents.ts`: TOC transform.
@@ -342,7 +340,7 @@ Should cover:
   - Autosave with `ChangeCommitQueue`.
   - Draft recovery and save-status reporting.
 - Preview architecture:
-  - Compile pipeline, Paged.js render, fast/exact lane updates, scroll sync.
+  - Compile pipeline, Paged.js render, exact render scheduling.
 - Settings architecture:
   - Defaults, validation, migration, serialized mutation.
 - Error handling:
@@ -450,7 +448,7 @@ Documentation ownership:
 
 ### `src/compiler`
 
-Owns Markdown-to-HTML compilation. It uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-raw`, `rehype-sanitize`, and custom plugins for list markers, image attributes, table styles, metadata substitution, TOC placeholders, source lines, custom inline styles, and custom block styles. Quote-style glyphs are resolved through the custom block glyph helpers rather than the generic image pipeline.
+Owns Markdown-to-HTML compilation. It uses `unified`, `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-raw`, `rehype-sanitize`, and custom plugins for list markers, image attributes, table styles, metadata substitution, TOC placeholders, custom inline styles, and custom block styles. Quote-style glyphs are resolved through the custom block glyph helpers rather than the generic image pipeline.
 
 Documentation ownership:
 
@@ -509,7 +507,7 @@ Documentation ownership:
 
 ### `src/preview`
 
-Owns preview rendering, Paged.js integration, scroll sync, CSS generation, heading numbering, table of contents, special headings, and multi-section document rendering.
+Owns preview rendering, Paged.js integration, responsive viewport behavior, CSS generation, heading numbering, table of contents, special headings, and multi-section document rendering.
 
 Documentation ownership:
 
@@ -626,21 +624,20 @@ Primary source:
 - Live paginated preview.
 - Full-document merged preview.
 - Single-section preview while editing.
-- Fast lane DOM patching for small edits.
-- Exact lane Paged.js pagination.
-- Scroll sync from source line to preview.
+- Debounced Paged.js pagination after edits.
 - Responsive zoom.
 - Header/footer margin boxes.
 - Heading numbering.
 - Table of contents.
 - Special headings.
 - Image resolution through active workspace.
+- Revision-aware preview navigation built from committed preview indexes.
 
 Primary source:
 
 - `src/preview/PreviewController.ts`
 - `src/preview/RenderEngine.ts`
-- `src/preview/ScrollSync.ts`
+- `src/preview/PreviewViewport.ts`
 - `src/preview/CssGenerator.ts`
 - `src/preview/document-rendering/*`
 - `src/preview/headingNumbering.ts`

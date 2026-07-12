@@ -106,7 +106,7 @@ export async function compileExportSnapshot(
     const imagePaths = scanMarkdownForImages(markdown);
     await assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()]);
 
-    return (await dependencies.compile(markdown, assetResolver)).replace(/ data-source-line="\d+"/g, '');
+    return dependencies.compile(markdown, assetResolver);
   }
 
   const markdown = currentMarkdown ?? await session.readSection(activeFile);

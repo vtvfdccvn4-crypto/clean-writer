@@ -65,7 +65,6 @@ Browser-hosted VS Code support can be evaluated later. It has a browser sandbox 
 | Settings drawers | Editor-tab settings webview | Replace |
 | Settings JSON and validation | Keep schema; validate on read/write; provide form UI | Retain and improve |
 | Live Paged.js preview | Webview editor tab | Retain and adapt |
-| Scroll synchronization | Extension-to-webview messages | Retain |
 | Browser PDF print | Deliberate extension PDF workflow | Replace |
 | DOCX code disabled in browser | Node extension host plus existing `docx` service | Enable and harden |
 | Project-wide search | Native VS Code search plus document-aware commands | Homologate |
@@ -102,7 +101,7 @@ Create `packages/vscode-extension` for the VS Code host code:
 - `extension.ts`: activation and command registration.
 - `WorkspaceProjectRepository`: Clear Writer project access through VS Code workspace APIs.
 - `SettingsEditorProvider`: project configuration editor tab.
-- `PreviewPanel`: paginated preview and source/preview synchronization.
+- `PreviewPanel`: paginated preview and revision-aware preview navigation.
 - `ClearWriterTreeProvider`: document-aware navigation and review.
 - `ExportService`: DOCX and PDF orchestration.
 - `DiagnosticsProvider`: settings, images, directives, and project-health diagnostics.
@@ -247,7 +246,7 @@ Preserve the core authoring loop: Markdown source beside a faithful paginated do
 - Send incremental messages for active-document edits.
 - Run exact pagination after a short idle debounce.
 - Add preview controls for full-document or active-section mode, zoom, refresh, settings, and export.
-- Synchronize source position to preview position where technically reliable.
+- Add revision-aware preview navigation only if the committed preview state can be resolved reliably.
 - Carry over the current fast-preview implementation only if profiling demonstrates a meaningful benefit.
 
 ### Acceptance Criteria
@@ -678,7 +677,7 @@ Read these modules in this order:
 2. `src/preview/RenderEngine.ts` for Paged.js lifecycle and errors.
 3. `src/preview/PagedJsAdapter.ts` for Paged.js integration boundaries.
 4. `src/preview/CssGenerator.ts` for layout/style generation.
-5. `src/preview/ScrollSync.ts` for source-to-preview behavior.
+5. `src/preview/PreviewViewport.ts` for responsive preview viewport behavior.
 6. `src/preview/document-rendering/*` for section composition.
 7. `src/images/imageSources.ts` and `src/images/markdownImages.ts` for asset handling.
 8. `src/preview/headingNumbering.ts`, `src/preview/tableOfContents.ts`, and `src/preview/specialHeadings.ts`.
@@ -711,7 +710,7 @@ The extension host compiles the document and resolves workspace asset paths. The
 3. Add file watching and debounced refresh when Markdown, settings, or images change.
 4. Add active-section mode.
 5. Add zoom and document/section controls.
-6. Add source-to-preview synchronization after the static rendering path is stable.
+6. Add revision-aware preview navigation after the static rendering path is stable.
 7. Profile rendering before attempting any fast-lane optimization.
 
 #### Security And Reliability Rules

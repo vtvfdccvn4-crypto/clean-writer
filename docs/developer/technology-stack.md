@@ -41,7 +41,7 @@ Markdown is compiled through the Unified ecosystem:
 - `rehype-stringify` serializes the final HTML.
 - `unist-util-visit` supports custom compiler transformations.
 
-Clear Writer adds compiler plugins for images, metadata, custom inline styles, custom block styles, list markers, tables, source lines, table-of-contents placeholders, and image attributes. Quote-style glyph handling is a separate custom-block path, not part of the general image transforms.
+Clear Writer adds compiler plugins for images, metadata, custom inline styles, custom block styles, list markers, tables, table-of-contents placeholders, and image attributes. Quote-style glyph handling is a separate custom-block path, not part of the general image transforms.
 
 ## Preview And Export
 

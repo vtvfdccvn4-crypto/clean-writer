@@ -2,7 +2,7 @@ import { APP_STATE_EVENTS, state } from '../state';
 import { createEditor, DraftRecoveryStore } from '../editor';
 import { extractWritingStatistics } from '../editor/writing-statistics';
 import type { MarkdownEditor } from '../editor';
-import { compileMarkdown } from '../compiler';
+import { compileMarkdown, compilePreviewDocument } from '../compiler';
 import { compileExportSnapshot as compileSnapshot, scanMarkdownForImages, scanCustomBlockStyleIcons } from '../services/ExportSnapshotService';
 import { PreviewController } from '../preview';
 import { previewMetrics } from '../perf/preview-metrics';
@@ -368,8 +368,8 @@ export class EditorManager {
         this.updateSaveStatus('saving');
 
         try {
-          const [html] = await Promise.all([
-            compileMarkdown(markdownToCompile, this.platform.assetResolver),
+          const [compiledPreview] = await Promise.all([
+            compilePreviewDocument(markdownToCompile, this.platform.assetResolver, { sourceLineOffset: 2 }),
             session.writeSection(filename, newDoc)
           ]);
           previewMetrics.recordPreviewCompile('single-document-edit', performance.now() - compileStarted);
@@ -386,8 +386,8 @@ export class EditorManager {
           this.notifyProjectStatsChanged();
 
           // Two-Lane engine
-          this.previewController.updateFastLane(html);
-          this.previewController.updateExactLane(html);
+          this.previewController.updateFastLane(compiledPreview.html, compiledPreview.manifest, changeRevision);
+          this.previewController.updateExactLane(compiledPreview.html, compiledPreview.manifest, changeRevision);
         } catch (error) {
           if (changeRevision !== this.previewRevision
             || this.currentFilePath !== filename
@@ -396,12 +396,12 @@ export class EditorManager {
           this.reportWorkflowError(`Autosave failed for ${filename}.`, error);
         }
       },
-      onCursorActivity: (line: number, isTextMutation: boolean) => {
-        this.previewController.scrollToLine(line, isTextMutation);
-      },
       onError: (error: unknown) => {
         this.updateSaveStatus('error');
         this.reportWorkflowError(`Autosave failed for ${filename}.`, error);
+      },
+      onSelectionChange: (line: number) => {
+        this.previewController.navigateToSourceLine(line, this.previewRevision);
       }
     };
 
@@ -424,10 +424,10 @@ export class EditorManager {
     if (initialRevision !== this.previewRevision || !isLatest()) return;
 
     const compileStarted = performance.now();
-    const initialHtml = await compileMarkdown(markdownToCompile, this.platform.assetResolver);
+    const initialPreview = await compilePreviewDocument(markdownToCompile, this.platform.assetResolver, { sourceLineOffset: 2 });
     previewMetrics.recordPreviewCompile('single-document-load', performance.now() - compileStarted);
     if (initialRevision !== this.previewRevision || !isLatest()) return;
-    await this.previewController.forceRender(initialHtml);
+    await this.previewController.forceRender(initialPreview.html, initialPreview.manifest, initialRevision);
     if (initialRevision !== this.previewRevision || !isLatest()) return;
 
     // Reset scroll positions to top

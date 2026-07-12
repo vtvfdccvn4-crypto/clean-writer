@@ -14,13 +14,6 @@ const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-releas
 
 const fixtures = [
   {
-    name: 'source-anchor-navigation',
-    path: '/test/fixtures/source-anchor-navigation.html',
-    validate(result) {
-      expect(result.ok === true, `Source anchor navigation did not center the target block (scrollTop: ${result.scrollTop}).`);
-    }
-  },
-  {
     name: 'step10-browser-smoke',
     path: '/test/fixtures/step10-browser-smoke.html',
     validate(result) {

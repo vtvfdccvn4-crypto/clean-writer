@@ -3,6 +3,7 @@ import { generatePageCss, generateTypographyCss, generateListCss, generateTableC
 import { applyImageFallback, bindImageFallbacks, resolveImageSource } from '../images/imageSources';
 import { parseMarkdownImages } from '../images/markdownImages';
 import type { AssetResolver } from '../platform/types';
+import type { PreviewSourceManifestEntry } from '../compiler/rehype-plugins';
 import { applyHeadingNumbering } from './headingNumbering';
 import { applySpecialHeadings } from './specialHeadings';
 import { applyTableOfContents } from './tableOfContents';
@@ -11,6 +12,7 @@ import {
   type PagedPreviewerFactory,
   type PagedRenderSession
 } from './PagedJsAdapter';
+import { CommittedPreviewIndex } from './navigation/CommittedPreviewIndex';
 
 export interface RenderEngineOptions {
   renderTimeoutMs?: number;
@@ -29,6 +31,7 @@ export class RenderEngine {
   private readonly pagedJs: PagedJsAdapter;
   private renderGeneration = 0;
   private readonly renderTimeoutMs: number;
+  private committedPreviewIndex: CommittedPreviewIndex | null = null;
 
   constructor(container: HTMLElement, options: RenderEngineOptions = {}) {
     this.container = container;
@@ -48,13 +51,22 @@ export class RenderEngine {
     this.renderGeneration += 1;
   }
 
+  public clearCommittedPreviewIndex() {
+    this.committedPreviewIndex = null;
+  }
+
+  public getCommittedPreviewIndex(): CommittedPreviewIndex | null {
+    return this.committedPreviewIndex;
+  }
+
   public async runRender(
     html: string, 
     pageSetup: PageSetup, 
     assetResolver: AssetResolver | null | undefined,
     typographySetup: TypographySetup | null, 
     listSetup: ListSetup | null,
-    tableSetup: TableSetup | null = null
+    tableSetup: TableSetup | null = null,
+    sourceManifest: readonly PreviewSourceManifestEntry[] = []
   ): Promise<RenderResult> {
     const generation = ++this.renderGeneration;
 
@@ -117,6 +129,7 @@ export class RenderEngine {
       while (tempContainer.firstChild) nextPages.appendChild(tempContainer.firstChild);
       oldElements.forEach(el => el.remove());
       this.container.replaceChildren(nextPages);
+      this.committedPreviewIndex = CommittedPreviewIndex.build(this.container, wrapper, sourceManifest);
 
       if (scrollParent) {
         scrollParent.scrollTop = previousScrollTop;
@@ -151,6 +164,7 @@ export class RenderEngine {
 
       oldElements.forEach(el => el.remove());
       this.container.replaceChildren(fallback);
+      this.committedPreviewIndex = CommittedPreviewIndex.build(this.container, wrapper, sourceManifest);
       return {
         status: 'degraded',
         pageCount: this.container.querySelectorAll('.pagedjs_page').length,

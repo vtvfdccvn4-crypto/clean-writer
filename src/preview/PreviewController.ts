@@ -1,14 +1,12 @@
-import morphdom from 'morphdom';
 import type { PageSetup, TypographySetup, ListSetup, TableSetup } from '../state';
 import { RenderEngine, type RenderEngineOptions, type RenderResult } from './RenderEngine';
-import { ScrollSync } from './ScrollSync';
-import { applyHeadingNumbering } from './headingNumbering';
-import { applySpecialHeadings } from './specialHeadings';
-import { applyTableOfContents } from './tableOfContents';
-import { bindImageFallbacks } from '../images/imageSources';
+import { PreviewViewport } from './PreviewViewport';
 import { previewMetrics } from '../perf/preview-metrics';
 
 import type { AssetResolver } from '../platform/types';
+import type { PreviewSourceManifestEntry } from '../compiler/rehype-plugins';
+import type { CommittedPreviewIndex } from './navigation/CommittedPreviewIndex';
+import { PreviewNavigationCoordinator } from './navigation/PreviewNavigationCoordinator';
 
 export class PreviewController {
   private container: HTMLElement;
@@ -16,7 +14,8 @@ export class PreviewController {
   private assetResolver: AssetResolver;
   
   private renderEngine: RenderEngine;
-  private scrollSync: ScrollSync;
+  private viewport: PreviewViewport;
+  private navigation: PreviewNavigationCoordinator;
 
   private currentPageSetup: PageSetup = {
     paperWidth: 210, paperHeight: 297,
@@ -29,28 +28,27 @@ export class PreviewController {
   private currentListSetup: ListSetup | null = null;
   private currentTableSetup: TableSetup | null = null;
   private lastCompiledHtml: string = '';
-  private fastLaneStructure: string[] = [];
-  private fastLaneHtmlByLine = new Map<string, string>();
-  private requiresStructuralRender = false;
-  private exactRenderPending = false;
-  private exactRenderGeneration = 0;
-  private deferredNavigationLine: number | null = null;
+  private lastSourceManifest: readonly PreviewSourceManifestEntry[] = [];
+  private lastSourceRevision: number | null = null;
 
   constructor(container: HTMLElement, assetResolver: AssetResolver, renderEngineOptions: RenderEngineOptions = {}) {
     this.container = container;
     this.assetResolver = assetResolver;
     this.renderEngine = new RenderEngine(container, renderEngineOptions);
-    this.scrollSync = new ScrollSync(container, this.currentPageSetup);
-    this.scrollSync.setupResponsiveZoom();
-    this.scrollSync.updateZoomScale();
+    this.viewport = new PreviewViewport(container, this.currentPageSetup);
+    this.navigation = new PreviewNavigationCoordinator(target => {
+      this.viewport.scrollElementToTop(target.element);
+    });
+    this.viewport.setupResponsiveZoom();
+    this.viewport.updateZoomScale();
   }
 
   public applyPageSetup(setup: PageSetup, renderCachedDocument = true) {
     if (JSON.stringify(this.currentPageSetup) === JSON.stringify(setup)) return;
     this.currentPageSetup = setup;
-    this.scrollSync.setPageSetup(setup);
+    this.viewport.setPageSetup(setup);
     if (renderCachedDocument && this.lastCompiledHtml) {
-      this.forceRender(this.lastCompiledHtml);
+      this.forceRender(this.lastCompiledHtml, this.lastSourceManifest, this.lastSourceRevision);
     }
   }
 
@@ -84,139 +82,77 @@ export class PreviewController {
       this.exactLaneTimeout = null;
     }
     this.lastCompiledHtml = '';
-    this.fastLaneStructure = [];
-    this.fastLaneHtmlByLine.clear();
-    this.requiresStructuralRender = false;
-    this.exactRenderGeneration += 1;
-    this.exactRenderPending = false;
-    this.deferredNavigationLine = null;
-    this.scrollSync.clearSourceAnchors();
+    this.lastSourceManifest = [];
+    this.lastSourceRevision = null;
+    this.renderEngine.clearCommittedPreviewIndex();
+    this.navigation.clear();
     this.container.replaceChildren();
   }
 
-  public updateFastLane(html: string) {
+  public updateFastLane(
+    html: string,
+    sourceManifest: readonly PreviewSourceManifestEntry[] = [],
+    sourceRevision: number | null = null
+  ) {
     previewMetrics.recordFastLaneUpdate();
     // Any edit supersedes a Paged.js render that may still be running. Without
     // this guard, an older render can briefly replace newer fast-lane content.
     this.renderEngine.invalidate();
     this.lastCompiledHtml = html;
+    this.lastSourceManifest = sourceManifest;
+    this.lastSourceRevision = sourceRevision;
 
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = html;
-    bindImageFallbacks(wrapper);
-    applyHeadingNumbering(wrapper);
-    applySpecialHeadings(wrapper);
-    applyTableOfContents(wrapper, this.currentPageSetup.toc?.maxLevel);
-    const nextStructure = getHtmlStructure(wrapper);
-    const nextHtmlByLine = getHtmlBySourceLine(wrapper);
-
-    // A newline can add/remove a block and renumber every following source key.
-    // Patching that into already fragmented Paged.js pages leaves duplicate or
-    // orphaned fragments. Keep the coherent old frame until exact pagination
-    // can atomically commit the new structure.
-    this.requiresStructuralRender = this.fastLaneStructure.length > 0
-      && !sameStructure(this.fastLaneStructure, nextStructure);
-    this.fastLaneStructure = nextStructure;
-
-    const changedElements = Array.from(wrapper.children).filter((element) => {
-      const line = element.getAttribute('data-source-line');
-      return line !== null && this.fastLaneHtmlByLine.get(line) !== element.outerHTML;
-    });
-    this.fastLaneHtmlByLine = nextHtmlByLine;
-
-    // Paged.js duplicates a source-line key when a block crosses a page. A
-    // partial morph would update only one fragment and briefly show both the
-    // old and new text. Missing or duplicated targets therefore require the
-    // exact lane as well.
-    if (!this.requiresStructuralRender && this.container.querySelector('.pagedjs_pages')) {
-      this.requiresStructuralRender = changedElements.some((element) => {
-        const line = element.getAttribute('data-source-line')!;
-        return this.container.querySelectorAll(`[data-source-line="${line}"]`).length !== 1;
-      });
-    }
-
-    if (this.requiresStructuralRender && this.container.querySelector('.pagedjs_pages')) {
-      return;
-    }
-
-    const pageContent = this.container.querySelector('.pagedjs_page_content');
-    if (!pageContent) {
-      this.container.innerHTML = `
-        <div class="pagedjs_page">
-          <div class="pagedjs_page_content">${html}</div>
-        </div>
-      `;
-      bindImageFallbacks(this.container);
-      return;
-    }
-
-    let morphedAnything = false;
-    changedElements.forEach((newEl) => {
-      const lineObj = newEl.getAttribute('data-source-line');
-      if (lineObj) {
-        const existingEl = this.container.querySelector(`[data-source-line="${lineObj}"]`);
-        if (existingEl) {
-          morphdom(existingEl, newEl, {
-            childrenOnly: false,
-            // Preserve Paged.js bookkeeping on nodes that survive the morph.
-            // Removing data-ref/data-split attributes destabilizes the page
-            // fragments until the next exact render.
-            onBeforeElUpdated: preservePagedAttributes
-          });
-          morphedAnything = true;
-        }
-      }
-    });
-
-    if (!morphedAnything && !this.container.querySelector('.pagedjs_pages')) {
-      const pageContentEl = this.container.querySelector('.pagedjs_page_content');
-      if (pageContentEl) morphdom(pageContentEl, wrapper, { childrenOnly: false });
-    }
+    // Exact pagination is the sole preview-update path while source-to-preview
+    // navigation is redesigned. Do not mutate Paged.js fragments in place.
   }
 
-  public async updateExactLane(html: string) {
+  public async updateExactLane(
+    html: string,
+    sourceManifest: readonly PreviewSourceManifestEntry[] = [],
+    sourceRevision: number | null = null
+  ) {
     this.lastCompiledHtml = html;
+    this.lastSourceManifest = sourceManifest;
+    this.lastSourceRevision = sourceRevision;
+    if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
     if (this.exactLaneTimeout) clearTimeout(this.exactLaneTimeout);
-    const generation = ++this.exactRenderGeneration;
-    this.exactRenderPending = true;
-    
-    // Structural edits cannot be represented safely in fragmented pages, so
-    // paginate them promptly. Text-only edits retain the quieter debounce.
-    const delay = this.requiresStructuralRender ? 0 : 800;
+    const delay = 800;
     this.exactLaneTimeout = setTimeout(async () => {
       const started = performance.now();
-      try {
-        await this.renderEngine.runRender(html, this.currentPageSetup, this.assetResolver, this.currentTypographySetup, this.currentListSetup, this.currentTableSetup).catch((e: any) => console.error(e));
-        this.scrollSync.refreshSourceAnchors();
-        previewMetrics.recordPreviewRender('exact-lane', performance.now() - started);
-      } finally {
-        if (generation === this.exactRenderGeneration) {
-          this.exactRenderPending = false;
-          this.flushDeferredNavigation();
-        }
+      const result = await this.renderEngine.runRender(html, this.currentPageSetup, this.assetResolver, this.currentTypographySetup, this.currentListSetup, this.currentTableSetup, sourceManifest).catch((e: any) => {
+        console.error(e);
+        return null;
+      });
+      if (result && sourceRevision !== null && result.status === 'rendered') {
+        const index = this.renderEngine.getCommittedPreviewIndex();
+        if (index) this.navigation.commitRender(sourceRevision, index);
       }
+      previewMetrics.recordPreviewRender('exact-lane', performance.now() - started);
     }, delay);
   }
 
-  public async forceRender(html: string): Promise<RenderResult> {
+  public async forceRender(
+    html: string,
+    sourceManifest: readonly PreviewSourceManifestEntry[] = [],
+    sourceRevision: number | null = null
+  ): Promise<RenderResult> {
     this.lastCompiledHtml = html;
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = html;
-    bindImageFallbacks(wrapper);
-    this.fastLaneStructure = getHtmlStructure(wrapper);
-    this.fastLaneHtmlByLine = getHtmlBySourceLine(wrapper);
-    this.requiresStructuralRender = false;
+    this.lastSourceManifest = sourceManifest;
+    this.lastSourceRevision = sourceRevision;
     if (this.exactLaneTimeout) {
       clearTimeout(this.exactLaneTimeout);
       this.exactLaneTimeout = null;
     }
-    const generation = ++this.exactRenderGeneration;
-    this.exactRenderPending = true;
+    if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
+    else this.navigation.clear();
 
     const started = performance.now();
     try {
-      const result = await this.renderEngine.runRender(html, this.currentPageSetup, this.assetResolver, this.currentTypographySetup, this.currentListSetup, this.currentTableSetup);
-      this.scrollSync.refreshSourceAnchors();
+      const result = await this.renderEngine.runRender(html, this.currentPageSetup, this.assetResolver, this.currentTypographySetup, this.currentListSetup, this.currentTableSetup, sourceManifest);
+      if (sourceRevision !== null && result.status === 'rendered') {
+        const index = this.renderEngine.getCommittedPreviewIndex();
+        if (index) this.navigation.commitRender(sourceRevision, index);
+      }
       previewMetrics.recordPreviewRender('force-render', performance.now() - started);
       return result;
     } catch (error) {
@@ -227,66 +163,18 @@ export class PreviewController {
         pageCount: 0,
         error: error instanceof Error ? error : new Error(String(error))
       };
-    } finally {
-      if (generation === this.exactRenderGeneration) {
-        this.exactRenderPending = false;
-        this.flushDeferredNavigation();
-      }
     }
-  }
-
-  public scrollToLine(line: number, isTextMutation: boolean) {
-    if (!isTextMutation && this.exactRenderPending) {
-      this.deferredNavigationLine = line;
-      return;
-    }
-    this.scrollSync.scrollToLine(line, isTextMutation);
   }
 
   public scrollToTop() {
-    this.scrollSync.scrollToTop();
+    this.viewport.scrollToTop();
   }
 
-  private flushDeferredNavigation() {
-    const line = this.deferredNavigationLine;
-    this.deferredNavigationLine = null;
-    if (line !== null) this.scrollSync.scrollToLine(line, false);
+  public getCommittedPreviewIndex(): CommittedPreviewIndex | null {
+    return this.renderEngine.getCommittedPreviewIndex();
   }
-}
 
-function sameStructure(left: string[], right: string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function getHtmlStructure(wrapper: HTMLElement): string[] {
-  return Array.from(wrapper.children).map((element) =>
-    `${element.tagName}:${element.getAttribute('data-source-line') ?? ''}`
-  );
-}
-
-function getHtmlBySourceLine(wrapper: HTMLElement): Map<string, string> {
-  const result = new Map<string, string>();
-  Array.from(wrapper.children).forEach((element) => {
-    const line = element.getAttribute('data-source-line');
-    if (line !== null) result.set(line, element.outerHTML);
-  });
-  return result;
-}
-
-function preservePagedAttributes(fromEl: Element, toEl: Element): boolean {
-  Array.from(fromEl.attributes).forEach((attribute) => {
-    if (isPagedAttribute(attribute.name) && !toEl.hasAttribute(attribute.name)) {
-      toEl.setAttribute(attribute.name, attribute.value);
-    }
-  });
-  return true;
-}
-
-function isPagedAttribute(name: string): boolean {
-  return name === 'data-ref'
-    || name === 'data-id'
-    || name.startsWith('data-split-')
-    || name.startsWith('data-break-')
-    || name.startsWith('data-previous-break-')
-    || name.startsWith('data-next-break-');
+  public navigateToSourceLine(line: number, sourceRevision: number) {
+    this.navigation.requestNavigation(line, sourceRevision);
+  }
 }

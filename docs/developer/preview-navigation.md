@@ -1,34 +1,82 @@
-# Preview Source Navigation
+# Preview Navigation Architecture
 
-Clear Writer maps the active CodeMirror cursor line to the paginated preview through compiler-provided source anchors. This is intentionally separate from the fast preview patching path: only the committed Paged.js DOM determines which page is displayed.
+This page documents the revision-aware preview navigation design in Clear Writer. The implementation uses compiler metadata plus the committed Paged.js DOM.
 
-## Source-Anchor Contract
+## Design Goals
 
-The compiler adds these attributes to top-level Markdown blocks and list items:
+- Keep the generated document HTML free of custom tracking markers.
+- Make editor selection navigation match the preview revision actually visible on screen.
+- Survive rerenders caused by images, page breaks, and pagination changes.
+- Keep the implementation small enough to reason about and test.
+- Avoid modifying the committed page DOM after Paged.js finishes rendering.
 
-- `data-source-id`: stable identifier within one compilation.
-- `data-source-start`: first Markdown line represented by the block.
-- `data-source-end`: final Markdown line represented by the block.
+## High-Level Flow
 
-Navigation selects the smallest range that contains the editor line. For blank Markdown lines, it selects the closest preceding block. Paged.js may fragment one source block across multiple pages; the preview index retains every rendered fragment under the same source ID.
+```mermaid
+flowchart LR
+  A[CodeMirror selection change] --> B[Editor manager captures revision]
+  B --> C[Compiler builds HTML + source manifest]
+  C --> D[Preview controller stores manifest and revision]
+  D --> E[Exact pagination render]
+  E --> F[Paged.js commits final page DOM]
+  F --> G[Committed preview index is built]
+  G --> H[Navigation coordinator resolves line to target]
+  H --> I[Preview viewport scrolls target near the top]
+```
 
-## Render Timing
+## Implementation Details
 
-The preview uses a fast lane for responsive text updates and an exact Paged.js lane for final pagination. Cursor navigation is deferred while exact pagination is pending, then replayed only after the latest render commits. This prevents a click from navigating according to page positions that existed before an image, page break, or structural Markdown change.
+### 1. Selection-only editor events
 
-## Positioning
+`src/editor/createEditor.ts` emits a selection callback only when the selection changes and the document text does not. That keeps typing, autosave, and cursor movement separate from navigation requests.
 
-The preview navigator centers the resolved block using the scroll container's measured geometry. It does not call `scrollIntoView` on the full Paged.js page, because that loses the requested block position and is unreliable when the preview stage is CSS-scaled.
+### 2. Revision-aware navigation requests
 
-## Regression Coverage
+`src/ui/editor-manager.ts` passes the current editor revision to the preview navigation path. The revision is the guard that tells the coordinator whether a request belongs to the preview that is already committed.
 
-Changes in this area must preserve coverage for:
+### 3. Compiler-side manifest generation
 
-- cursor lines inside multi-line paragraphs and list items;
-- blank-line fallback;
-- images that cause later blocks to move to another page;
-- source blocks split across page boundaries;
-- reduced-width, scaled preview layouts;
-- navigation requested while an exact render is waiting or running.
+`src/compiler/index.ts` returns a `CompiledPreview` object containing:
 
-The focused browser fixture is `test/fixtures/source-anchor-navigation.ts`; it verifies source-range lookup and the target-centering geometry. The release browser smoke suite runs it with the wider authoring, pagination, and responsive-layout checks.
+- the generated HTML;
+- an in-memory manifest of source blocks, line ranges, element paths, and priorities.
+
+The manifest is not emitted as custom HTML attributes. It exists only in memory so the output stays clean and export-friendly.
+
+When Clear Writer builds a merged document from multiple section files, the same compiler path also receives section source segments. Those segments let the compiler rebase manifest entries back to the original file and line range before the preview index is committed.
+
+### 4. Committed preview indexing
+
+`src/preview/RenderEngine.ts` sends the manifest into the exact render path after Paged.js has finished. Once the page DOM is committed, `src/preview/navigation/CommittedPreviewIndex.ts` maps manifest entries to the rendered pages using Paged.js references like `data-ref` and `data-split-from`.
+
+This is the core of the current navigation pipeline:
+
+- the compiler knows where blocks came from;
+- Paged.js knows where those blocks ended up;
+- the committed index joins the two only after the render is stable.
+
+### 5. Coordinator gating
+
+`src/preview/navigation/PreviewNavigationCoordinator.ts` accepts navigation requests only when the committed preview revision matches the requested editor revision. If a newer render is in flight, the request is queued or discarded rather than jumping to stale content.
+
+### 6. Viewport placement
+
+`src/preview/PreviewViewport.ts` scrolls the resolved block near the top of the preview with a small inset instead of centering it. That gives a more predictable reading position and avoids the visual drift that was showing up with deep pagination changes.
+
+## Why This Is Safer Than The Old Logic
+
+The older implementation depended on helper markers and direct line-range attributes in the rendered HTML. Those markers could drift when pagination changed, images loaded late, or page splits moved blocks around.
+
+The current design is safer because:
+
+- the HTML emitted by the compiler stays semantically clean;
+- the preview is resolved from committed DOM state, not from stale source hints;
+- navigation is tied to a specific editor revision;
+- only one small coordinator owns the decision to reveal a target.
+
+## Maintenance Notes
+
+- Do not reintroduce source-marker attributes into rendered HTML unless there is a strong new requirement.
+- Keep the committed preview index build isolated to the render completion path.
+- If page layout behavior changes, verify both the manifest ranges and the committed page mapping.
+- If a future feature needs additional navigation anchors, extend the compiler manifest first and keep the preview DOM clean.

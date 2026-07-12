@@ -101,7 +101,7 @@ The early print-target preparation is important. Clear Writer prefers an invisib
 
 `ExportSnapshotService.compileExportSnapshot()` then chooses between two export shapes:
 
-- Full document mode or no active file: it reads all non-folder section files from the workspace, preserves section order and page-break flags, builds one document with `buildFullDocumentMarkdown()`, preloads images, compiles the combined Markdown, and strips `data-source-line` attributes. Both the live full-document preview and PDF export use this same `ExportSnapshotService` path.
+- Full document mode or no active file: it reads all non-folder section files from the workspace, preserves section order and page-break flags, builds one document with `buildFullDocumentMarkdown()`, preloads images, and compiles the combined Markdown. Both the live full-document preview and PDF export use this same `ExportSnapshotService` path.
 - Single section mode: it uses the current editor value for the active section when available, wraps it through `renderDocumentSection()`, preloads images, and compiles that section.
 
 Image preloading is handled before compilation by scanning Markdown and HTML image references. The service calls `assetResolver.preloadImages(imagePaths)`, which lets the active platform resolve project images to blob URLs before Paged.js or the browser print window needs them.

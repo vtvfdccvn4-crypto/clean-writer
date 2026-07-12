@@ -61,7 +61,7 @@ export interface MarkdownEditor {
 export interface EditorCallbacks {
   onChange: (doc: string) => void | Promise<void>;
   onError?: (error: unknown) => void;
-  onCursorActivity: (line: number, isTextMutation: boolean) => void;
+  onSelectionChange?: (line: number) => void;
   onDirty?: (doc: string) => void;
 }
 
@@ -96,11 +96,8 @@ export function createEditor(
   };
 
   const updateListener = EditorView.updateListener.of((update) => {
-    if (update.selectionSet || update.docChanged) {
-      const state = update.state;
-      const selection = state.selection.main;
-      const line = state.doc.lineAt(selection.head).number;
-      callbacks.onCursorActivity(line, update.docChanged);
+    if (update.selectionSet && !update.docChanged) {
+      callbacks.onSelectionChange?.(update.state.doc.lineAt(update.state.selection.main.head).number);
     }
 
     if (update.docChanged) {
