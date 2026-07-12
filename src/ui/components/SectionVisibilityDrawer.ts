@@ -1,7 +1,7 @@
 import { APP_STATE_EVENTS, state } from '../../state';
 import { ProjectService } from '../../services/ProjectService';
 import { getBaseName } from '../../utils/path-utils';
-import { buildExplorerTree, type ExplorerTreeNode } from '../../utils/tree-utils';
+import { getExplorerDisplayRoots, type ExplorerTreeNode } from '../../utils/tree-utils';
 import type { FileNode } from '../../types';
 
 export function initSectionVisibilityControls(sectionSelect: HTMLSelectElement, listContainer: HTMLElement): () => void {
@@ -132,10 +132,7 @@ function renderVisibilityControls(container: HTMLElement, selectedPath: string |
 }
 
 export function getSectionVisibilityNodes(sections: FileNode[]): Array<Pick<ExplorerTreeNode, 'path' | 'isDir'> & { name: string }> {
-  let roots = buildExplorerTree(sections);
-  if (roots.length === 1 && roots[0].isDir && roots[0].path === 'sections') {
-    roots = roots[0].children;
-  }
+  const roots = getExplorerDisplayRoots(sections);
 
   // Match the collapsed top level of the Project Explorer after removing the
   // storage-only sections directory: root files for a file-only project, root

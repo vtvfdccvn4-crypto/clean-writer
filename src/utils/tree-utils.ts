@@ -130,3 +130,14 @@ export function buildExplorerTree(sections: FileNode[]): ExplorerTreeNode[] {
   sortTree(roots);
   return roots;
 }
+
+/**
+ * Hides a storage-only root directory from explorer views. Section paths still
+ * retain their `sections/` prefix for workspace operations.
+ */
+export function getExplorerDisplayRoots(sections: FileNode[], storageRoot = 'sections'): ExplorerTreeNode[] {
+  const roots = buildExplorerTree(sections);
+  return roots.length === 1 && roots[0].isDir && roots[0].path === storageRoot
+    ? roots[0].children
+    : roots;
+}

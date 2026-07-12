@@ -7,7 +7,7 @@ import type { Platform } from '../../platform/types';
 
 let activePlatform: Platform | null = null;
 import { getBaseName, getParentPath, isDescendantPath, normalizeExplorerPath } from '../../utils/path-utils';
-import { buildExplorerTree, type ExplorerTreeNode } from '../../utils/tree-utils';
+import { getExplorerDisplayRoots, type ExplorerTreeNode } from '../../utils/tree-utils';
 import {
   deleteIconMarkup,
   fileIconMarkup,
@@ -423,7 +423,9 @@ export function renderSectionList(
   activePlatform = platform;
   const { sections, activeFile } = state.get;
   const normalizedActiveFile = activeFile ? normalizeExplorerPath(activeFile) : null;
-  const tree = buildExplorerTree(sections);
+  // `sections` is the workspace storage root, already represented by this
+  // panel's heading, so render its contents directly.
+  const tree = getExplorerDisplayRoots(sections);
   container.innerHTML = '';
 
   tree.forEach(node => {

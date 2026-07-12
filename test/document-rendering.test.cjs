@@ -7,6 +7,7 @@ let classifyDocumentMode;
 let buildFullDocumentMarkdown;
 let buildFullDocumentPreviewInput;
 let buildExplorerTree;
+let getExplorerDisplayRoots;
 let getSectionVisibilityNodes;
 let compileMarkdown;
 
@@ -17,7 +18,7 @@ before(async () => {
     buildFullDocumentMarkdown,
     buildFullDocumentPreviewInput
   } = await server.ssrLoadModule('/src/preview/document-rendering/index.ts'));
-  ({ buildExplorerTree } = await server.ssrLoadModule('/src/utils/tree-utils.ts'));
+  ({ buildExplorerTree, getExplorerDisplayRoots } = await server.ssrLoadModule('/src/utils/tree-utils.ts'));
   ({ getSectionVisibilityNodes } = await server.ssrLoadModule('/src/ui/components/SectionVisibilityDrawer.ts'));
   ({ compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts'));
 });
@@ -55,6 +56,19 @@ test('section visibility drawer unwraps the storage sections folder', () => {
   assert.deepEqual(roots.map(node => ({ path: node.path, name: node.name, isDir: node.isDir })), [
     { path: 'sections/MySection.md', name: 'MySection.md', isDir: false },
     { path: 'sections/Chapter', name: 'Chapter', isDir: true }
+  ]);
+});
+
+test('explorer display roots unwrap the storage sections folder', () => {
+  const roots = getExplorerDisplayRoots([
+    { path: 'sections/MySection.md', isDir: false },
+    { path: 'sections/Chapter', isDir: true },
+    { path: 'sections/Chapter/one.md', isDir: false }
+  ]);
+
+  assert.deepEqual(roots.map(node => node.path), [
+    'sections/MySection.md',
+    'sections/Chapter'
   ]);
 });
 
