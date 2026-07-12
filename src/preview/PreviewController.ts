@@ -32,6 +32,9 @@ export class PreviewController {
   private fastLaneStructure: string[] = [];
   private fastLaneHtmlByLine = new Map<string, string>();
   private requiresStructuralRender = false;
+  private exactRenderPending = false;
+  private exactRenderGeneration = 0;
+  private deferredNavigationLine: number | null = null;
 
   constructor(container: HTMLElement, assetResolver: AssetResolver, renderEngineOptions: RenderEngineOptions = {}) {
     this.container = container;
@@ -84,6 +87,10 @@ export class PreviewController {
     this.fastLaneStructure = [];
     this.fastLaneHtmlByLine.clear();
     this.requiresStructuralRender = false;
+    this.exactRenderGeneration += 1;
+    this.exactRenderPending = false;
+    this.deferredNavigationLine = null;
+    this.scrollSync.clearSourceAnchors();
     this.container.replaceChildren();
   }
 
@@ -170,14 +177,24 @@ export class PreviewController {
   public async updateExactLane(html: string) {
     this.lastCompiledHtml = html;
     if (this.exactLaneTimeout) clearTimeout(this.exactLaneTimeout);
+    const generation = ++this.exactRenderGeneration;
+    this.exactRenderPending = true;
     
     // Structural edits cannot be represented safely in fragmented pages, so
     // paginate them promptly. Text-only edits retain the quieter debounce.
     const delay = this.requiresStructuralRender ? 0 : 800;
     this.exactLaneTimeout = setTimeout(async () => {
       const started = performance.now();
-      await this.renderEngine.runRender(html, this.currentPageSetup, this.assetResolver, this.currentTypographySetup, this.currentListSetup, this.currentTableSetup).catch((e: any) => console.error(e));
-      previewMetrics.recordPreviewRender('exact-lane', performance.now() - started);
+      try {
+        await this.renderEngine.runRender(html, this.currentPageSetup, this.assetResolver, this.currentTypographySetup, this.currentListSetup, this.currentTableSetup).catch((e: any) => console.error(e));
+        this.scrollSync.refreshSourceAnchors();
+        previewMetrics.recordPreviewRender('exact-lane', performance.now() - started);
+      } finally {
+        if (generation === this.exactRenderGeneration) {
+          this.exactRenderPending = false;
+          this.flushDeferredNavigation();
+        }
+      }
     }, delay);
   }
 
@@ -193,10 +210,13 @@ export class PreviewController {
       clearTimeout(this.exactLaneTimeout);
       this.exactLaneTimeout = null;
     }
+    const generation = ++this.exactRenderGeneration;
+    this.exactRenderPending = true;
 
     const started = performance.now();
     try {
       const result = await this.renderEngine.runRender(html, this.currentPageSetup, this.assetResolver, this.currentTypographySetup, this.currentListSetup, this.currentTableSetup);
+      this.scrollSync.refreshSourceAnchors();
       previewMetrics.recordPreviewRender('force-render', performance.now() - started);
       return result;
     } catch (error) {
@@ -207,15 +227,30 @@ export class PreviewController {
         pageCount: 0,
         error: error instanceof Error ? error : new Error(String(error))
       };
+    } finally {
+      if (generation === this.exactRenderGeneration) {
+        this.exactRenderPending = false;
+        this.flushDeferredNavigation();
+      }
     }
   }
 
   public scrollToLine(line: number, isTextMutation: boolean) {
+    if (!isTextMutation && this.exactRenderPending) {
+      this.deferredNavigationLine = line;
+      return;
+    }
     this.scrollSync.scrollToLine(line, isTextMutation);
   }
 
   public scrollToTop() {
     this.scrollSync.scrollToTop();
+  }
+
+  private flushDeferredNavigation() {
+    const line = this.deferredNavigationLine;
+    this.deferredNavigationLine = null;
+    if (line !== null) this.scrollSync.scrollToLine(line, false);
   }
 }
 

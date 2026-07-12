@@ -1,4 +1,5 @@
 import type { PageSetup } from '../state';
+import { SourceAnchorIndex } from './SourceAnchorIndex';
 
 export class ScrollSync {
   private container: HTMLElement;
@@ -6,6 +7,7 @@ export class ScrollSync {
   private resizeFrame: number | null = null;
   private appliedScale: number | null = null;
   private currentPageSetup: PageSetup;
+  private sourceAnchors = new SourceAnchorIndex();
 
   constructor(container: HTMLElement, initialSetup: PageSetup) {
     this.container = container;
@@ -53,25 +55,51 @@ export class ScrollSync {
   public scrollToLine(line: number, isTextMutation: boolean) {
     if (isTextMutation) return;
 
-    let targetEl = this.container.querySelector(`[data-source-line="${line}"]`) as HTMLElement;
-    
-    let searchLine = line;
-    while (!targetEl && searchLine > 0) {
-      searchLine--;
-      targetEl = this.container.querySelector(`[data-source-line="${searchLine}"]`) as HTMLElement;
-    }
-
+    // Rebuild at navigation time as well as after exact commits. Fast-lane
+    // morphs can change source blocks before pagination catches up.
+    this.sourceAnchors.rebuild(this.container);
+    const targetEl = this.sourceAnchors.resolve(line)?.elements[0];
     if (!targetEl) return;
 
     const pageEl = targetEl.closest('.pagedjs_page') as HTMLElement;
-    const scrollTarget = pageEl || targetEl;
+    this.centerInPreview(targetEl, pageEl);
+  }
 
-    scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  public refreshSourceAnchors() {
+    this.sourceAnchors.rebuild(this.container);
   }
 
   public scrollToTop() {
     this.container.parentElement?.scrollTo({
       top: 0,
+      behavior: 'smooth'
+    });
+  }
+
+  public clearSourceAnchors() {
+    this.sourceAnchors.clear();
+  }
+
+  private centerInPreview(targetEl: HTMLElement, pageFallback: HTMLElement | null) {
+    const scrollParent = this.container.parentElement;
+    if (!scrollParent) return;
+
+    // getBoundingClientRect includes the preview's CSS transform. Converting
+    // that visual delta into the scroll parent's coordinate space avoids the
+    // growing offset produced by native scrollIntoView on scaled previews.
+    const targetRect = targetEl.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    const element = targetRect.height > 0 ? targetEl : pageFallback;
+    if (!element) return;
+
+    const rect = element === targetEl ? targetRect : element.getBoundingClientRect();
+    const desiredTop = scrollParent.scrollTop
+      + rect.top
+      - parentRect.top
+      - ((scrollParent.clientHeight - Math.min(rect.height, scrollParent.clientHeight)) / 2);
+    const maxTop = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
+    scrollParent.scrollTo({
+      top: Math.min(maxTop, Math.max(0, desiredTop)),
       behavior: 'smooth'
     });
   }

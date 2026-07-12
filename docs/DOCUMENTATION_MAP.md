@@ -159,6 +159,7 @@ Should cover:
 - Full document preview versus single section preview.
 - Fast lane and exact lane rendering model.
 - Scroll synchronization from editor line to preview position.
+- Source-anchor navigation for multi-line blocks, Paged.js fragments, scaled previews, and pending exact pagination.
 - Paged.js pagination.
 - Header/footer rendering.
 - Heading numbering.
@@ -173,6 +174,7 @@ Source map:
 - `src/preview/RenderEngine.ts`: Paged.js render lifecycle.
 - `src/preview/PagedJsAdapter.ts`: Paged.js integration.
 - `src/preview/ScrollSync.ts`: scroll sync and zoom.
+- `src/preview/SourceAnchorIndex.ts` and `src/preview/SourceAnchorResolver.ts`: source-range to committed-page navigation.
 - `src/preview/CssGenerator.ts`: dynamic page, typography, list, and table CSS.
 - `src/preview/headingNumbering.ts`: heading numbering transform.
 - `src/preview/tableOfContents.ts`: TOC transform.
@@ -183,6 +185,7 @@ Source map:
 Suggested file:
 
 - `docs/user/live-preview.md`
+- `docs/developer/preview-navigation.md`
 
 ### 6. Settings Reference
 

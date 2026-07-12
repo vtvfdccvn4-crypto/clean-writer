@@ -42,6 +42,9 @@ test('body image compilation handles parentheses, titles, and safely encoded fil
   assert.match(html, /src="blob:mock\/images%2Flogo_\(final\)%231\.png"/);
   assert.match(html, /title="Product logo"/);
   assert.match(html, /data-image-source="images\/logo_\(final\)#1\.png"/);
+  assert.match(html, /data-source-start="1"/);
+  assert.match(html, /data-source-end="1"/);
+  assert.match(html, /data-source-id="source-1-1-0"/);
   assert.doesNotMatch(html, /onerror=/i);
 });
 
