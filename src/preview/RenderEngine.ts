@@ -4,6 +4,7 @@ import { applyImageFallback, bindImageFallbacks, resolveImageSource } from '../i
 import { parseMarkdownImages } from '../images/markdownImages';
 import type { AssetResolver } from '../platform/types';
 import { applyHeadingNumbering } from './headingNumbering';
+import { applySpecialHeadings } from './specialHeadings';
 import { applyTableOfContents } from './tableOfContents';
 import {
   PagedJsAdapter,
@@ -71,6 +72,7 @@ export class RenderEngine {
     wrapper.innerHTML = html;
     bindImageFallbacks(wrapper);
     applyHeadingNumbering(wrapper);
+    applySpecialHeadings(wrapper);
     applyTableOfContents(wrapper, pageSetup.toc?.maxLevel);
 
     const tempContainer = document.createElement('div');

@@ -1,16 +1,16 @@
 # Clear Writer Documentation Map
 
-This document maps the documentation that should be written for Clear Writer to the current codebase. It is intended to be the first planning artifact for a fuller user guide, administrator/deployment guide, and developer guide.
+This document maps the Clear Writer documentation set to the current codebase. It is intended to be the first planning artifact for a fuller user guide, administrator/deployment guide, and developer guide, while still reflecting the features that actually ship today.
 
 ## Product Summary
 
-Clear Writer is a browser/PWA Markdown writing app. It uses CodeMirror for source editing, compiles Markdown through a Unified/Remark/Rehype pipeline, renders a live paginated preview through Paged.js, and persists projects either in browser storage or a user-selected local folder. A project is made of Markdown section files, image assets, and a `settings.json` file that controls document layout and styling.
+Clear Writer is a browser/PWA Markdown writing app. It uses CodeMirror for source editing, compiles Markdown through a Unified/Remark/Rehype pipeline, renders a live paginated preview through Paged.js, and persists projects either in browser storage or a user-selected local folder. A project is made of Markdown section files, image assets, and a `settings.json` file that controls document layout, styling, metadata, special headings, and editor behavior.
 
 Primary source references:
 
 - `src/main.ts`: application entry point and worker/app boot switch.
-- `src/boot/app.ts`: runtime wiring for shell, editor, preview, settings, project loading, service worker, and exports.
-- `src/ui/components/AppShell.ts`: three-pane shell structure.
+- `src/boot/app.ts`: runtime wiring for the app layout, editor, preview, settings, project loading, service worker, and exports.
+- `src/ui/components/AppShell.ts`: three-pane application layout.
 - `src/ui/components/ProjectExplorer.ts`: project explorer controls and image browser.
 - `src/ui/components/EditorPanel.ts`: CodeMirror editor toolbar and document tools.
 - `src/ui/components/PreviewPanel.ts`: live preview and export controls.
@@ -30,14 +30,14 @@ Should cover:
 - Markdown authoring with a live paginated preview.
 - Project-based writing with multiple sections.
 - Browser/PWA runtime expectations.
-- Export targets: browser PDF; DOCX implementation is present but deferred in the active web runtime.
-- Settings-driven document styling.
+- Export targets: browser PDF; DOCX implementation exists in source but is disabled in the active browser runtime.
+- Settings-driven document styling, metadata, and special-heading behavior.
 - Browser storage versus local folder projects.
 
 Source map:
 
 - `package.json` for name, description, scripts, and dependencies.
-- `src/ui/components/AppShell.ts` for visible layout.
+- `src/ui/components/AppShell.ts` for visible application layout.
 - `src/boot/app.ts` for initialized features.
 - `public/manifest.webmanifest` for PWA metadata.
 - `public/sw.js` and `src/sw-registration.ts` for service worker behavior.
@@ -61,14 +61,14 @@ Should cover:
 - Creating folders and Markdown section files.
 - Switching between full-document preview and single-section editing.
 - Adding images and inserting image references.
-- Exporting PDF and DOCX.
+- Exporting PDF and recognizing that DOCX is unavailable in the browser runtime.
 
 Source map:
 
 - `package.json` scripts.
 - `src/ui/components/ProjectExplorer.ts` for new/open/save/close controls.
 - `src/ui/sidebar/SidebarController.ts` and related sidebar files for section/image interactions.
-- `src/ui/project-flow-modal.ts` for project creation/opening flow.
+- `src/ui/project-flow-modal.ts` for project creation and opening flow.
 - `src/ui/editor-manager.ts` for full-document mode and section editing behavior.
 - `src/services/ProjectService.ts` for project operations.
 
@@ -88,7 +88,7 @@ Should cover:
 - Section files and folders.
 - Creating, renaming, moving, deleting sections.
 - Drag/drop or move behavior if exposed by sidebar interactions.
-- Page break, header visibility, footer visibility, heading numbering, and TOC section flags.
+- Page break, header visibility, footer visibility, heading numbering, TOC, and special heading flags.
 - Image upload, image preview, and insert-at-cursor behavior.
 - Autosave, save state, draft recovery, and navigation safeguards.
 - Project health and recovery for malformed or missing `settings.json`.
@@ -102,6 +102,7 @@ Source map:
 - `src/editor/DraftRecoveryStore.ts`: draft recovery.
 - `src/ui/sidebar/*`: visible project tree interactions.
 - `src/ui/project-review.ts` and `src/services/project-review.ts`: project review behavior.
+- `src/ui/components/SpecialHeadingsDrawer.ts` and `src/ui/special-headings-setup.ts`: special heading controls.
 
 Suggested file:
 
@@ -120,13 +121,13 @@ Should cover:
 - Find and replace.
 - Project-wide search.
 - Document outline.
-- Focus mode.
 - Symbol picker.
 - Word count and reading-time indicator.
 - Custom inline style pairs.
 - Custom quote/block style prefixes.
 - Markdown tables and table style selection.
 - Markdown images and HTML image support.
+- Special heading directives and preview-time transforms.
 
 Source map:
 
@@ -140,6 +141,7 @@ Source map:
 - `src/compiler/index.ts`: Markdown compile chain.
 - `src/compiler/remark-plugins/*`: custom Markdown transforms.
 - `src/compiler/rehype-plugins/*`: post-Markdown HTML transforms.
+- `src/preview/specialHeadings.ts`: special heading rendering.
 
 Suggested file:
 
@@ -161,6 +163,7 @@ Should cover:
 - Header/footer rendering.
 - Heading numbering.
 - Table of contents rendering.
+- Special heading handling.
 - Image resolution and fallbacks.
 - Preview diagnostics chip.
 
@@ -173,6 +176,7 @@ Source map:
 - `src/preview/CssGenerator.ts`: dynamic page, typography, list, and table CSS.
 - `src/preview/headingNumbering.ts`: heading numbering transform.
 - `src/preview/tableOfContents.ts`: TOC transform.
+- `src/preview/specialHeadings.ts`: special heading transform.
 - `src/images/imageSources.ts`: image fallback and source resolution.
 - `src/perf/preview-metrics.ts`: preview metrics.
 
@@ -184,7 +188,7 @@ Suggested file:
 
 Audience: authors, template designers, testers.
 
-Purpose: describe every settings drawer and how settings affect preview/export.
+Purpose: describe every in-app settings panel and how settings affect preview/export in the browser/PWA UI.
 
 Should cover:
 
@@ -196,6 +200,7 @@ Should cover:
   - Cell content, font family, size, color, bold, italic, and alignment.
   - `{page}` placeholder and line breaks.
   - Per-section header/footer visibility.
+  - Special heading definitions.
 - Typography styles:
   - Paragraph and H1-H6 font family, size, color, bold, italic.
   - Line height and top/bottom margins.
@@ -231,6 +236,7 @@ Source map:
 - `src/ui/components/ListsDrawer.ts`: list controls.
 - `src/ui/components/TablesDrawer.ts`: table controls.
 - `src/ui/components/TocSetupDrawer.ts`: TOC controls.
+- `src/ui/components/SpecialHeadingsDrawer.ts`: special heading controls.
 - `src/ui/components/EditorSettingsDrawer.ts`: editor controls.
 - `src/ui/components/CustomStylesDrawerTemplate.ts`: custom style controls.
 - `src/services/SettingsService.ts`: settings persistence.
@@ -319,7 +325,7 @@ Should cover:
 
 - Boot sequence:
   - `src/main.ts` selects app boot or worker boot based on `?worker=true`.
-  - `src/boot/app.ts` renders shell and wires services.
+  - `src/boot/app.ts` renders the app layout and wires services.
   - `src/boot/worker.ts` handles worker-mode pagination plumbing.
 - State model:
   - `state` as an evented immutable snapshot store.
@@ -373,7 +379,7 @@ Should cover:
 - Paged.js preview pagination and browser print PDF export.
 - Browser/PWA runtime, OPFS, IndexedDB, File System Access API, and service worker behavior.
 - Workspace adapter contracts and shared project-path utilities.
-- DOCX implementation status and lazy loading.
+- DOCX implementation status and the current browser-runtime disablement.
 - Unit, browser smoke, performance, PWA, and release-preparation checks.
 
 Source map:
@@ -409,7 +415,7 @@ Should cover:
 - Unit/integration tests with `npm test`.
 - Performance tests with `npm run test:perf`.
 - Browser smoke tests with `npm run test:browser-smoke`.
-- PWA shell smoke tests with `npm run test:pwa-smoke`.
+- PWA smoke tests with `npm run test:pwa-smoke`.
 - Release prep with `npm run release:prep`.
 - Profiling with `npm run profile:preview` and `npm run profile:pagination`.
 
@@ -432,7 +438,7 @@ Suggested file:
 
 ### `src/boot`
 
-Owns application and worker startup. The app boot renders the shell, creates the editor manager, initializes settings drawers and sidebar, binds export controls, registers lifecycle protections, and opens/restores projects.
+Owns application and worker startup. The app boot renders the app layout, creates the editor manager, initializes the in-app settings panels and sidebar, binds export controls, registers lifecycle protections, and opens/restores projects.
 
 Documentation ownership:
 
@@ -500,7 +506,7 @@ Documentation ownership:
 
 ### `src/preview`
 
-Owns preview rendering, Paged.js integration, scroll sync, CSS generation, heading numbering, table of contents, and multi-section document rendering.
+Owns preview rendering, Paged.js integration, scroll sync, CSS generation, heading numbering, table of contents, special headings, and multi-section document rendering.
 
 Documentation ownership:
 
@@ -521,7 +527,7 @@ Documentation ownership:
 
 ### `src/ui`
 
-Owns DOM setup for drawers, sidebar, project flow modal, keyboard shortcuts, project metadata, page/list/table/TOC setup, search, review, outline, and reusable UI components.
+Owns DOM setup for settings panels, sidebar, project flow modal, keyboard shortcuts, project metadata, page/list/table/TOC setup, special headings, search, review, outline, and reusable UI components.
 
 Documentation ownership:
 
@@ -594,10 +600,9 @@ Primary source:
 - CodeMirror Markdown editor.
 - Markdown toolbar commands.
 - Search panel.
-- Project search drawer.
-- Document outline drawer.
-- Project review drawer.
-- Focus mode control.
+- Project search panel.
+- Document outline panel.
+- Project review panel.
 - Symbol picker.
 - Autosave and save status.
 - Draft recovery.
@@ -625,6 +630,7 @@ Primary source:
 - Header/footer margin boxes.
 - Heading numbering.
 - Table of contents.
+- Special headings.
 - Image resolution through active workspace.
 
 Primary source:
@@ -636,6 +642,7 @@ Primary source:
 - `src/preview/document-rendering/*`
 - `src/preview/headingNumbering.ts`
 - `src/preview/tableOfContents.ts`
+- `src/preview/specialHeadings.ts`
 
 ### Settings Features
 
@@ -644,6 +651,7 @@ Primary source:
 - List setup.
 - Table setup.
 - TOC setup.
+- Special heading setup.
 - Project metadata.
 - Custom inline styles.
 - Custom quote/block styles.
@@ -662,11 +670,11 @@ Primary source:
 ### Export Features
 
 - PDF export where supported by the browser export service.
-- DOCX export implementation through the `docx` package, currently deferred by the active browser export service and lazy-loaded when enabled.
+- DOCX export implementation through the `docx` package, currently unavailable in the active browser runtime.
 - Durable snapshot generation before export.
 - Image preloading and resolution.
 - Header/footer rendering.
-- TOC and heading numbering transforms before DOCX conversion.
+- TOC, special heading, and heading numbering transforms before DOCX conversion.
 - Export cache, stale-render retry, and performance metrics for PDF.
 
 Primary source:
@@ -689,12 +697,14 @@ Fields:
 - `marginTop`, `marginBottom`, `marginLeft`, `marginRight`: margins in millimeters.
 - `header`, `footer`: three-cell rows.
 - `toc`: table of contents settings.
-- `showGuidelines`: preview guide overlay.
+- `specialHeadings`: special heading definitions.
+- `showGuidelines`: preview guide lines.
 
 Related UI:
 
-- Page setup drawer.
-- TOC drawer.
+- Page setup panel.
+- TOC panel.
+- Special headings panel.
 - Preview renderer.
 - PDF and DOCX export.
 
@@ -709,7 +719,7 @@ Each style includes font family, font size, color, bold, italic, line height, to
 
 Related UI:
 
-- Typography drawer.
+- Typography panel.
 - Editor Markdown appearance for heading/link/strong/emphasis styling.
 - Preview CSS.
 - DOCX conversion.
@@ -728,7 +738,7 @@ Each style includes font, marker/counter icon, marker color, and marker/text spa
 
 Related UI:
 
-- Lists drawer.
+- Lists panel.
 - Remark list marker plugin.
 - Preview CSS.
 - DOCX conversion.
@@ -744,7 +754,7 @@ Each table style includes font settings, header/body/alternate-row colors, borde
 
 Related UI:
 
-- Tables drawer.
+- Tables panel.
 - Remark table style plugin.
 - Preview CSS.
 - DOCX conversion.
@@ -765,7 +775,7 @@ Fields:
 
 Related UI:
 
-- Project metadata drawer.
+- Project metadata panel.
 - Metadata substitution plugin.
 - Header/footer text substitution.
 - DOCX document properties.
@@ -881,7 +891,7 @@ Commands from `package.json`:
 | `npm test` | Run Node test suite in `test/*.test.cjs`. |
 | `npm run test:perf` | Run performance tests in `test/*.perf.cjs`. |
 | `npm run test:browser-smoke` | Run release browser smoke script. |
-| `npm run test:pwa-smoke` | Build and run web shell/PWA smoke script. |
+| `npm run test:pwa-smoke` | Build and run web/PWA smoke script. |
 | `npm run release:prep` | Run tests, perf, browser smoke, and PWA smoke. |
 | `npm run profile:preview` | Profile preview performance. |
 | `npm run profile:pagination` | Profile pagination performance. |
@@ -889,7 +899,6 @@ Commands from `package.json`:
 
 ## Open Questions For Future Docs
 
-- Confirm whether the product should consistently be called "PWA" rather than "WPA" in user-facing documentation.
 - Decide whether docs should be split by audience under `docs/user`, `docs/reference`, and `docs/developer`.
 - Decide whether screenshots are required for the first user-guide pass.
 - Document exact browser support once tested against target browsers.

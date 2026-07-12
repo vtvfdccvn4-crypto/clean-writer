@@ -19,6 +19,7 @@ Clear Writer is a browser/PWA application. It does not use Electron, a desktop s
 - `public/sw.js` provides the production service worker and prunes obsolete hashed assets while preserving the current shell and referenced resources.
 - Browser storage uses OPFS, IndexedDB catalogues, Blob URLs, and browser persistence APIs.
 - Local-folder projects use the File System Access API when `showDirectoryPicker` is available.
+- Special headings, TOC, section visibility, and other document controls are configured through project settings and rendered into both preview and export flows.
 
 ## Editor And UI Frameworks
 
@@ -47,7 +48,7 @@ Clear Writer adds compiler plugins for images, metadata, custom inline styles, c
 - Paged.js provides live paginated preview rendering and page layout.
 - A small postinstall patch adds null guards to the installed Paged.js DOM helpers. `patch-pagedjs.js` validates that the expected functions and guards are present after installation.
 - PDF export uses the browser print API. `BrowserExportService` prefers a hidden iframe and falls back to a popup when required.
-- `docx` provides the DOCX conversion implementation. DOCX is currently disabled in the active browser runtime and is loaded as a separate chunk only when a runtime enables it.
+- `docx` provides the DOCX conversion implementation. DOCX is present in source, but the active browser runtime disables it and the UI marks the button unavailable.
 
 ## Storage Architecture
 

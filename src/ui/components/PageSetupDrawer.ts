@@ -10,7 +10,7 @@ const renderCellConfig = (type: 'header' | 'footer') => {
   return `
     <label class="drawer-control">
       <span>Content</span>
-      <input id="${prefix}-content" type="text" placeholder="Content (use {page} for page, <br> for new line)">
+      <textarea id="${prefix}-content" class="drawer-control-input--tall" rows="2" placeholder="Content (use {page} for page, <br> for new line)"></textarea>
     </label>
     ${renderDrawerFontStyleStack({
       fontId: `${prefix}-font`,

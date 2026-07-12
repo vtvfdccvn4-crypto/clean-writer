@@ -1,4 +1,5 @@
 import { state } from '/src/state.ts';
+import { click, waitFor } from './helpers/smoke-dom.ts';
 
 declare global {
   interface Window {
@@ -16,21 +17,6 @@ window.alert = (message?: unknown) => {
 (window as any).showDirectoryPicker = async () => {
   return navigator.storage.getDirectory();
 };
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const value = read();
-    if (value) return value;
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  throw new Error(`Timed out waiting for browser smoke condition: ${label}`);
-}
-
-async function click(selector: string): Promise<void> {
-  const element = await waitFor(`selector ${selector}`, () => document.querySelector<HTMLElement>(selector));
-  element.click();
-}
-
 async function run() {
   await import('/src/main.ts');
   await waitFor('app ready flag or boot error', () => (

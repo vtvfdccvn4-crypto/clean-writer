@@ -320,7 +320,7 @@ function convertBlockNodeToDocx(
 
       // H1 automatic page break logic
       let pageBreakBefore = undefined;
-      if (tagName === 'h1' && context) {
+      if ((tagName === 'h1' || (el.classList.contains('special-heading') && el.getAttribute('data-break-before') === 'true')) && context) {
         if (context.renderedAny && !context.lastWasSectionBreak) {
           pageBreakBefore = true;
         }

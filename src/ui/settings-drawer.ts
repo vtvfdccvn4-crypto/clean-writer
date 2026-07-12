@@ -9,6 +9,7 @@ export type SettingsTabId =
   | 'lists'
   | 'tables'
   | 'toc'
+  | 'special-headings'
   | 'editor'
   | 'inline-styles'
   | 'quote-styles';

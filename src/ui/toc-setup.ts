@@ -30,6 +30,7 @@ const cloneTocStyle = (style?: TocStyle): TocStyle => ({
 
 const cloneTocSetup = (toc?: TocSetup): TocSetup => toc ? {
   maxLevel: toc.maxLevel ?? 6,
+  lineHeight: toc.lineHeight ?? 1.2,
   h1: cloneTocStyle(toc.h1),
   h2: cloneTocStyle(toc.h2),
   h3: cloneTocStyle(toc.h3),
@@ -38,6 +39,7 @@ const cloneTocSetup = (toc?: TocSetup): TocSetup => toc ? {
   h6: cloneTocStyle(toc.h6)
 } : {
   maxLevel: 6,
+  lineHeight: 1.2,
   h1: defaultTocStyle(),
   h2: defaultTocStyle(),
   h3: defaultTocStyle(),
@@ -53,6 +55,7 @@ const getLevelKey = (level: TocLevel): TocLevelKey => `h${level}` as TocLevelKey
 export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<void>) {
   const applyButton = document.getElementById('btn-apply-toc-setup')!;
   const maxLevelSelect = document.getElementById('toc-max-level') as HTMLSelectElement;
+  const lineHeightInput = document.getElementById('toc-line-height') as HTMLInputElement;
   const headingLevelSelect = document.getElementById('toc-heading-level') as HTMLSelectElement;
   const fontSelect = document.getElementById('toc-selected-font') as HTMLSelectElement;
   const sizeInput = document.getElementById('toc-selected-size') as HTMLSelectElement;
@@ -102,7 +105,15 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
     });
   };
 
+  const syncLineHeightToWorkingSetup = () => {
+    workingSetup.lineHeight = readDrawerNumber(lineHeightInput, workingSetup.lineHeight ?? 1.2, {
+      min: 0.5,
+      max: 3
+    });
+  };
+
   maxLevelSelect.value = String(state.current.pageSetup.toc?.maxLevel ?? 6);
+  lineHeightInput.value = String(state.current.pageSetup.toc?.lineHeight ?? 1.2);
   activeLevel = getTocLevel(Number.parseInt(headingLevelSelect.value, 10));
   syncSelectedLevelInputs();
 
@@ -115,6 +126,7 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
   };
 
   maxLevelSelect.addEventListener('change', syncMaxLevelToWorkingSetup);
+  lineHeightInput.addEventListener('input', syncLineHeightToWorkingSetup);
   headingLevelSelect.addEventListener('change', () => updateActiveLevel(getTocLevel(Number.parseInt(headingLevelSelect.value, 10))));
   fontSelect.addEventListener('change', syncCurrentToWorkingSetup);
   sizeInput.addEventListener('input', syncCurrentToWorkingSetup);
@@ -128,6 +140,7 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
     const toc = state.current.pageSetup.toc;
     maxLevelSelect.value = String(toc?.maxLevel ?? 6);
     workingSetup = cloneTocSetup(toc);
+    lineHeightInput.value = String(workingSetup.lineHeight ?? 1.2);
     activeLevel = getTocLevel(Number.parseInt(headingLevelSelect.value, 10));
     headingLevelSelect.value = String(activeLevel);
     syncSelectedLevelInputs();
@@ -155,6 +168,7 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
 
   applyButton.addEventListener('click', async () => {
     storeActiveLevelStyle();
+    syncLineHeightToWorkingSetup();
     const setup = { ...state.current.pageSetup, toc: workingSetup };
     state.setPageSetup(setup);
     await onSaveSetup(setup);
@@ -218,19 +232,6 @@ function renderTocSectionControls(container: HTMLElement, selectedPath: string |
 
   const card = document.createElement('section');
   card.className = 'drawer-card section-visibility-card toc-section-card';
-
-  const headerRow = document.createElement('div');
-  headerRow.className = 'section-visibility-card-head';
-
-  const titleDiv = document.createElement('div');
-  titleDiv.className = 'drawer-card-head section-visibility-card-title';
-  const title = document.createElement('span');
-  title.textContent = node.name;
-  const kind = document.createElement('span');
-  kind.textContent = node.isDir ? 'Folder' : 'File';
-  titleDiv.append(title, kind);
-  headerRow.appendChild(titleDiv);
-  card.appendChild(headerRow);
 
   const togglesRow = document.createElement('div');
   togglesRow.className = 'drawer-control-stack section-visibility-actions';

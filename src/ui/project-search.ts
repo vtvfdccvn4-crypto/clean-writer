@@ -13,24 +13,30 @@ export function initProjectSearchDrawer(platform: Platform, editorManager: Edito
   const emptyState = document.getElementById('project-search-empty');
 
   if (!btnOpen || !drawer || !input || !statusContainer || !resultsContainer || !emptyState) return;
+  const drawerEl = drawer;
 
   let currentAbortController: AbortController | null = null;
   let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+  let focusTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  drawer.querySelector<HTMLElement>('.drawer-close-button')?.addEventListener('click', () => {
-    closeDrawer(drawer);
+  drawerEl.querySelector<HTMLElement>('.drawer-close-button')?.addEventListener('click', () => {
+    closeDrawer(drawerEl);
   });
 
   btnOpen.addEventListener('click', () => {
-    const isOpening = drawer.classList.contains('hidden');
-    toggleDrawer(drawer);
+    const isOpening = drawerEl.classList.contains('hidden');
+    toggleDrawer(drawerEl);
     if (isOpening) {
-      setTimeout(() => input.focus(), 50);
+      if (focusTimeout) clearTimeout(focusTimeout);
+      focusTimeout = setTimeout(() => {
+        focusTimeout = null;
+        input.focus();
+      }, 50);
     }
   });
 
-  drawer.addEventListener('transitionend', () => {
-    if (drawer.classList.contains('hidden')) {
+  drawerEl.addEventListener('transitionend', () => {
+    if (drawerEl.classList.contains('hidden')) {
       clearSearch();
     }
   });
@@ -43,7 +49,7 @@ export function initProjectSearchDrawer(platform: Platform, editorManager: Edito
   });
 
   state.on(APP_STATE_EVENTS.projectTreeChanged, () => {
-    if (!drawer.classList.contains('hidden')) {
+    if (!drawerEl.classList.contains('hidden')) {
       void performSearch(input.value);
     } else {
       clearSearch();
@@ -169,7 +175,12 @@ export function initProjectSearchDrawer(platform: Platform, editorManager: Edito
 
   async function navigateToResult(result: ProjectSearchResult) {
     if (!await editorManager.prepareForNavigation()) return;
+    if (focusTimeout) {
+      clearTimeout(focusTimeout);
+      focusTimeout = null;
+    }
     state.setActiveFile(result.path);
+    closeDrawer(drawerEl);
     // Request animation frame allows the new file to render before we try to focus
     requestAnimationFrame(() => {
       editorManager.focusLine(result.line);

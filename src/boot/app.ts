@@ -21,8 +21,10 @@ import { APP_STATE_EVENTS } from '../state';
 import { previewMetrics } from '../perf/preview-metrics';
 import { initTablesDrawer } from '../ui/tables-setup';
 import { initTocSetupDrawer } from '../ui/toc-setup';
+import { initSpecialHeadingsDrawer } from '../ui/special-headings-setup';
 import { initSettingsDrawer } from '../ui/settings-drawer';
 import { applyHeadingNumbering } from '../preview/headingNumbering';
+import { applySpecialHeadings } from '../preview/specialHeadings';
 import { applyTableOfContents } from '../preview/tableOfContents';
 import { resolveImageSource } from '../images/imageSources';
 import type { Platform, WorkspaceSession } from '../platform/types';
@@ -223,6 +225,7 @@ export async function bootApp(platform: Platform) {
             
             // Run preview-time transforms on the parsed DOM structure
             applyHeadingNumbering(doc.body);
+            applySpecialHeadings(doc.body);
             applyTableOfContents(doc.body, state.get.pageSetup.toc?.maxLevel);
             
             return doc.body;
@@ -305,6 +308,9 @@ export async function bootApp(platform: Platform) {
   });
 
   initTocSetupDrawer(async (pageSetup) => {
+    await saveSettingsWithNotice((session) => SettingsService.saveSettings(session, pageSetup));
+  });
+  initSpecialHeadingsDrawer(async (pageSetup) => {
     await saveSettingsWithNotice((session) => SettingsService.saveSettings(session, pageSetup));
   });
   

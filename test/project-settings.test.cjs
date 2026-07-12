@@ -117,7 +117,7 @@ test('legacy project settings are migrated to the current schema', () => {
   assert.equal(settings.projectMetadata.documentTitle, '');
   assert.equal(settings.listSetup.ol.bulletIcon, 'decimal');
   assert.equal(settings.listSetup.olParen.bulletIcon, 'decimal');
-  assert.equal(settings.tableSetup.table1.headerBackground, '#5d7561');
+  assert.equal(settings.tableSetup.table1.headerBackground, '#405a78');
   assert.equal(settings.tableSetup.table2.headerBackground, '#e8ece8');
   assert.equal(settings.customStyles.length, 1);
   assert.equal(settings.customBlockStyles.length, 0);

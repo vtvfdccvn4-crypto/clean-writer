@@ -36,13 +36,20 @@ export const DEFAULT_PAGE_SETUP: PageSetup = {
   },
   toc: {
     maxLevel: 6,
+    lineHeight: 1.2,
     h1: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
     h2: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
     h3: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
     h4: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
     h5: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
     h6: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, isAllCaps: false }
-  }
+  },
+  specialHeadings: [{
+    id: 'exercise', name: 'Exercise', directive: ':::exercise', headingLevel: 3,
+    counterPrefix: 'Exercise ', counterStart: 1, counterSuffix: '', breakBefore: true, includeInToc: true,
+    fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000',
+    isBold: true, isItalic: false, isAllCaps: false, lineHeight: 1.2, marginTop: 12, marginBottom: 6
+  }]
 };
 
 export const DEFAULT_TYPOGRAPHY_SETUP: TypographySetup = {

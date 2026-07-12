@@ -88,6 +88,26 @@ export function generatePageCss(s: PageSetup): string {
     isItalic: false,
     isAllCaps: false
   };
+  const tocLineHeight = typeof s.toc?.lineHeight === 'number' && Number.isFinite(s.toc.lineHeight)
+    ? Math.min(3, Math.max(0.5, s.toc.lineHeight))
+    : 1.2;
+  const specialHeadingCss = (s.specialHeadings || []).map(item => `
+    .special-heading[data-special-heading-id="${item.id}"] {
+      break-before: ${item.breakBefore ? 'page' : 'auto'} !important;
+      page-break-before: ${item.breakBefore ? 'always' : 'auto'} !important;
+    }
+    .pagedjs_page_content .special-heading[data-special-heading-id="${item.id}"] {
+      font-family: "${item.fontFamily}", serif !important;
+      font-size: ${item.fontSize}pt !important;
+      color: ${item.color} !important;
+      font-weight: ${item.isBold ? 'bold' : 'normal'} !important;
+      font-style: ${item.isItalic ? 'italic' : 'normal'} !important;
+      text-transform: ${item.isAllCaps ? 'uppercase' : 'none'} !important;
+      line-height: ${item.lineHeight} !important;
+      margin-top: ${item.marginTop}pt !important;
+      margin-bottom: ${item.marginBottom}pt !important;
+    }
+  `).join('');
   const renderTocLevelStyle = (level: number) => {
     const style = s.toc?.[`h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'] || defaultTocStyle;
     return `
@@ -178,6 +198,8 @@ export function generatePageCss(s: PageSetup): string {
       font: inherit;
       color: inherit;
     }
+    .special-heading-number { font: inherit; color: inherit; }
+    ${specialHeadingCss}
 
     .page-no-header {
       /* Marker class resolved after pagination to avoid page reflow. */
@@ -212,6 +234,7 @@ export function generatePageCss(s: PageSetup): string {
     }
     .table-of-contents .toc-item {
       margin: 0.2em 0;
+      line-height: ${tocLineHeight};
     }
     .table-of-contents .toc-item.toc-level-1 { margin-left: 0; margin-top: 1em; }
     .table-of-contents .toc-item.toc-level-2 { margin-left: 1.5em; }

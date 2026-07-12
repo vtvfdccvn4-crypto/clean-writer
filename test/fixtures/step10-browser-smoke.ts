@@ -1,13 +1,8 @@
 import { state } from '/src/state.ts';
+import { click, getTexts, isHidden, waitFor } from './helpers/smoke-dom.ts';
 
 declare global { interface Window { __HARNESS_RESULT__?: Record<string, unknown>; __CLEAR_WRITER_READY__?: boolean; __CLEAR_WRITER_BOOT_ERROR__?: string; } }
 
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 30000): Promise<T> {
-  const end = Date.now() + timeoutMs;
-  while (Date.now() < end) { const value = read(); if (value) return value; await new Promise(resolve => setTimeout(resolve, 40)); }
-  throw new Error(`Timed out waiting for ${label}`);
-}
-async function click(selector: string) { (await waitFor(selector, () => document.querySelector<HTMLElement>(selector))).click(); }
 async function createSection(name: string, template: string) {
   await click('#btn-new-section');
   const row = await waitFor(`${name} create row`, () => document.querySelector<HTMLElement>('.tree-inline-create'));
@@ -60,14 +55,14 @@ async function run() {
   await new Promise(resolve => setTimeout(resolve, 500));
 
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', ctrlKey: true, shiftKey: true, bubbles: true }));
-  await waitFor('review drawer', () => !document.getElementById('project-review-drawer')?.classList.contains('hidden'));
+  await waitFor('review drawer', () => !isHidden(document.getElementById('project-review-drawer')));
   await waitFor('review completion', () => {
     const refresh = document.getElementById('project-review-refresh') as HTMLButtonElement | null;
     const status = document.getElementById('project-review-status')?.textContent;
     return refresh && !refresh.disabled && status !== 'Reviewing...';
   });
   const reviewCount = await waitFor('review results', () => document.querySelectorAll('.project-review-result').length);
-  const reviewKinds = Array.from(document.querySelectorAll('.project-review-result strong')).map(node => node.textContent || '');
+  const reviewKinds = getTexts('.project-review-result strong');
   const jumpResult = await waitFor('heading-level review result', () => Array.from(document.querySelectorAll<HTMLButtonElement>('.project-review-result')).find(node => node.textContent?.includes('Heading level jump')));
   state.setActiveFile('sections/DuplicateOne.md');
   await waitFor('review navigation source', () => state.current.activeFile === 'sections/DuplicateOne.md' ? true : null);
@@ -77,9 +72,9 @@ async function run() {
   await waitFor('review navigation', () => state.current.activeFile === 'sections/JumpSection.md' ? true : null);
 
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', ctrlKey: true, shiftKey: true, bubbles: true }));
-  const outlineShortcut = await waitFor('outline shortcut', () => !document.getElementById('document-outline-drawer')?.classList.contains('hidden'));
+  const outlineShortcut = await waitFor('outline shortcut', () => !isHidden(document.getElementById('document-outline-drawer')));
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, shiftKey: true, bubbles: true }));
-  const searchShortcut = await waitFor('search shortcut', () => !document.getElementById('project-search-drawer')?.classList.contains('hidden'));
+  const searchShortcut = await waitFor('search shortcut', () => !isHidden(document.getElementById('project-search-drawer')));
   window.__HARNESS_RESULT__ = { ok: true, projectKind: state.current.projectRef?.kind, templateCount: 5, toolbarEdited, pdfPrintCalled, reviewCount, reviewKinds, outlineShortcut: Boolean(outlineShortcut), searchShortcut: Boolean(searchShortcut) };
 }
 run().catch(error => { window.__HARNESS_RESULT__ = { ok: false, error: error instanceof Error ? error.stack : String(error) }; });

@@ -36,6 +36,15 @@ export const tocSetupDrawerContentTemplate = (): string => `
       </section>
       <section class="drawer-card">
         <div class="drawer-card-head">
+          <span>Spacing</span>
+        </div>
+        ${renderDrawerControl(
+          'Line height',
+          '<input id="toc-line-height" type="number" min="0.5" max="3" step="0.1" value="1.2">'
+        )}
+      </section>
+      <section class="drawer-card">
+        <div class="drawer-card-head">
           <span>Heading style</span>
         </div>
         ${renderDrawerControl(

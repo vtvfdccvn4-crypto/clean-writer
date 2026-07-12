@@ -196,7 +196,7 @@ export function renderDrawerColorControl(id: string, label: string, value = '#00
   return `
     <div class="${classes}" data-drawer-color-field>
       <input id="${id}" type="color" value="${value}" aria-label="${label}">
-      <input class="drawer-color-code" type="text" value="${normalized}" readonly tabindex="-1" aria-hidden="true">
+      <input class="drawer-color-code" type="text" value="${normalized}" aria-label="${label} hex value" spellcheck="false">
     </div>
   `;
 }
@@ -217,13 +217,35 @@ export function initializeDrawerColorControls(root: ParentNode = document): void
     const codeField = field.querySelector<HTMLInputElement>('.drawer-color-code');
     if (!colorInput || !codeField) return;
 
+    const expandShortHex = (hex: string): string => hex
+      .split('')
+      .map(character => character + character)
+      .join('');
+
+    const normalizeHex = (value: string): string | null => {
+      const trimmed = value.trim().replace(/^#/, '');
+      if (!/^[0-9a-fA-F]{3}$/.test(trimmed) && !/^[0-9a-fA-F]{6}$/.test(trimmed)) return null;
+      const expanded = trimmed.length === 3 ? expandShortHex(trimmed) : trimmed;
+      return `#${expanded.toUpperCase()}`;
+    };
+
     const sync = () => {
       codeField.value = colorInput.value.toUpperCase();
+    };
+
+    const syncFromCode = () => {
+      const normalized = normalizeHex(codeField.value);
+      if (!normalized) return;
+      colorInput.value = normalized;
+      codeField.value = normalized;
     };
 
     sync();
     colorInput.addEventListener('input', sync);
     colorInput.addEventListener('change', sync);
+    codeField.addEventListener('input', syncFromCode);
+    codeField.addEventListener('change', syncFromCode);
+    codeField.addEventListener('blur', syncFromCode);
   });
 }
 
@@ -262,11 +284,10 @@ export function renderDrawerFontStyleStack(options: DrawerFontStyleStackOptions)
       )}
       ${renderDrawerControl(
         'Size',
-        renderDrawerSizeSelect(sizeId, sizeValue, sizeIncludeDefault),
-      )}
-      ${renderDrawerControl(
-        'Colour',
-        renderDrawerColorControl(colorId, 'Colour', colorValue),
+        `<div class="drawer-font-size-color">
+          ${renderDrawerSizeSelect(sizeId, sizeValue, sizeIncludeDefault)}
+          ${renderDrawerColorControl(colorId, 'Colour', colorValue)}
+        </div>`,
       )}
       ${renderDrawerControl(
         'Bold',

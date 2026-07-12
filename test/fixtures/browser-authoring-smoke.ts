@@ -1,4 +1,5 @@
 import { state } from '/src/state.ts';
+import { click, getTexts, getVisibleCardTitle, getVisibleDetailsTitle, isHidden, waitFor as waitForSmoke } from './helpers/smoke-dom.ts';
 
 declare global {
   interface Window {
@@ -71,28 +72,15 @@ async function resetBrowserStorage(): Promise<void> {
   }
 }
 
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  window.__HARNESS_PROGRESS__ = label;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const value = read();
-    if (value) return value;
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  throw new Error(`Timed out waiting for browser smoke condition: ${label}`);
-}
-
-async function click(selector: string): Promise<void> {
-  const element = await waitFor(`selector ${selector}`, () => document.querySelector<HTMLElement>(selector));
-  element.click();
-}
+const waitFor = <T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> =>
+  waitForSmoke(label, read, timeoutMs, { reportProgress: true });
 
 async function openSettingsTab(tabId: string): Promise<void> {
   await click('#btn-settings');
   await click(`[data-settings-tab="${tabId}"]`);
   await waitFor(`${tabId} settings tab open`, () => {
-    const drawerOpen = !document.getElementById('settings-drawer')?.classList.contains('hidden');
-    const panelOpen = !document.querySelector<HTMLElement>(`[data-settings-panel="${tabId}"]`)?.classList.contains('hidden');
+    const drawerOpen = !isHidden(document.getElementById('settings-drawer'));
+    const panelOpen = !isHidden(document.querySelector<HTMLElement>(`[data-settings-panel="${tabId}"]`));
     return drawerOpen && panelOpen ? true : null;
   });
 }
@@ -191,8 +179,7 @@ async function run() {
   await openSettingsTab('page-setup');
   await waitFor('page setup shows compact section controls', () => {
     const select = document.getElementById('page-section-visibility-select') as HTMLSelectElement | null;
-    const labels = Array.from(document.querySelectorAll('#page-section-visibility-controls .drawer-control-label'))
-      .map(node => node.textContent?.trim() || '');
+    const labels = getTexts('#page-section-visibility-controls .drawer-control-label');
     return select?.options.length === 1
       && select.options[0]?.textContent?.includes('MyRenamedSection.md')
       && labels.length === 2
@@ -201,16 +188,13 @@ async function run() {
       ? true
       : null;
   });
-  const pageSetupCards = Array.from(document.querySelectorAll('#settings-panel-page-setup > .drawer-body > .drawer-card'));
-  const footerSettings = Array.from(document.querySelectorAll('#settings-panel-page-setup .drawer-summary'))
-    .find(node => node.textContent?.includes('Footer settings'))?.closest('.drawer-details');
-  const sectionConfigurationCard = Array.from(document.querySelectorAll('#settings-panel-page-setup .drawer-card'))
-    .find(card => card.querySelector('h5')?.textContent === 'Section configuration');
-  if (!footerSettings || !sectionConfigurationCard || pageSetupCards.indexOf(sectionConfigurationCard) <= pageSetupCards.indexOf(footerSettings as HTMLElement)) {
+  const pageSetupCards = Array.from(document.querySelectorAll('#settings-panel-page-setup > .drawer-body > .drawer-card, #settings-panel-page-setup > .drawer-body > .drawer-details'));
+  const footerSettings = getVisibleDetailsTitle('#settings-panel-page-setup', 'Footer settings');
+  const sectionConfigurationCard = getVisibleCardTitle('#settings-panel-page-setup', 'Section configuration');
+  if (!footerSettings || !sectionConfigurationCard || pageSetupCards.indexOf(sectionConfigurationCard as HTMLElement) <= pageSetupCards.indexOf(footerSettings as HTMLElement)) {
     throw new Error('Section configuration should appear as a card after Footer settings.');
   }
-  const visibilityControlLabels = Array.from(document.querySelectorAll('#page-section-visibility-controls .drawer-control-label'))
-    .map(node => node.textContent?.trim() || '');
+  const visibilityControlLabels = getTexts('#page-section-visibility-controls .drawer-control-label');
   if (visibilityControlLabels.includes('Heading numbers') || visibilityControlLabels.includes('Table of contents')) {
     throw new Error(`Visibility drawer still contains TOC controls: ${visibilityControlLabels.join(', ')}`);
   }
@@ -218,11 +202,10 @@ async function run() {
 
   await openSettingsTab('toc');
   await waitFor('toc drawer shows real section toggles', () => {
-    const titles = Array.from(document.querySelectorAll('#toc-section-list .section-visibility-card-title h5'))
-      .map(node => node.textContent?.trim() || '');
-    const labels = Array.from(document.querySelectorAll('#toc-section-list .drawer-control-label'))
-      .map(node => node.textContent?.trim() || '');
-    return titles.includes('MyRenamedSection.md')
+    const select = document.getElementById('toc-section-select') as HTMLSelectElement | null;
+    const labels = getTexts('#toc-section-list .drawer-control-label');
+    return select?.options.length === 1
+      && select.options[0]?.textContent?.includes('MyRenamedSection.md')
       && labels.includes('Include in TOC')
       && labels.includes('Heading numbers')
       ? true
@@ -236,8 +219,8 @@ async function run() {
   tocMaxLevelSelect.dispatchEvent(new Event('change', { bubbles: true }));
   document.getElementById('btn-apply-toc-setup')?.click();
   await waitFor('toc max level persisted', () => state.current.pageSetup.toc?.maxLevel === 3 ? true : null);
-  const tocApplyKeepsDrawerOpen = !document.getElementById('settings-drawer')?.classList.contains('hidden')
-    && !document.getElementById('settings-panel-toc')?.classList.contains('hidden');
+  const tocApplyKeepsDrawerOpen = !isHidden(document.getElementById('settings-drawer'))
+    && !isHidden(document.getElementById('settings-panel-toc'));
   if (!tocApplyKeepsDrawerOpen) {
     throw new Error('TOC Apply should keep the drawer open.');
   }
@@ -254,8 +237,8 @@ async function run() {
   await waitFor('compact list drawer controls', () => {
     const unordered = document.getElementById('ul-list-style') as HTMLSelectElement | null;
     const ordered = document.getElementById('ol-list-style') as HTMLSelectElement | null;
-    return !document.getElementById('settings-drawer')?.classList.contains('hidden')
-      && !document.getElementById('settings-panel-lists')?.classList.contains('hidden')
+    return !isHidden(document.getElementById('settings-drawer'))
+      && !isHidden(document.getElementById('settings-panel-lists'))
       && unordered?.options.length === 3
       && ordered?.options.length === 2
       && Boolean(document.getElementById('ul-selected-font'))
@@ -286,8 +269,8 @@ async function run() {
     state.current.listSetup.ulAsterisk.fontSize === 14
     && state.current.listSetup.ulDash.fontSize === 16
   ) ? true : null);
-  const listApplyKeepsDrawerOpen = !document.getElementById('settings-drawer')?.classList.contains('hidden')
-    && !document.getElementById('settings-panel-lists')?.classList.contains('hidden');
+  const listApplyKeepsDrawerOpen = !isHidden(document.getElementById('settings-drawer'))
+    && !isHidden(document.getElementById('settings-panel-lists'));
   if (!listApplyKeepsDrawerOpen) {
     throw new Error('List styles Apply should keep the drawer open.');
   }

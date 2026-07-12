@@ -3,6 +3,7 @@ import type { PageSetup, TypographySetup, ListSetup, TableSetup } from '../state
 import { RenderEngine, type RenderEngineOptions, type RenderResult } from './RenderEngine';
 import { ScrollSync } from './ScrollSync';
 import { applyHeadingNumbering } from './headingNumbering';
+import { applySpecialHeadings } from './specialHeadings';
 import { applyTableOfContents } from './tableOfContents';
 import { bindImageFallbacks } from '../images/imageSources';
 import { previewMetrics } from '../perf/preview-metrics';
@@ -97,6 +98,7 @@ export class PreviewController {
     wrapper.innerHTML = html;
     bindImageFallbacks(wrapper);
     applyHeadingNumbering(wrapper);
+    applySpecialHeadings(wrapper);
     applyTableOfContents(wrapper, this.currentPageSetup.toc?.maxLevel);
     const nextStructure = getHtmlStructure(wrapper);
     const nextHtmlByLine = getHtmlBySourceLine(wrapper);

@@ -17,10 +17,13 @@ export const listsDrawerContentTemplate = (): string => {
         colorValue: '#000000'
       })}
 
-      <div class="drawer-grid drawer-grid-2">
-        ${renderDrawerControl(typeLabel === 'Ordered' ? 'Counter style' : 'Bullet icon', markerHtml)}
-        ${renderDrawerControl('Icon color', renderDrawerColorControl(`${prefix}-bullet-color`, 'Icon color', '#000000'))}
-      </div>
+      ${renderDrawerControl(
+        typeLabel === 'Ordered' ? 'Counter style' : 'Bullet icon',
+        `<div class="drawer-list-marker-controls">
+          ${markerHtml}
+          ${renderDrawerColorControl(`${prefix}-bullet-color`, 'Icon color', '#000000', 'drawer-list-marker-color')}
+        </div>`,
+      )}
 
       <div class="drawer-grid drawer-grid-2">
         <label class="drawer-control">

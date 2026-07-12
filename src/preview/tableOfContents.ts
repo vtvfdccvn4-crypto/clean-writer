@@ -12,7 +12,8 @@ export function applyTableOfContents(wrapper: HTMLElement, requestedMaxLevel = 6
   const maxLevel = Math.min(6, Math.max(1, Math.trunc(requestedMaxLevel)));
   const headings = includedSections.flatMap(section =>
     Array.from(section.querySelectorAll<HTMLElement>(HEADING_SELECTOR))
-  ).filter(heading => Number.parseInt(heading.tagName.substring(1), 10) <= maxLevel);
+  ).filter(heading => Number.parseInt(heading.tagName.substring(1), 10) <= maxLevel)
+    .filter(heading => !heading.classList.contains('special-heading') || heading.dataset.includeInToc !== 'false');
 
   headings.forEach((heading, index) => {
     if (!heading.id) heading.id = `heading-toc-${index}`;

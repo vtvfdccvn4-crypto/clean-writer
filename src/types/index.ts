@@ -27,12 +27,36 @@ export interface TocStyle {
 
 export interface TocSetup {
   maxLevel: number;
+  lineHeight?: number;
   h1: TocStyle;
   h2: TocStyle;
   h3: TocStyle;
   h4: TocStyle;
   h5: TocStyle;
   h6: TocStyle;
+}
+
+export interface SpecialHeadingDefinition {
+  id: string;
+  name: string;
+  directive: string;
+  headingLevel: number;
+  /** @deprecated Migrated to counterPrefix when settings are next saved. */
+  counterLabel?: string;
+  counterStart: number;
+  counterPrefix: string;
+  counterSuffix: string;
+  breakBefore: boolean;
+  includeInToc: boolean;
+  fontFamily: string;
+  fontSize: number;
+  color: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isAllCaps: boolean;
+  lineHeight: number;
+  marginTop: number;
+  marginBottom: number;
 }
 
 export interface PageSetup {
@@ -45,6 +69,7 @@ export interface PageSetup {
   header: HeaderFooterRow;
   footer: HeaderFooterRow;
   toc?: TocSetup;
+  specialHeadings?: SpecialHeadingDefinition[];
   showGuidelines?: boolean;
 }
 

@@ -2,7 +2,7 @@
 
 This folder is the starting point for the Clear Writer documentation set.
 
-Clear Writer is a browser/PWA document authoring app for writing Markdown in a CodeMirror editor, rendering a live paginated preview with Paged.js, and exporting documents to PDF. The DOCX exporter is present for future browser support but is currently unavailable in the active web runtime. Projects are organized as Markdown sections plus project-level settings for page layout, typography, lists, tables, metadata, custom styles, and editor behavior.
+Clear Writer is a browser/PWA document authoring app for writing Markdown in a CodeMirror editor, rendering a live paginated preview with Paged.js, and exporting documents to PDF. DOCX export is implemented in the source tree, but the active browser runtime intentionally disables it and marks the button unavailable. Projects are organized as Markdown sections plus project-level settings for page layout, typography, lists, tables, metadata, special headings, custom styles, and editor behavior.
 
 ## Documentation Map
 
@@ -14,9 +14,9 @@ Clear Writer is a browser/PWA document authoring app for writing Markdown in a C
 
 - Project workspace: create, open, save, close, organize sections, manage images.
 - Markdown editor: CodeMirror-based authoring, formatting commands, search, source styling, autosave, draft recovery.
-- Live preview: paginated document preview, scroll sync, heading numbering, table of contents, image resolution.
-- Settings: page setup, typography, lists, tables, TOC, editor preferences, custom inline styles, custom quote/block styles.
-- Exports: browser PDF export; DOCX export is currently deferred in the active browser runtime.
+- Live preview: paginated document preview, scroll sync, heading numbering, table of contents, special headings, image resolution.
+- Settings: page setup, typography, lists, tables, TOC, special headings, project metadata, editor preferences, custom inline styles, custom quote/block styles.
+- Exports: browser PDF export; DOCX export is implemented but unavailable in the active browser runtime.
 - Storage: browser OPFS projects and local directory projects when supported by the browser.
 - Runtime: browser/PWA only; there is no Electron or desktop-shell dependency.
 

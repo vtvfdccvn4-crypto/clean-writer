@@ -1,5 +1,6 @@
 import { OPFSCatalogue, OPFSWorkspaceRepository } from '/src/platform';
 import { state } from '/src/state.ts';
+import { waitFor as waitForSmoke } from './helpers/smoke-dom.ts';
 
 declare global {
   interface Window {
@@ -9,15 +10,8 @@ declare global {
   }
 }
 
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const value = read();
-    if (value) return value;
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  throw new Error(`Timed out waiting for restore smoke condition: ${label}`);
-}
+const waitFor = <T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> =>
+  waitForSmoke(label, read, timeoutMs, { timeoutPrefix: 'restore smoke condition' });
 
 async function run() {
   if (new URLSearchParams(window.location.search).get('restoreLastWorkspace') !== 'true') {

@@ -39,13 +39,10 @@ export const typographyDrawerContentTemplate = (): string => `
         <div class="drawer-card-head">
           <span>Spacing</span>
         </div>
-        <div class="drawer-grid drawer-grid-2">
-          <label class="drawer-control">
-            <span>Line height</span>
-            <input type="number" id="typo-line-height" min="0.5" max="3" step="0.1">
-          </label>
-          <span class="drawer-spacer" aria-hidden="true"></span>
-        </div>
+        <label class="drawer-control">
+          <span>Line height</span>
+          <input type="number" id="typo-line-height" min="0.5" max="3" step="0.1">
+        </label>
         <div class="drawer-control-stack">
           <label class="drawer-control">
             <span>Margin top (pt)</span>

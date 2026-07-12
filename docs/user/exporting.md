@@ -6,11 +6,9 @@ This page documents how Clear Writer currently exports PDF output through the br
 
 The current PDF feature is a browser print export, not a server-side PDF renderer and not a direct PDF file writer. Clear Writer prepares a durable document snapshot, forces the live preview renderer to produce Paged.js pages, copies that already-paginated page DOM into an isolated print document, injects print-specific CSS, and calls the browser's `print()` API. The browser print dialog is responsible for the final "Save as PDF" or physical print action.
 
-The user now reaches the print dialog without seeing a second visible copy of the document. The export service prefers a hidden iframe as the print target and only falls back to a blank popup when that iframe cannot be created in the current browser session.
+The export service prefers a hidden iframe as the print target and only falls back to a blank popup when that iframe cannot be created in the current browser session.
 
-The implementation deliberately exports from a durable snapshot instead of trusting stale preview cache state. The first export for a document revision compiles and force-renders that snapshot. Repeated exports reuse the validated paginated result while the project revision, preview revision, document selection, and full-document mode remain unchanged.
-
-Word export is currently deferred in the active browser runtime. Its implementation is loaded lazily only when a runtime enables DOCX support, so the unavailable feature does not add its large dependency to the normal writing startup path.
+Word export is implemented in `src/services/ExportDocxService.ts`, but the active browser runtime intentionally disables it. `BrowserExportService.saveDocx()` returns a failure response and the UI marks Word export unavailable, so the unsupported feature does not affect the normal writing startup path.
 
 ## Primary Modules
 
@@ -22,7 +20,7 @@ Word export is currently deferred in the active browser runtime. Its implementat
 | `src/services/ExportSnapshotService.ts` | Builds export HTML from workspace data and current editor content, preloads image assets, and compiles Markdown through the normal compiler. |
 | `src/compiler/index.ts` and compiler plugins | Convert Markdown into sanitized HTML with Clear Writer-specific transforms such as section wrappers, images, lists, custom styles, metadata, and table styling. |
 | `src/preview/PreviewController.ts` | Owns the live preview lanes and exposes `forceRender()` for export-grade pagination. |
-| `src/preview/RenderEngine.ts` | Runs Paged.js, applies page CSS, heading numbering, TOC, margin box post-processing, typography, list, and table CSS. |
+| `src/preview/RenderEngine.ts` | Runs Paged.js, applies page CSS, heading numbering, TOC, special headings, margin box post-processing, typography, list, and table CSS. |
 | `src/preview/PagedJsAdapter.ts` | Wraps Paged.js `Previewer`, manages render sessions, timeouts, resize listener cleanup, and stale render protection. |
 | `src/preview/CssGenerator.ts` | Generates the Paged.js page, margin, header/footer, TOC, typography, list, and table CSS used by preview pagination. |
 | `src/platform/runtime.ts` | Creates the browser `Platform` and installs `BrowserExportService` as `platform.exportService`. |
@@ -90,7 +88,7 @@ When the button is clicked, `boot/app.ts`:
 7. Sets the status to `exported` or `failed`.
 8. Restores the button to `idle` after a short timeout.
 
-The early print-target preparation is important. Clear Writer now prefers an invisible iframe so the user does not see a second copy of the document. If the iframe target cannot be created, the service falls back to opening a blank popup during the user gesture, keeps the handle, and later writes the export document into that same target.
+The early print-target preparation is important. Clear Writer prefers an invisible iframe so the user does not see a second copy of the document. If the iframe target cannot be created, the service falls back to opening a blank popup during the user gesture, keeps the handle, and later writes the export document into that same target.
 
 ## Durable Snapshot Path
 
@@ -108,7 +106,7 @@ The early print-target preparation is important. Clear Writer now prefers an inv
 
 Image preloading is handled before compilation by scanning Markdown and HTML image references. The service calls `assetResolver.preloadImages(imagePaths)`, which lets the active platform resolve project images to blob URLs before Paged.js or the browser print window needs them.
 
-In full-document mode the snapshot reader now limits workspace section reads to four concurrent operations. That keeps large projects responsive without changing the order of the final document. If a section cannot be read, export fails with a list of the missing paths instead of silently dropping content.
+In full-document mode the snapshot reader limits workspace section reads to four concurrent operations. That keeps large projects responsive without changing the order of the final document. If a section cannot be read, export fails with a list of the missing paths instead of silently dropping content.
 
 ## Compilation Path
 
@@ -144,13 +142,14 @@ This is the point where PDF export intentionally reuses the preview pagination s
 4. Wraps the compiled HTML in a DOM node.
 5. Applies image fallbacks.
 6. Applies heading numbering.
-7. Applies table of contents rendering.
-8. Starts a Paged.js render session through `PagedJsAdapter.beginPreview(...)`.
-9. Waits for Paged.js with a timeout.
-10. Retires Paged.js page listeners before moving completed pages.
-11. Post-processes margin boxes for header/footer visibility and Markdown images.
-12. Applies typography, list, and table dynamic CSS.
-13. Commits the completed `.pagedjs_page` DOM into the visible preview container.
+7. Applies special heading processing.
+8. Applies table of contents rendering.
+9. Starts a Paged.js render session through `PagedJsAdapter.beginPreview(...)`.
+10. Waits for Paged.js with a timeout.
+11. Retires Paged.js page listeners before moving completed pages.
+12. Post-processes margin boxes for header/footer visibility and Markdown images.
+13. Applies typography, list, and table dynamic CSS.
+14. Commits the completed `.pagedjs_page` DOM into the visible preview container.
 
 Once `forceRender()` completes, `compilePaginatedExportSnapshot()` requires a fully committed Paged.js render and verifies that the preview stage contains at least one `.pagedjs_page`. If pagination is stale, times out, or falls back after a Paged.js error, it throws instead of treating the degraded page as a successful PDF export. If no page exists, it throws `PDF export pagination produced no printable pages.`
 
@@ -178,17 +177,16 @@ The service then:
 
 1. Uses the already-prepared hidden iframe print window, or calls `preparePdfExport()` if no target was supplied.
 2. Returns `false` if no print target exists.
-3. Extracts print-relevant rules from linked stylesheets through the CSSOM, retaining Paged.js/page-content, document list/table, custom-block, root-variable, and font-face rules. If a stylesheet cannot be inspected, it falls back to the original stylesheet link and records a print-CSS fallback metric so the fallback path stays visible in diagnostics.
-4. Copies all current inline `<style>` elements into the print document because Paged.js and dynamic document settings use them.
-5. Wraps the paginated HTML in `<main id="clear-writer-pdf-document">`.
-6. Injects print CSS from `buildPdfPrintCss(pageSetup)`.
-7. Writes a complete HTML document into the prepared print target.
-8. Focuses the target only when it is a visible popup fallback.
-9. Registers `afterprint` cleanup so the hidden iframe is removed or the popup is closed after printing.
-10. Waits for print-document stylesheets and images, and waits for fonts in parallel so the font timeout does not add to the resource timeout.
-11. Uses three `requestAnimationFrame()` ticks to let layout settle.
-12. Calls `print()` on the target window.
-13. Resolves `true` once the print call has been made.
+3. Copies the active stylesheets and inline styles into the print document so the isolated export matches the live preview.
+4. Wraps the paginated HTML in `<main id="clear-writer-pdf-document">` and preserves the `#paged-stage` wrapper.
+5. Injects print CSS from `buildPdfPrintCss(pageSetup)`.
+6. Writes a complete HTML document into the prepared print target.
+7. Focuses the target only when it is a visible popup fallback.
+8. Registers `afterprint` cleanup so the hidden iframe is removed or the popup is closed after printing.
+9. Waits for print-document stylesheets and images, and waits for fonts in parallel so the font timeout does not add to the resource timeout.
+10. Uses three `requestAnimationFrame()` ticks to let layout settle.
+11. Calls `print()` on the target window.
+12. Resolves `true` once the print call has been made.
 
 The print service does not know how to paginate the document itself. Its job is to host and print the pages produced by the preview renderer.
 
@@ -226,7 +224,7 @@ Browser-native print headers and footers are not controlled by Clear Writer. The
 
 PDF export reads settings from `state.current` at the time of export:
 
-- `pageSetup`: passed into pagination and print CSS. This controls paper size, margins, header/footer rows, TOC settings, and page guidelines.
+- `pageSetup`: passed into pagination and print CSS. This controls paper size, margins, header/footer rows, TOC settings, special headings, and page guidelines.
 - `typographySetup`: applied by `RenderEngine.applyTypographySetup()` as dynamic CSS.
 - `listSetup`: applied by `RenderEngine.applyListSetup()` as dynamic CSS.
 - `tableSetup`: applied by `RenderEngine.applyTableSetup()` as dynamic CSS.
@@ -251,7 +249,7 @@ The current PDF flow has a few explicit failure boundaries:
 The current behavior is protected by these tests:
 
 - `test/export-snapshot.test.cjs`: verifies durable export snapshots preserve sections, page breaks, current editor content, and bounded full-document workspace reads.
-- `test/browser-export-service.test.cjs`: verifies PDF support is enabled, DOCX is deferred, popup-blocked export returns `false`, hidden iframe preparation is preferred, the prepared target is reused, the print call occurs, the isolated print document contains only export markup, `afterprint` cleanup is registered, and CSS fallback metrics are recorded when stylesheet inspection fails.
+- `test/browser-export-service.test.cjs`: verifies PDF support is enabled, DOCX is unavailable in the active browser runtime, popup-blocked export returns `false`, hidden iframe preparation is preferred, the prepared target is reused, the print call occurs, the isolated print document contains only export markup, `afterprint` cleanup is registered, and CSS fallback metrics are recorded when stylesheet inspection fails.
 - `test/pdf-print-css.test.cjs`: verifies print CSS uses millimetre page sizes, removes transforms/margins, sets page breaks, sizes Paged.js elements, and documents browser print-dialog ownership.
 - `test/fixtures/step10-browser-smoke.ts`: exercises the app through the browser UI and confirms clicking `#btn-export-pdf` invokes the browser PDF mechanism.
 

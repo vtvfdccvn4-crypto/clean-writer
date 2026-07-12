@@ -1,4 +1,5 @@
 import { state } from '/src/state.ts';
+import { click, waitFor } from './helpers/smoke-dom.ts';
 
 declare global {
   interface Window {
@@ -30,28 +31,13 @@ async function resetBrowserStorage(): Promise<void> {
   }
 }
 
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 15_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const value = read();
-    if (value) return value;
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  throw new Error(`Timed out waiting for release smoke condition: ${label}`);
-}
-
-async function click(selector: string): Promise<void> {
-  const element = await waitFor(`selector ${selector}`, () => document.querySelector<HTMLElement>(selector));
-  element.click();
-}
-
 async function run() {
   await resetBrowserStorage();
   await import('/src/main.ts');
 
   await waitFor('app ready flag or boot error', () => (
     window.__CLEAR_WRITER_READY__ === true || Boolean(window.__CLEAR_WRITER_BOOT_ERROR__)
-  ) ? true : null);
+  ) ? true : null, 15_000, { timeoutPrefix: 'release smoke condition' });
   if (window.__CLEAR_WRITER_BOOT_ERROR__) {
     throw new Error(window.__CLEAR_WRITER_BOOT_ERROR__);
   }

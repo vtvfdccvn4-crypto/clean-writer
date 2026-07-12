@@ -13,7 +13,7 @@ export function createHeadingNumberSequence(levels: number[]): string[] {
 /** Decorates opted-in section headings in document order before pagination. */
 export function applyHeadingNumbering(root: ParentNode): void {
   const headings = root.querySelectorAll<HTMLElement>(
-    `.document-section[data-number-headings="true"] :is(${HEADING_SELECTOR})`
+    `.document-section[data-number-headings="true"] :is(${HEADING_SELECTOR}):not(.special-heading)`
   );
   const headingList = Array.from(headings);
   const numbers = createHeadingNumberSequence(

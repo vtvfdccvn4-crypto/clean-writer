@@ -1,6 +1,7 @@
 import { state } from '../../src/state';
 import type { EditorManager } from '../../src/ui/editor-manager';
 import { generateLargeProject } from './helpers/project-generator.ts';
+import { click, isHidden, waitFor as waitForSmoke } from './helpers/smoke-dom.ts';
 
 declare global {
   interface Window {
@@ -11,21 +12,8 @@ declare global {
   }
 }
 
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  window.__HARNESS_PROGRESS__ = label;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const value = read();
-    if (value) return value;
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  throw new Error(`Timed out waiting for browser smoke condition: ${label}`);
-}
-
-async function click(selector: string): Promise<void> {
-  const element = await waitFor(`selector ${selector}`, () => document.querySelector<HTMLElement>(selector));
-  element.click();
-}
+const waitFor = <T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> =>
+  waitForSmoke(label, read, timeoutMs, { reportProgress: true });
 
 async function run() {
   console.log('[PERF] Starting run()');
@@ -87,7 +75,7 @@ async function run() {
   await click('#btn-open-document-outline');
   console.log('[PERF] Click executed, waiting for drawer');
   await waitFor('outline drawer open', () => {
-    const hidden = document.getElementById('document-outline-drawer')?.classList.contains('hidden');
+    const hidden = isHidden(document.getElementById('document-outline-drawer'));
     console.log('[PERF] outline hidden state:', hidden);
     return !hidden ? true : null;
   });
@@ -103,12 +91,12 @@ async function run() {
   
   // Close Outline Drawer
   await click('#document-outline-drawer .drawer-close-button');
-  await waitFor('outline drawer closed', () => document.getElementById('document-outline-drawer')?.classList.contains('hidden') ? true : null);
+  await waitFor('outline drawer closed', () => isHidden(document.getElementById('document-outline-drawer')) ? true : null);
 
   // 2. Measure Search Execution Performance
   const t2 = performance.now();
   await click('#btn-open-project-search');
-  await waitFor('search drawer open', () => !document.getElementById('project-search-drawer')?.classList.contains('hidden') ? true : null);
+  await waitFor('search drawer open', () => !isHidden(document.getElementById('project-search-drawer')) ? true : null);
   (window as any).__HARNESS_PROGRESS__ = 'search drawer opened';
 
   const searchInput = document.getElementById('project-search-input') as HTMLInputElement;
@@ -140,9 +128,9 @@ async function run() {
   // Open and close outline 5 times rapidly
   for (let i = 0; i < 5; i++) {
     await click('#btn-open-document-outline');
-    await waitFor('outline open loop', () => !document.getElementById('document-outline-drawer')?.classList.contains('hidden') ? true : null);
+    await waitFor('outline open loop', () => !isHidden(document.getElementById('document-outline-drawer')) ? true : null);
     await click('#document-outline-drawer .drawer-close-button');
-    await waitFor('outline close loop', () => document.getElementById('document-outline-drawer')?.classList.contains('hidden') ? true : null);
+    await waitFor('outline close loop', () => isHidden(document.getElementById('document-outline-drawer')) ? true : null);
   }
   (window as any).__HARNESS_PROGRESS__ = 'repeated interaction 1 measured';
   
@@ -150,12 +138,12 @@ async function run() {
   // catches stale work and duplicate handlers without depending on timings.
   for (let i = 0; i < 5; i++) {
     await click('#btn-open-project-search');
-    await waitFor('search drawer open loop', () => !document.getElementById('project-search-drawer')?.classList.contains('hidden') ? true : null);
+    await waitFor('search drawer open loop', () => !isHidden(document.getElementById('project-search-drawer')) ? true : null);
     searchInput.value = `SEARCH_LOOP_${i}`;
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     await waitFor('search loop empty state', () => document.getElementById('project-search-empty')?.classList.contains('hidden') === false ? true : null);
     await click('#project-search-drawer .drawer-close-button');
-    await waitFor('search drawer close loop', () => document.getElementById('project-search-drawer')?.classList.contains('hidden') ? true : null);
+    await waitFor('search drawer close loop', () => isHidden(document.getElementById('project-search-drawer')) ? true : null);
   }
   (window as any).__HARNESS_PROGRESS__ = 'repeated interaction 2 measured';
 

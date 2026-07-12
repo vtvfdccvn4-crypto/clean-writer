@@ -6,7 +6,7 @@ import rehypeStringify from 'rehype-stringify';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 
-import { listMarkerPlugin, imageAttributesPlugin, imageSourcePlugin, sourceLinePlugin, customStylesPlugin, customBlockStylesPlugin, metadataSubstitutionPlugin, tableStylePlugin } from './remark-plugins';
+import { listMarkerPlugin, imageAttributesPlugin, imageSourcePlugin, sourceLinePlugin, customStylesPlugin, customBlockStylesPlugin, specialHeadingsPlugin, metadataSubstitutionPlugin, tableStylePlugin } from './remark-plugins';
 import { listLayoutPlugin, tocPlaceholderPlugin } from './rehype-plugins';
 
 const documentSchema = {
@@ -50,6 +50,7 @@ const createMarkdownCompiler = (assetResolver?: AssetResolver | null) => unified
   .use(sourceLinePlugin)
   .use(customStylesPlugin)
   .use(customBlockStylesPlugin, { assetResolver })
+  .use(specialHeadingsPlugin)
   .use(rehypeStringify, { allowDangerousHtml: true });
 
 export async function compileMarkdown(markdown: string, assetResolver?: AssetResolver | null): Promise<string> {

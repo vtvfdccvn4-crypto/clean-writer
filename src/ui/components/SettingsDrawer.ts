@@ -4,6 +4,7 @@ import { listsDrawerContentTemplate } from './ListsDrawer';
 import { tablesDrawerContentTemplate } from './TablesDrawer';
 import { tocSetupDrawerContentTemplate } from './TocSetupDrawer';
 import { editorSettingsDrawerContentTemplate } from './EditorSettingsDrawer';
+import { specialHeadingsDrawerContentTemplate } from './SpecialHeadingsDrawer';
 import {
   customInlineStylesContentTemplate,
   customQuoteStylesContentTemplate
@@ -15,6 +16,7 @@ const settingsTabs = [
   ['lists', 'Lists'],
   ['tables', 'Tables'],
   ['toc', 'TOC'],
+  ['special-headings', 'Special headings'],
   ['editor', 'Editor settings'],
   ['inline-styles', 'Custom inline styles'],
   ['quote-styles', 'Custom quote styles']
@@ -61,6 +63,7 @@ export const settingsDrawerTemplate = (): string => `
         ${renderSettingsPanel('lists', listsDrawerContentTemplate())}
         ${renderSettingsPanel('tables', tablesDrawerContentTemplate())}
         ${renderSettingsPanel('toc', tocSetupDrawerContentTemplate())}
+        ${renderSettingsPanel('special-headings', specialHeadingsDrawerContentTemplate())}
         ${renderSettingsPanel('editor', editorSettingsDrawerContentTemplate())}
         ${renderSettingsPanel('inline-styles', customInlineStylesContentTemplate())}
         ${renderSettingsPanel('quote-styles', customQuoteStylesContentTemplate())}
