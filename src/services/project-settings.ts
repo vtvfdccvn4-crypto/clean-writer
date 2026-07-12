@@ -226,6 +226,7 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
     style.color = safeColor(style.color, fallback.color);
     style.isBold = safeBoolAlias(style, 'isBold', 'bold');
     style.isItalic = safeBoolAlias(style, 'isItalic', 'italic');
+    style.lineHeight = safeNumber(style.lineHeight, fallback.lineHeight, 0.5, 5);
     style.bulletColor = safeColor(style.bulletColor, fallback.bulletColor);
     style.bulletIcon = safeText(style.bulletIcon, fallback.bulletIcon, 32);
     style.marginLeft = safeNumber(style.marginLeft, fallback.marginLeft, 0, 200);

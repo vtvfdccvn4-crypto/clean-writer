@@ -100,6 +100,7 @@ export interface ListStyle {
   color: string;
   isBold: boolean;
   isItalic: boolean;
+  lineHeight: number;
   bulletIcon: string;
   bulletColor: string;
   marginLeft: number; // pt from the content edge to the marker

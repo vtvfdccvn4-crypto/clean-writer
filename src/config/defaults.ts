@@ -63,11 +63,11 @@ export const DEFAULT_TYPOGRAPHY_SETUP: TypographySetup = {
 };
 
 export const DEFAULT_LIST_SETUP: ListSetup = {
-  ulAsterisk: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, bulletIcon: '•', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
-  ulDash: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, bulletIcon: '-', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
-  ulPlus: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, bulletIcon: '+', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
-  ol: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, bulletIcon: 'decimal', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
-  olParen: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, bulletIcon: 'decimal', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 }
+  ulAsterisk: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.6, bulletIcon: '•', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
+  ulDash: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.6, bulletIcon: '-', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
+  ulPlus: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.6, bulletIcon: '+', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
+  ol: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.6, bulletIcon: 'decimal', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
+  olParen: { fontFamily: DEFAULT_LIST_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.6, bulletIcon: 'decimal', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 }
 };
 
 export const DEFAULT_TABLE_SETUP: TableSetup = {

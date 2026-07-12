@@ -317,6 +317,7 @@ export function generateListCss(setup: ListSetup): string {
       color: ${config.color} !important;
       font-weight: ${config.isBold ? 'bold' : 'normal'} !important;
       font-style: ${config.isItalic ? 'italic' : 'normal'} !important;
+      line-height: ${Math.min(5, Math.max(0.5, Number(config.lineHeight) || 1.6))} !important;
     }
   `;
 

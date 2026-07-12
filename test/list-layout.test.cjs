@@ -12,6 +12,7 @@ const listStyle = (overrides = {}) => ({
   color: '#111111',
   isBold: false,
   isItalic: false,
+  lineHeight: 1.6,
   bulletIcon: '•',
   bulletColor: '#222222',
   marginLeft: 20,
@@ -85,6 +86,17 @@ test('ordered list classes keep independent counter styles and spacing', () => {
   assert.match(css, /ol\[data-marker="paren"\] > li \{[\s\S]*?column-gap: 9pt/);
   assert.match(css, /ol\[data-marker="paren"\] > li > \.document-list-marker::before \{[\s\S]*?lower-alpha\) "\)"/);
   assert.doesNotMatch(css, /list-style-position:\s*outside/);
+});
+
+test('list CSS applies independently configured line heights', () => {
+  const setup = listSetup({
+    ulAsterisk: listStyle({ lineHeight: 1.25 }),
+    ol: listStyle({ lineHeight: 1.8 })
+  });
+  const css = generateListCss(setup);
+
+  assert.match(css, /ul\[data-marker="asterisk"\] > li \{[\s\S]*?line-height: 1\.25 !important/);
+  assert.match(css, /ol\[data-marker="period"\] > li \{[\s\S]*?line-height: 1\.8 !important/);
 });
 
 test('list geometry is clamped and marker content is safely escaped', () => {

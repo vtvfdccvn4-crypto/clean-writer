@@ -357,6 +357,7 @@ function convertBlockNodeToDocx(
           color: pStyle.color,
           isBold: false,
           isItalic: false,
+          lineHeight: pStyle.lineHeight,
           bulletIcon: '•',
           bulletColor: pStyle.color,
           marginLeft: 18,
@@ -388,7 +389,8 @@ function convertBlockNodeToDocx(
           indent: {
             left: indentTwips,
             hanging: Math.max(0, Math.round((listStyle.paddingLeft || 0) * 20))
-          }
+          },
+          spacing: { line: Math.round((listStyle.lineHeight || pStyle.lineHeight) * 240) }
         }));
 
         if (context) {
@@ -430,6 +432,7 @@ function convertBlockNodeToDocx(
           color: pStyle.color,
           isBold: false,
           isItalic: false,
+          lineHeight: pStyle.lineHeight,
           bulletIcon: '1.',
           bulletColor: pStyle.color,
           marginLeft: 18,
@@ -462,7 +465,8 @@ function convertBlockNodeToDocx(
 
         paragraphs.push(new Paragraph({
           children: [prefixRun, ...runs],
-          indent: { left: indentTwips }
+          indent: { left: indentTwips },
+          spacing: { line: Math.round((listStyle.lineHeight || pStyle.lineHeight) * 240) }
         }));
 
         if (context) {

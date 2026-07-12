@@ -17,6 +17,11 @@ export const listsDrawerContentTemplate = (): string => {
         colorValue: '#000000'
       })}
 
+      <label class="drawer-control">
+        <span>Line height</span>
+        <input id="${prefix}-line-height" type="number" min="0.5" max="5" step="0.1" value="1.6">
+      </label>
+
       ${renderDrawerControl(
         typeLabel === 'Ordered' ? 'Counter style' : 'Bullet icon',
         `<div class="drawer-list-marker-controls">
