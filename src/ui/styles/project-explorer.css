@@ -251,6 +251,10 @@
   font-weight: 300;
 }
 
+.folder-row .item-title {
+  color: var(--text-main);
+}
+
 .item-subtitle {
   font-size: 10pt;
   opacity: 0.6;

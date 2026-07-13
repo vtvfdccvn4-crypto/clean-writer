@@ -362,6 +362,10 @@
   font-weight: 300;
 }
 
+.folder-row .item-title {
+  color: var(--explorer-text);
+}
+
 .item-subtitle {
   margin-top: 2px;
   color: var(--explorer-muted);

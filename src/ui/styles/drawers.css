@@ -935,6 +935,11 @@
 }
 
 .document-outline-section-name {
+  color: var(--ui-text);
+  font-family: var(--font-ui-tight);
+  font-size: 9.5pt;
+  font-weight: 500;
+  letter-spacing: 0;
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -949,6 +954,11 @@
 }
 
 .document-outline-heading {
+  color: var(--ui-text);
+  font-family: var(--font-ui-tight);
+  font-size: 9.25pt;
+  font-weight: 400;
+  letter-spacing: 0;
   padding: 3px 8px;
   border-radius: 4px;
   cursor: pointer;
