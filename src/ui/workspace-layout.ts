@@ -1,4 +1,4 @@
-type ActivityView = 'explorer' | 'images' | 'outline' | null;
+type ActivityView = string | null;
 
 const STORAGE_KEY = 'clear-writer.explorer-width';
 const MIN_EXPLORER_WIDTH = 220;
@@ -24,11 +24,11 @@ export function initWorkspaceLayout(): void {
   const resizer = document.getElementById('explorer-resizer');
   if (!workspace || !sidebar || !resizer) return;
 
-  const panels = {
-    explorer: sidebar.querySelector<HTMLElement>('.sections-section'),
-    images: sidebar.querySelector<HTMLElement>('.images-section'),
-    outline: sidebar.querySelector<HTMLElement>('.outline-section')
-  };
+  const panels = new Map(
+    [...sidebar.querySelectorAll<HTMLElement>('[data-activity-panel]')]
+      .map((panel) => [panel.dataset.activityPanel, panel] as const)
+      .filter((entry): entry is readonly [string, HTMLElement] => Boolean(entry[0]))
+  );
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-activity-view]')];
   let activeView: ActivityView = 'explorer';
   let explorerWidth = readStoredWidth();
@@ -37,8 +37,8 @@ export function initWorkspaceLayout(): void {
     const nextWidth = clampWidth(width);
     const changed = nextWidth !== explorerWidth;
     explorerWidth = nextWidth;
-    if (changed) workspace.style.setProperty('--explorer-width', `${explorerWidth}px`);
-    if (changed) resizer.setAttribute('aria-valuenow', String(explorerWidth));
+    workspace.style.setProperty('--explorer-width', `${explorerWidth}px`);
+    resizer.setAttribute('aria-valuenow', String(explorerWidth));
     if (persist && changed) {
       try { window.localStorage.setItem(STORAGE_KEY, String(explorerWidth)); } catch { /* Storage may be unavailable. */ }
     }
@@ -47,10 +47,10 @@ export function initWorkspaceLayout(): void {
   resizer.setAttribute('aria-valuemin', String(MIN_EXPLORER_WIDTH));
   resizer.setAttribute('aria-valuemax', String(MAX_EXPLORER_WIDTH));
 
-  const setActiveView = (requestedView: Exclude<ActivityView, null>) => {
+  const setActiveView = (requestedView: string) => {
     activeView = activeView === requestedView ? null : requestedView;
     workspace.classList.toggle('is-activity-collapsed', activeView === null);
-    Object.entries(panels).forEach(([view, panel]) => { if (panel) panel.hidden = view !== activeView; });
+    panels.forEach((panel, view) => { panel.hidden = view !== activeView; });
     buttons.forEach((button) => {
       const isActive = button.dataset.activityView === activeView;
       button.classList.toggle('is-active', isActive);
@@ -60,7 +60,10 @@ export function initWorkspaceLayout(): void {
   };
 
   buttons.forEach((button) => {
-    button.addEventListener('click', () => setActiveView(button.dataset.activityView as Exclude<ActivityView, null>));
+    button.addEventListener('click', () => {
+      const view = button.dataset.activityView;
+      if (view && panels.has(view)) setActiveView(view);
+    });
   });
   document.getElementById('btn-activity-settings')?.addEventListener('click', () => document.getElementById('btn-settings')?.click());
 

@@ -77,8 +77,8 @@ export const projectExplorerTemplate = (): string => `
       </div>
     </header>
     <div id="sidebar-content" class="sidebar-content">
-      <details class="sidebar-section project-tree-section sections-section">
-        <summary class="section-title">
+      <section id="activity-panel-explorer" class="sidebar-section project-tree-section activity-panel sections-section" data-activity-panel="explorer" aria-labelledby="sections-panel-title">
+        <div class="section-title" id="sections-panel-title">
           <span>Sections</span>
           <span class="section-title-actions">
             <button id="btn-new-folder" class="section-title-action" type="button" title="New Folder" aria-label="New Folder">
@@ -88,28 +88,30 @@ export const projectExplorerTemplate = (): string => `
               ${fileSheetIconMarkup()}
             </button>
           </span>
-        </summary>
-        <ul id="section-list" class="file-list">
+        </div>
+        <ul id="section-list" class="file-list activity-panel-body">
           <!-- Files injected via JS -->
         </ul>
-      </details>
-      <section class="sidebar-section project-tree-section outline-section" aria-labelledby="outline-panel-title" hidden>
+      </section>
+      <section id="activity-panel-outline" class="sidebar-section project-tree-section activity-panel outline-section" data-activity-panel="outline" aria-labelledby="outline-panel-title" hidden>
         <div class="section-title" id="outline-panel-title">Document Outline</div>
-        <div id="project-statistics-summary" class="project-statistics-summary hidden"></div>
-        <div id="document-outline-content" class="document-outline-content"></div>
-        <div id="document-outline-empty" class="document-outline-empty hidden"><p class="drawer-note">No headings found.</p><p class="drawer-note">Add # headings to a document to see its structure here.</p></div>
+        <div class="outline-panel-body activity-panel-body">
+          <div id="project-statistics-summary" class="project-statistics-summary hidden"></div>
+          <div id="document-outline-content" class="document-outline-content"></div>
+          <div id="document-outline-empty" class="document-outline-empty hidden"><p class="drawer-note">No headings found.</p><p class="drawer-note">Add # headings to a document to see its structure here.</p></div>
+        </div>
       </section>
 
-      <details class="sidebar-section project-tree-section images-section">
-        <summary class="section-title">
+      <section id="activity-panel-images" class="sidebar-section project-tree-section activity-panel images-section" data-activity-panel="images" aria-labelledby="images-panel-title" hidden>
+        <div class="section-title" id="images-panel-title">
           <span>Images</span>
           <span class="section-actions">
             <button id="btn-add-image" class="icon-button" type="button" title="Add image" aria-label="Add image">
               ${plusIconMarkup()}
             </button>
           </span>
-        </summary>
-        <div class="image-browser">
+        </div>
+        <div class="image-browser activity-panel-body">
           <div class="image-list-viewport">
             <ul id="image-list" class="file-list image-list" role="listbox" aria-label="Project images">
               <!-- Images injected via JS -->
@@ -126,7 +128,7 @@ export const projectExplorerTemplate = (): string => `
             </figcaption>
           </figure>
         </div>
-      </details>
+      </section>
     </div>
   </aside>
 `;

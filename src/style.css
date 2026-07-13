@@ -9,7 +9,6 @@
 @import '@fontsource/inter/700.css';
 
 @import './ui/styles/workspace.css';
-@import './ui/styles/project-explorer.css';
 @import './ui/styles/project-explorer-compact.css';
 @import './ui/styles/editor.css';
 @import './ui/styles/preview.css';

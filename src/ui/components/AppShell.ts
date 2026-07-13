@@ -37,13 +37,13 @@ export const appShellTemplate = (): string => `
     <main class="workspace-shell">
       <div class="workspace">
         <nav class="activity-bar" aria-label="Workspace views">
-          <button class="activity-bar-button" id="btn-activity-explorer" type="button" data-activity-view="explorer" aria-label="Explorer" title="Explorer" aria-controls="sidebar" aria-pressed="false">
+          <button class="activity-bar-button" id="btn-activity-explorer" type="button" data-activity-view="explorer" aria-label="Explorer" title="Explorer" aria-controls="activity-panel-explorer" aria-pressed="false">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h6l1.8 2H20v11H4z"/><path d="M4 7.5h16"/></svg>
           </button>
-          <button class="activity-bar-button" id="btn-activity-images" type="button" data-activity-view="images" aria-label="Images" title="Images" aria-controls="sidebar" aria-pressed="false">
+          <button class="activity-bar-button" id="btn-activity-images" type="button" data-activity-view="images" aria-label="Images" title="Images" aria-controls="activity-panel-images" aria-pressed="false">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.5"/><path d="m6 17 4-4 3 3 2-2 3 3"/></svg>
           </button>
-          <button class="activity-bar-button" id="btn-activity-outline" type="button" data-activity-view="outline" aria-label="Document outline" title="Document outline" aria-controls="sidebar" aria-pressed="false">
+          <button class="activity-bar-button" id="btn-activity-outline" type="button" data-activity-view="outline" aria-label="Document outline" title="Document outline" aria-controls="activity-panel-outline" aria-pressed="false">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/><circle cx="3" cy="6" r=".8"/><circle cx="3" cy="12" r=".8"/><circle cx="3" cy="18" r=".8"/></svg>
           </button>
           <button class="activity-bar-button activity-bar-settings" id="btn-activity-settings" type="button" aria-label="Settings" title="Settings" aria-controls="settings-drawer">

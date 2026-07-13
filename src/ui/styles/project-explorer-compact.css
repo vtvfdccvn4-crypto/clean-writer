@@ -85,10 +85,6 @@
   height: calc(14px + 2pt);
 }
 
-.project-explorer-root-preview {
-  margin-bottom: 2px;
-}
-
 .sidebar-content {
   display: flex;
   flex: 1 1 auto;
@@ -99,36 +95,25 @@
   overflow: hidden;
 }
 
-.sidebar-content > .project-tree-section {
-  min-height: 0;
-}
-
-.sidebar-content > .project-tree-section[open] {
+.sidebar-content > .activity-panel {
   display: grid;
   flex: 1 1 0;
   grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
   overflow: hidden;
 }
 
-.sidebar-content > .project-tree-section:not([open]) {
-  flex: 0 0 auto;
-}
-
-/* Activity-bar navigation owns panel visibility. The native hidden attribute
-   must win over the layout rules above, including when a details element is
-   still marked open from the previous explorer view. */
-.sidebar-content > .project-tree-section[hidden] {
+.sidebar-content > .activity-panel[hidden] {
   display: none !important;
 }
 
-.project-tree-section[open] > .file-list {
+.activity-panel-body {
   min-height: 0;
-  overflow-y: auto;
 }
 
-.images-section[open] {
-  flex-basis: 194px;
-  min-height: 194px;
+.file-list.activity-panel-body,
+.outline-panel-body {
+  overflow-y: auto;
 }
 
 .image-browser {
@@ -325,6 +310,35 @@
   background: var(--ui-accent-soft);
   border: 1px solid var(--ui-border-strong);
   box-shadow: none;
+}
+
+.sidebar-item.folder-collapsed {
+  opacity: 0.95;
+}
+
+.sidebar-item.dragging {
+  opacity: 0.5;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-item.drag-over-top::before,
+.sidebar-item.drag-over-bottom::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 10;
+  height: 2px;
+  background-color: var(--explorer-accent);
+  border-radius: 2px;
+  content: "";
+}
+
+.sidebar-item.drag-over-top::before {
+  top: -2px;
+}
+
+.sidebar-item.drag-over-bottom::after {
+  bottom: -2px;
 }
 
 .tree-row {
