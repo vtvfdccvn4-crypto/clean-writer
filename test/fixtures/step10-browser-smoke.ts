@@ -11,8 +11,23 @@ async function createSection(name: string, template: string) {
   const input = row.querySelector<HTMLInputElement>('.inline-input')!;
   input.value = name;
   input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  await waitFor(`${name} section`, () => state.current.activeFile === `sections/${name}.md` ? true : null);
-  await waitFor(`${name} editor`, () => document.querySelector('.cm-content'));
+  const path = `sections/${name}.md`;
+  await waitFor(`${name} section`, () => state.current.activeFile === path ? true : null);
+  // State updates before the asynchronous document activation has necessarily
+  // replaced the previous CodeMirror view. Use the public readiness contract
+  // so subsequent writes target the section we just created.
+  const editorManager = (window as any).__CLEAR_WRITER_EDITOR_MANAGER__;
+  await editorManager.openDocument(path);
+  await waitFor(`${name} editor`, () => (
+    state.current.activeFile === path && editorManager.getEditorView()?.getValue() !== undefined
+  ) ? true : null);
+  return editorManager;
+}
+
+async function createAndWriteSection(name: string, template: string, content: string): Promise<void> {
+  const editorManager = await createSection(name, template);
+  editorManager.getEditorView().setValue(content);
+  await editorManager.flushCurrentDocument();
 }
 
 async function run() {
@@ -46,12 +61,11 @@ async function run() {
   await waitFor('PDF export status', () => document.getElementById('btn-export-pdf')?.dataset.exportStatus === 'exported' ? true : null);
   Element.prototype.appendChild = originalAppendChild;
 
-  await createSection('DuplicateOne', 'blank'); editorManager.getEditorView().setValue('# Same\n\nText'); await editorManager.flushCurrentDocument();
-  await createSection('DuplicateTwo', 'blank'); editorManager.getEditorView().setValue('# Same\n\nOther'); await editorManager.flushCurrentDocument();
+  await createAndWriteSection('DuplicateOne', 'blank', '# Same\n\nText');
+  await createAndWriteSection('DuplicateTwo', 'blank', '# Same\n\nOther');
   await createSection('EmptySection', 'blank'); await editorManager.flushCurrentDocument();
-  await createSection('JumpSection', 'blank'); editorManager.getEditorView().setValue('# Top\n### Jumped'); await editorManager.flushCurrentDocument();
-  await createSection('LongSection', 'blank'); editorManager.getEditorView().setValue('word '.repeat(2001)); await editorManager.flushCurrentDocument();
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await createAndWriteSection('JumpSection', 'blank', '# Top\n### Jumped');
+  await createAndWriteSection('LongSection', 'blank', 'word '.repeat(2001));
 
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', ctrlKey: true, shiftKey: true, bubbles: true }));
   await waitFor('review drawer', () => !isHidden(document.getElementById('project-review-drawer')));

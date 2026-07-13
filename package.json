@@ -28,8 +28,7 @@
     "jszip": "^3.10.1",
     "patch-package": "^8.0.1",
     "typescript": "~6.0.2",
-    "vite": "^8.0.12",
-    "patch-package": "^8.0.1"
+    "vite": "^8.0.12"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

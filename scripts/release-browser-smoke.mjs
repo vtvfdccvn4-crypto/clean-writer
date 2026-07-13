@@ -85,6 +85,17 @@ const fixtures = [
     }
   },
   {
+    name: 'browser-sidebar-interactions-smoke',
+    path: '/test/fixtures/browser-sidebar-interactions-smoke.html',
+    validate(result) {
+      expect(result.ok === true, 'Browser sidebar interaction smoke reported failure.');
+      expect(result.savedOnSwitch === true, 'Switching sections did not save the active document.');
+      expect(result.pageBreakEnabled === true, 'Section page-break action did not persist.');
+      expect(result.movedIntoFolder === true, 'Dragging a section into a folder did not move it.');
+      expect(result.folderCollapsed === true && result.folderExpanded === true, 'Folder toggle did not collapse and re-expand the folder.');
+    }
+  },
+  {
     name: 'browser-authoring-performance-smoke',
     path: '/test/fixtures/browser-authoring-performance-smoke.html',
     validate: (result) => {

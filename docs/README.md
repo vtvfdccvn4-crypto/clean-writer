@@ -24,6 +24,7 @@ Clear Writer is a browser/PWA document authoring app for writing Markdown in a C
 
 ## Current Refactor And Cleanup Notes
 
+- **Important scope boundary — Word/DOCX export is deferred.** The DOCX implementation is present in the source tree, but it is not part of the currently approved maintenance or refactor scope. Do not alter, reorganize, enable, extend, or investigate DOCX/Word export code as part of general cleanup work. Treat it as intentionally frozen until a future request explicitly authorizes work on Word/DOCX export. Current export work remains limited to the supported browser PDF/print path unless that future request says otherwise.
 - Preview navigation is revision-aware and uses an in-memory compiler manifest plus the committed Paged.js DOM. It does not add serialized navigation anchors to exported HTML.
 - The project explorer is a compact two-area sidebar for sections and images.
 - Release validation is centered on `npm run release:prep`, with focused reruns of browser and PWA smoke checks when diagnosing transient browser timing failures.

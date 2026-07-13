@@ -1,25 +1,12 @@
 import '../style.css';
 import { state } from '../state';
 import { initSidebar } from '../ui/sidebar';
-import { initPageSetupDrawer } from '../ui/page-setup';
-import { initTypographyDrawer } from '../ui/typography-setup';
-import { initListsDrawer } from '../ui/lists-setup';
-import { initProjectMetadataDrawer } from '../ui/project-metadata';
 import { EditorManager } from '../ui/editor-manager';
 import { renderAppShell } from '../ui/components/AppShell';
 import { initializeSymbolPicker } from '../ui/symbolPicker';
 import { projectSession } from '../services/ProjectSessionStore';
-import { initCustomStylesDrawer } from '../ui/custom-styles-setup';
-import { initDocumentOutlineDrawer } from '../ui/document-outline';
-import { initProjectSearchDrawer } from '../ui/project-search';
-import { initProjectReviewDrawer } from '../ui/project-review';
-import { initWritingWorkflow } from '../ui/keyboard-shortcuts';
 import { registerServiceWorker } from '../sw-registration';
-import { setupEditorSettingsDrawer } from '../ui/editor-settings-setup';
 import { previewMetrics } from '../perf/preview-metrics';
-import { initTablesDrawer } from '../ui/tables-setup';
-import { initTocSetupDrawer } from '../ui/toc-setup';
-import { initSpecialHeadingsDrawer } from '../ui/special-headings-setup';
 import { initSettingsDrawer } from '../ui/settings-drawer';
 import { applyHeadingNumbering } from '../preview/headingNumbering';
 import { applySpecialHeadings } from '../preview/specialHeadings';
@@ -28,15 +15,17 @@ import { resolveImageSource } from '../images/imageSources';
 import type { Platform } from '../platform/types';
 import { showNotice } from '../ui/components/Notice';
 import { describeWorkspaceError } from '../services/project-runtime-feedback';
+import { setupSettingsFeatures } from './setupSettingsFeatures';
+import { markExportUnavailable, setupPdfExport } from './setupPdfExport';
+import { setupEditorControls } from './setupEditorControls';
+import { setupAppLifecycle } from './setupAppLifecycle';
+import { setupWritingTools, setupWritingWorkflow } from './setupWritingTools';
+import { restoreInitialWorkspace } from './restoreInitialWorkspace';
 
 let editorManager: EditorManager;
 type StartupWindow = Window & {
   __CLEAR_WRITER_READY__?: boolean;
 };
-
-function shouldRestoreLastWorkspace(): boolean {
-  return new URLSearchParams(window.location.search).get('restoreLastWorkspace') === 'true';
-}
 
 function setupPreviewDiagnosticsChip() {
   const diagnostics = document.getElementById('preview-diagnostics');
@@ -55,14 +44,6 @@ async function saveActiveFile(): Promise<boolean> {
   return editorManager.prepareForNavigation();
 }
 
-function markExportUnavailable(button: HTMLElement, label: string) {
-  button.setAttribute('disabled', 'true');
-  button.setAttribute('aria-disabled', 'true');
-  button.setAttribute('aria-label', label);
-  button.setAttribute('title', label);
-  button.dataset.exportStatus = 'unavailable';
-}
-
 export async function bootApp(platform: Platform) {
   const appContainer = document.getElementById('app');
   if (appContainer) {
@@ -77,23 +58,7 @@ export async function bootApp(platform: Platform) {
   initializeSymbolPicker(() => editorManager.getEditorView());
   initSettingsDrawer();
 
-  document.querySelectorAll<HTMLButtonElement>('[data-markdown-command]').forEach((button) => {
-    button.addEventListener('mousedown', (event) => event.preventDefault());
-    button.addEventListener('click', () => {
-      const command = button.dataset.markdownCommand;
-      if (command) editorManager.applyMarkdownCommand(command as import('../editor/markdown-commands').MarkdownCommand);
-    });
-  });
-
-  const btnSearch = document.getElementById('btn-open-search');
-  if (btnSearch) {
-    btnSearch.addEventListener('click', () => {
-      const editorView = editorManager.getEditorView();
-      if (editorView) {
-        editorView.openSearchPanel();
-      }
-    });
-  }
+  setupEditorControls(editorManager);
 
   initSidebar(
     platform,
@@ -113,70 +78,7 @@ export async function bootApp(platform: Platform) {
     }
   }
 
-  const btnExportPdf = document.getElementById('btn-export-pdf');
-  if (btnExportPdf) {
-    if (!platform.exportService.support.pdf) {
-      markExportUnavailable(btnExportPdf, 'PDF export is unavailable in this runtime');
-    } else {
-    const setExportStatus = (status: 'idle' | 'preparing' | 'exporting' | 'exported' | 'failed') => {
-      const labels = {
-        idle: 'Export PDF',
-        preparing: 'Preparing PDF…',
-        exporting: 'Exporting PDF…',
-        exported: 'PDF exported',
-        failed: 'PDF export failed'
-      };
-      btnExportPdf.dataset.exportStatus = status;
-      btnExportPdf.setAttribute('aria-label', labels[status]);
-      btnExportPdf.title = labels[status];
-      if (status === 'exporting') btnExportPdf.setAttribute('aria-busy', 'true');
-      else btnExportPdf.removeAttribute('aria-busy');
-    };
-
-    btnExportPdf.addEventListener('click', async () => {
-      btnExportPdf.setAttribute('disabled', 'true');
-      setExportStatus('preparing');
-      const exportWindow = platform.exportService.preparePdfExport?.();
-      if (platform.exportService.preparePdfExport && !exportWindow) {
-        setExportStatus('failed');
-        showNotice('PDF export could not open its save window. Allow popups for Clear Writer and try again.', 'error');
-        btnExportPdf.removeAttribute('disabled');
-        return;
-      }
-      try {
-        const exportDocument = await editorManager.compilePaginatedExportSnapshot();
-        setExportStatus('exporting');
-        const success = await platform.exportService.exportPdf(
-          exportDocument.html,
-          exportDocument.pageSetup,
-          state.current.typographySetup,
-          state.current.listSetup,
-          state.current.tableSetup,
-          state.current.projectMetadata,
-          state.current.projectRef ? state.current.projectRef.id : null,
-          exportWindow
-        );
-        if (success) {
-          setExportStatus('exported');
-        } else {
-          if (exportWindow && !exportWindow.closed) exportWindow.close();
-          setExportStatus('failed');
-          showNotice('PDF export was not completed. The document remains open and unchanged.', 'error');
-        }
-      } catch (error) {
-        console.error('PDF export failed', error);
-        if (exportWindow && !exportWindow.closed) exportWindow.close();
-        setExportStatus('failed');
-        showNotice('PDF export failed. The document remains open and unchanged.', 'error');
-      } finally {
-        setTimeout(() => {
-          setExportStatus('idle');
-          btnExportPdf.removeAttribute('disabled');
-        }, 3000);
-      }
-    });
-    }
-  }
+  setupPdfExport(platform, editorManager);
 
   const btnExportDocx = document.getElementById('btn-export-docx');
   if (btnExportDocx) {
@@ -269,79 +171,13 @@ export async function bootApp(platform: Platform) {
     }
   }
 
-  platform.appLifecycle.onBeforeClose(async () => {
-    try {
-      await editorManager.flushCurrentDocument();
-      platform.appLifecycle.confirmClose(true);
-    } catch (error) {
-      console.error('Unable to save before closing:', error);
-      showNotice(describeWorkspaceError(error, 'close'), 'error');
-      platform.appLifecycle.confirmClose(false, error instanceof Error ? error.message : String(error));
-    }
-  });
+  setupAppLifecycle(platform, editorManager);
 
-  window.addEventListener('beforeunload', (e) => {
-    if (editorManager.hasUnsavedChanges() || editorManager.isSaveInFlight()) {
-      e.preventDefault();
-      e.returnValue = '';
-    }
-  });
+  setupWritingWorkflow(editorManager);
+  setupSettingsFeatures(platform, saveSettingsWithNotice);
+  setupWritingTools(platform, editorManager);
 
-  initWritingWorkflow(editorManager);
-
-  initPageSetupDrawer(async (pageSetup) => {
-    await saveSettingsWithNotice({ pageSetup });
-  });
-
-  initTocSetupDrawer(async (pageSetup) => {
-    await saveSettingsWithNotice({ pageSetup });
-  });
-  initSpecialHeadingsDrawer(async (pageSetup) => {
-    await saveSettingsWithNotice({ pageSetup });
-  });
-  
-  initTypographyDrawer(async (typographySetup) => {
-    await saveSettingsWithNotice({ typographySetup });
-  });
-
-  initListsDrawer(async (listSetup) => {
-    await saveSettingsWithNotice({ listSetup });
-  });
-
-  initTablesDrawer(async (tableSetup) => {
-    await saveSettingsWithNotice({ tableSetup });
-  });
-
-  initProjectMetadataDrawer(async (projectMetadata) => {
-    await saveSettingsWithNotice({ projectMetadata });
-  });
-
-  initCustomStylesDrawer(platform, async (customStyles, customBlockStyles) => {
-    await saveSettingsWithNotice({ customStyles, customBlockStyles });
-  });
-
-  setupEditorSettingsDrawer(async (editorSetup) => {
-    await saveSettingsWithNotice({ editorSetup });
-  });
-  initDocumentOutlineDrawer(platform, editorManager);
-  initProjectSearchDrawer(platform, editorManager);
-  initProjectReviewDrawer(platform, editorManager);
-
-  let projectRef = state.current.projectRef;
-  if (!projectRef && shouldRestoreLastWorkspace() && platform.workspaceRepository.getLastOpenedWorkspace) {
-    try {
-      projectRef = await platform.workspaceRepository.getLastOpenedWorkspace();
-    } catch (error) {
-      console.warn('Failed to restore last-opened browser project', error);
-    }
-  }
-
-  if (projectRef) {
-    const session = await platform.workspaceRepository.open(projectRef);
-    await projectSession.activate(projectRef, session);
-  } else {
-    editorManager.renderEmptyWorkspace();
-  }
+  await restoreInitialWorkspace(platform, editorManager);
 
   (window as StartupWindow).__CLEAR_WRITER_READY__ = true;
   registerServiceWorker();
