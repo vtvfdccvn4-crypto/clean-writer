@@ -45,7 +45,7 @@ export class DocumentSessionController {
     this.pendingFocusLine = null;
   }
 
-  restoreViewState(projectRef: WorkspaceRef | null, filePath: string): void {
+  async restoreViewState(projectRef: WorkspaceRef | null, filePath: string): Promise<void> {
     if (!this.editor || !projectRef) return;
     const saved = this.viewStates[`${projectRef.kind}:${projectRef.id}:${filePath}`];
     if (!saved) {
@@ -57,9 +57,10 @@ export class DocumentSessionController {
       Math.min(Math.max(0, saved.selectionFrom), documentLength),
       Math.min(Math.max(0, saved.selectionTo), documentLength)
     );
-    requestAnimationFrame(() => {
+    await new Promise<void>(resolve => requestAnimationFrame(() => {
       if (this.editor?.view.scrollDOM) this.editor.view.scrollDOM.scrollTop = saved.scrollTop;
-    });
+      resolve();
+    }));
   }
 
   focusLine(targetPath: string | null, line: number): void {

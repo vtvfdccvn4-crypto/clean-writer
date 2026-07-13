@@ -94,18 +94,6 @@ export const projectExplorerTemplate = (): string => `
         </ul>
       </details>
 
-      <div
-        id="explorer-vertical-splitter"
-        class="explorer-vertical-splitter"
-        role="separator"
-        aria-label="Resize Sections and Images"
-        aria-orientation="horizontal"
-        aria-valuemin="0"
-        aria-valuemax="100"
-        aria-valuenow="50"
-        tabindex="0"
-      ><span aria-hidden="true"></span></div>
-
       <details class="sidebar-section project-tree-section images-section">
         <summary class="section-title">
           <span>Images</span>

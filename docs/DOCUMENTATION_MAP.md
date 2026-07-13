@@ -11,11 +11,19 @@ Primary source references:
 - `src/main.ts`: application entry point and worker/app boot switch.
 - `src/boot/app.ts`: runtime wiring for the app layout, editor, preview, settings, project loading, service worker, and exports.
 - `src/ui/components/AppShell.ts`: three-pane application layout.
-- `src/ui/components/ProjectExplorer.ts`: project explorer controls and image browser.
+- `src/ui/components/ProjectExplorer.ts`: compact project explorer controls, sections tree, and image browser.
 - `src/ui/components/EditorPanel.ts`: CodeMirror editor toolbar and document tools.
 - `src/ui/components/PreviewPanel.ts`: live preview and export controls.
 - `src/types/index.ts`: canonical data types for settings, projects, state, and workspace references.
 - `src/config/defaults.ts`: default document, editor, and project settings.
+
+## Current Refactor And Cleanup Summary
+
+- Preview navigation is revision-aware: editor selection requests carry a revision, the compiler returns an in-memory source manifest, and the committed Paged.js DOM is indexed after pagination completes.
+- Rendered preview/export HTML stays clean because source-to-preview navigation does not depend on serialized navigation anchors.
+- PDF export is validated through durable export snapshots, forced pagination, the browser print service, and release smoke coverage.
+- The project explorer uses the current compact sections/images layout.
+- Release validation uses `npm run release:prep`; targeted browser and PWA smoke reruns are appropriate when diagnosing transient headless-browser timing failures.
 
 ## Recommended Documentation Set
 
@@ -84,7 +92,7 @@ Purpose: explain how projects are structured and how users work with sections an
 
 Should cover:
 
-- Project explorer layout: sections area and images area.
+- Project explorer layout: compact sections area and images area.
 - Section files and folders.
 - Creating, renaming, moving, deleting sections.
 - Drag/drop or move behavior if exposed by sidebar interactions.
@@ -158,6 +166,7 @@ Should cover:
 - Live preview pane.
 - Full document preview versus single section preview.
 - Revision-aware preview navigation from the editor selection into the committed preview.
+- Clean preview HTML: source-to-preview navigation uses in-memory manifests and committed Paged.js references instead of serialized navigation anchors.
 - Debounced exact pagination after edits.
 - Paged.js pagination.
 - Header/footer rendering.
@@ -272,6 +281,16 @@ Source map:
 - `src/services/project-settings.ts`: schema version, defaults, normalization, validation.
 - `src/platform/OPFSWorkspace.ts`: OPFS layout and path resolution.
 - `src/platform/LocalDirectoryWorkspace.ts`: directory layout, permissions, recovery.
+- `src/platform/mutation-coordinator.ts`: shared compensating transactions for filesystem and settings mutations.
+- `src/ui/DocumentSessionController.ts`: editor lifecycle and asynchronous view-state restoration.
+- `src/ui/editor-manager.ts`: document activation readiness contract via `whenDocumentReady(path)`.
+- `src/ui/EditorStatusController.ts`: save-status presentation and accessibility state.
+- `src/ui/EditorSaveCoordinator.ts`: durable editor flushes, concurrent-save coalescing, and navigation save boundaries.
+- `src/ui/DocumentActivationCoordinator.ts`: activation scheduling, stale-request handling, serialized navigation, and readiness waiting.
+- `src/preview/css/page-css.ts`: page layout, margin boxes, and TOC CSS.
+- `src/preview/css/typography-css.ts`: typography CSS.
+- `src/preview/css/list-css.ts`: ordered and unordered list CSS.
+- `src/preview/css/table-css.ts`: table CSS.
 - `src/utils/path-utils.ts`: path normalization.
 - `src/platform/section-order.ts`: move/order behavior.
 
@@ -393,7 +412,8 @@ Source map:
 - `src/preview/*`
 - `public/manifest.webmanifest`
 - `public/sw.js`
-- `patch-pagedjs.js`
+- `patches/pagedjs+0.4.3.patch`
+- `scripts/verify-pagedjs-patch.mjs`
 - `test/*`
 
 Suggested file:
@@ -496,7 +516,7 @@ Documentation ownership:
 
 ### `src/platform`
 
-Owns runtime abstraction and browser workspace implementations. It includes OPFS projects, local directory projects, directory handle catalogue, blob URL assets, browser export service, PDF print CSS, filesystem helpers, and section ordering.
+Owns runtime abstraction and browser workspace implementations. It includes OPFS projects, local directory projects, directory handle catalogue, blob URL assets, browser export service, PDF print CSS, filesystem helpers, section ordering, and the shared mutation coordinator that keeps filesystem entries and settings metadata consistent.
 
 Documentation ownership:
 
@@ -618,6 +638,8 @@ Primary source:
 - `src/editor/DocumentSaveCoordinator.ts`
 - `src/editor/DraftRecoveryStore.ts`
 - `src/ui/components/EditorPanel.ts`
+- `src/ui/WelcomeController.ts`
+- `src/ui/ExportOrchestrationController.ts`
 
 ### Preview Features
 

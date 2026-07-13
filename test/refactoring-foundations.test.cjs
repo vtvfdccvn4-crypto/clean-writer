@@ -7,6 +7,7 @@ let state;
 let escapeRegExp;
 let readDrawerNumber;
 let ProjectSessionStore;
+let ProjectService;
 let InMemoryWorkspaceSession;
 let bindProjectSettingsPanel;
 let DocumentSessionController;
@@ -15,6 +16,7 @@ before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24683 } } });
   ({ state } = await server.ssrLoadModule('/src/state.ts'));
   ({ ProjectSessionStore } = await server.ssrLoadModule('/src/services/ProjectSessionStore.ts'));
+  ({ ProjectService } = await server.ssrLoadModule('/src/services/ProjectService.ts'));
   ({ InMemoryWorkspaceSession } = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts'));
   ({ bindProjectSettingsPanel } = await server.ssrLoadModule('/src/ui/project-settings-panel.ts'));
   ({ DocumentSessionController } = await server.ssrLoadModule('/src/ui/DocumentSessionController.ts'));
@@ -96,6 +98,32 @@ test('project session owns active settings persistence and close lifecycle', asy
   assert.equal((await session.readSettings()).editorSetup.fontSize, '18pt');
   sessionStore.close();
   assert.equal(state.current.projectRef, null);
+});
+
+test('ProjectService uses the typed section mutation result and returned path', async () => {
+  const session = new InMemoryWorkspaceSession('typed-create', 'Typed create');
+  state.setProjectRef({ id: session.id, kind: 'memory', displayName: session.displayName });
+
+  const created = await ProjectService.createSection(session, 'chapter', '# Chapter');
+
+  assert.equal(created, true);
+  assert.equal(await session.readSection('chapter.md'), '# Chapter');
+  assert.deepEqual((await session.readSettings()).order, ['chapter.md']);
+  state.closeProject();
+});
+
+test('ProjectService returns false for a typed unsuccessful section mutation', async () => {
+  const session = new InMemoryWorkspaceSession('typed-failure', 'Typed failure');
+  state.setProjectRef({ id: session.id, kind: 'memory', displayName: session.displayName });
+  const originalCreate = session.createSection.bind(session);
+  session.createSection = async () => ({ success: false });
+
+  const created = await ProjectService.createSection(session, 'chapter');
+
+  assert.equal(created, false);
+  assert.deepEqual((await session.readSettings()).order, []);
+  session.createSection = originalCreate;
+  state.closeProject();
 });
 
 test('project session rejects commands without an active project', async () => {

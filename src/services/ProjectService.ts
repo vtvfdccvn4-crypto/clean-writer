@@ -85,13 +85,9 @@ export const ProjectService = {
       content ?? '# ' + finalName.replace(/\.md$/i, '') + '\n\nStart writing here...'
     );
 
-    if (result && typeof result === 'object' && result.success) {
+    if (result.success) {
       await this._appendOrder(session, result.newPath || finalName);
       await this.refreshProjectTree(session, result.newPath || finalName);
-      return true;
-    } else if (result === true as any) {
-      await this._appendOrder(session, finalName);
-      await this.refreshProjectTree(session, finalName);
       return true;
     }
     return false;
@@ -100,12 +96,8 @@ export const ProjectService = {
   async createFolder(session: WorkspaceSession, folderName: string): Promise<boolean> {
 
     const result = await session.createFolder(folderName);
-    if (result && typeof result === 'object' && result.success) {
+    if (result.success) {
       await this._appendOrder(session, result.newPath || folderName);
-      await this.refreshProjectTree(session);
-      return true;
-    } else if (result === true as any) {
-      await this._appendOrder(session, folderName);
       await this.refreshProjectTree(session);
       return true;
     }

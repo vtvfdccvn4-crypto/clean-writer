@@ -4,7 +4,7 @@ This page documents the revision-aware preview navigation design in Clear Writer
 
 ## Design Goals
 
-- Keep the generated document HTML free of custom tracking markers.
+- Keep the generated document HTML free of custom navigation anchors.
 - Make editor selection navigation match the preview revision actually visible on screen.
 - Survive rerenders caused by images, page breaks, and pagination changes.
 - Keep the implementation small enough to reason about and test.
@@ -63,11 +63,9 @@ This is the core of the current navigation pipeline:
 
 `src/preview/PreviewViewport.ts` scrolls the resolved block near the top of the preview with a small inset instead of centering it. That gives a more predictable reading position and avoids the visual drift that was showing up with deep pagination changes.
 
-## Why This Is Safer Than The Old Logic
+## Current Guarantees
 
-The older implementation depended on helper markers and direct line-range attributes in the rendered HTML. Those markers could drift when pagination changed, images loaded late, or page splits moved blocks around.
-
-The current design is safer because:
+The navigation design is built around the committed preview state:
 
 - the HTML emitted by the compiler stays semantically clean;
 - the preview is resolved from committed DOM state, not from stale source hints;
@@ -76,7 +74,7 @@ The current design is safer because:
 
 ## Maintenance Notes
 
-- Do not reintroduce source-marker attributes into rendered HTML unless there is a strong new requirement.
+- Keep source-to-preview metadata in memory unless there is a strong new requirement to serialize it.
 - Keep the committed preview index build isolated to the render completion path.
 - If page layout behavior changes, verify both the manifest ranges and the committed page mapping.
 - If a future feature needs additional navigation anchors, extend the compiler manifest first and keep the preview DOM clean.

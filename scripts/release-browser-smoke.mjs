@@ -217,14 +217,17 @@ try {
   for (const fixture of selectedFixtures) {
     const browserDebugPort = await reservePort();
     const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-release-smoke-'));
-    const browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir);
-    const browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`);
-    browserUserAgent = browserVersion.UserAgent ?? browserUserAgent;
-    process.stdout.write(`Smoke runtime: browser ready for ${fixture.name} (${browserVersion.Browser ?? browserVersion.UserAgent})\n`);
-    process.stdout.write(`Running browser fixture: ${fixture.name}\n`);
-    const target = await createBrowserTarget(browserDebugPort, `http://127.0.0.1:${serverPort}${fixture.path}`);
-    const session = await connectToTarget(target.webSocketDebuggerUrl);
+    let browserProcess;
+    let target;
+    let session;
     try {
+      browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir);
+      const browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`, 100);
+      browserUserAgent = browserVersion.UserAgent ?? browserUserAgent;
+      process.stdout.write(`Smoke runtime: browser ready for ${fixture.name} (${browserVersion.Browser ?? browserVersion.UserAgent})\n`);
+      process.stdout.write(`Running browser fixture: ${fixture.name}\n`);
+      target = await createBrowserTarget(browserDebugPort, `http://127.0.0.1:${serverPort}${fixture.path}`);
+      session = await connectToTarget(target.webSocketDebuggerUrl);
       if (fixture.viewport) {
         await session.setViewport(fixture.viewport);
       }
@@ -237,10 +240,10 @@ try {
       results.push({ name: fixture.name, ok: true, result });
     } finally {
       await closeQuietly(session);
-      if (target.id) {
+      if (target?.id) {
         await closeBrowserTarget(browserDebugPort, target.id).catch(() => undefined);
       }
-      if (!browserProcess.killed) {
+      if (browserProcess && !browserProcess.killed) {
         browserProcess.kill('SIGTERM');
         await Promise.race([once(browserProcess, 'exit'), delay(1_000)]).catch(() => undefined);
         if (!browserProcess.killed) browserProcess.kill('SIGKILL');

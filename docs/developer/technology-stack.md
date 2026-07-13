@@ -46,7 +46,7 @@ Clear Writer adds compiler plugins for images, metadata, custom inline styles, c
 ## Preview And Export
 
 - Paged.js provides live paginated preview rendering and page layout.
-- A small postinstall patch adds null guards to the installed Paged.js DOM helpers. `patch-pagedjs.js` validates that the expected functions and guards are present after installation.
+- Paged.js is pinned to `0.4.3` and receives a committed `patches/pagedjs+0.4.3.patch` through `patch-package`. `npm run test:pagedjs-patch` verifies that the expected DOM helpers and null guards are present after installation.
 - PDF export uses the browser print API. `BrowserExportService` prefers a hidden iframe and falls back to a popup when required.
 - `docx` provides the DOCX conversion implementation. DOCX is present in source, but the active browser runtime disables it and the UI marks the button unavailable.
 
@@ -57,6 +57,46 @@ The platform layer separates application behavior from storage and browser capab
 - `InMemoryWorkspace` supports tests and worker-oriented browser transport.
 - `OPFSWorkspace` stores browser projects in the Origin Private File System.
 - `LocalDirectoryWorkspace` stores projects in user-selected local folders.
+
+Section and folder mutations use the shared `src/platform/mutation-coordinator.ts`.
+Because browser filesystem handles do not provide a transaction spanning files and
+`settings.json`, the coordinator applies compensating rollback: it snapshots
+settings, performs the adapter-specific filesystem operation, writes the planned
+metadata update, and restores both sides when a later phase fails. The adapters
+retain only handle-specific operations such as copy, delete, and settings writes.
+
+Document activation exposes an explicit readiness boundary through
+`EditorManager.whenDocumentReady(path)`. The editor session restores selection
+and scroll state after the matching preview render and layout frame complete, so
+browser smoke checks and UI callers do not need to infer readiness from a DOM
+element appearing during an intermediate render.
+
+Preview CSS is organized by responsibility under `src/preview/css/`: page
+layout, typography, lists, and tables each have a focused generator. The
+legacy `CssGenerator.ts` path remains a small re-export facade for stable
+imports. Editor save-status rendering is isolated in
+`src/ui/EditorStatusController.ts` while `EditorManager` continues to provide
+the application-facing facade.
+
+Durable editor flushing is isolated in `src/ui/EditorSaveCoordinator.ts`.
+`EditorManager` delegates flush, navigation-preparation, and save-state queries
+to this controller while retaining its existing public facade for application
+callers.
+
+Document activation scheduling is isolated in
+`src/ui/DocumentActivationCoordinator.ts`. It owns coalesced selection changes,
+serialized explicit navigation, stale activation checks, and the
+`whenDocumentReady(path)` wait boundary. Rendering remains injected from the
+facade during the incremental extraction so editor behavior stays stable.
+
+The closed-project surface is isolated in `src/ui/WelcomeController.ts`. It
+owns welcome markup, recent workspace lookup, and the New/Open action bridges;
+`EditorManager` retains only session cleanup and preview reset around it.
+
+PDF export orchestration is isolated in `src/ui/ExportOrchestrationController.ts`.
+It coordinates durable snapshot compilation, forced pagination, stale-render
+retry, printable-page validation, telemetry, and cache reuse. The editor manager
+continues to expose the existing `compilePaginatedExportSnapshot()` facade.
 - `project-paths.ts` centralizes section/image path resolution and settings-path migration shared by all workspace adapters. Glyph paths are handled separately by the custom block glyph helpers.
 - `BlobUrlAssetResolver` resolves project images for preview and export. Glyph lookup uses the custom block glyph resolver helpers.
 

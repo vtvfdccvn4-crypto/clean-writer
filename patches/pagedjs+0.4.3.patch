@@ -1,0 +1,176 @@
+diff --git a/node_modules/pagedjs/dist/paged.js b/node_modules/pagedjs/dist/paged.js
+index a04c7ce..dab87de 100644
+--- a/node_modules/pagedjs/dist/paged.js
++++ b/node_modules/pagedjs/dist/paged.js
+@@ -225,6 +225,7 @@
+ 	}
+ 
+ 	function nodeAfter(node, limiter) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+ 		if (limiter && node === limiter) {
+ 			return;
+ 		}
+@@ -246,6 +247,7 @@
+ 	}
+ 
+ 	function nodeBefore(node, limiter) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+ 		if (limiter && node === limiter) {
+ 			return;
+ 		}
+@@ -636,6 +638,7 @@
+ 	}
+ 
+ 	function findElement(node, doc, forceQuery) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+ 		const ref = node.getAttribute("data-ref");
+ 		return findRef(ref, doc, forceQuery);
+ 	}
+@@ -770,6 +773,7 @@
+ 	 *  2) null if no such node exists.
+ 	 */
+ 	function previousSignificantNode(sib) {
++	if (!sib) return null; // CLEAR_WRITER_NULL_GUARD
+ 		while ((sib = sib.previousSibling)) {
+ 			if (!isIgnorable(sib)) return sib;
+ 		}
+@@ -837,6 +841,7 @@
+ 	 *  2) null if no such node exists.
+ 	 */
+ 	function nextSignificantNode(sib) {
++	if (!sib) return null; // CLEAR_WRITER_NULL_GUARD
+ 		while ((sib = sib.nextSibling)) {
+ 			if (!isIgnorable(sib)) return sib;
+ 		}
+diff --git a/node_modules/pagedjs/dist/paged.polyfill.js b/node_modules/pagedjs/dist/paged.polyfill.js
+index 3100799..c7383f2 100644
+--- a/node_modules/pagedjs/dist/paged.polyfill.js
++++ b/node_modules/pagedjs/dist/paged.polyfill.js
+@@ -685,6 +685,7 @@
+ 	}
+ 
+ 	function nodeAfter(node, limiter) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+ 		if (limiter && node === limiter) {
+ 			return;
+ 		}
+@@ -706,6 +707,7 @@
+ 	}
+ 
+ 	function nodeBefore(node, limiter) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+ 		if (limiter && node === limiter) {
+ 			return;
+ 		}
+@@ -1096,6 +1098,7 @@
+ 	}
+ 
+ 	function findElement(node, doc, forceQuery) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+ 		const ref = node.getAttribute("data-ref");
+ 		return findRef(ref, doc, forceQuery);
+ 	}
+@@ -1230,6 +1233,7 @@
+ 	 *  2) null if no such node exists.
+ 	 */
+ 	function previousSignificantNode(sib) {
++	if (!sib) return null; // CLEAR_WRITER_NULL_GUARD
+ 		while ((sib = sib.previousSibling)) {
+ 			if (!isIgnorable(sib)) return sib;
+ 		}
+@@ -1297,6 +1301,7 @@
+ 	 *  2) null if no such node exists.
+ 	 */
+ 	function nextSignificantNode(sib) {
++	if (!sib) return null; // CLEAR_WRITER_NULL_GUARD
+ 		while ((sib = sib.nextSibling)) {
+ 			if (!isIgnorable(sib)) return sib;
+ 		}
+diff --git a/node_modules/pagedjs/lib/utils/dom.cjs b/node_modules/pagedjs/lib/utils/dom.cjs
+index a1105ef..ad8e498 100644
+--- a/node_modules/pagedjs/lib/utils/dom.cjs
++++ b/node_modules/pagedjs/lib/utils/dom.cjs
+@@ -119,6 +119,7 @@ function walk(start, limiter) {
+   }, _marked);
+ }
+ function nodeAfter(node, limiter) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+   if (limiter && node === limiter) {
+     return;
+   }
+@@ -139,6 +140,7 @@ function nodeAfter(node, limiter) {
+   }
+ }
+ function nodeBefore(node, limiter) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+   if (limiter && node === limiter) {
+     return;
+   }
+@@ -525,6 +527,7 @@ function cloneNode(n) {
+   return n.cloneNode(deep);
+ }
+ function findElement(node, doc, forceQuery) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+   var ref = node.getAttribute("data-ref");
+   return findRef(ref, doc, forceQuery);
+ }
+@@ -680,6 +683,7 @@ function isAllWhitespace(node) {
+  *  2) null if no such node exists.
+  */
+ function previousSignificantNode(sib) {
++	if (!sib) return null; // CLEAR_WRITER_NULL_GUARD
+   while (sib = sib.previousSibling) {
+     if (!isIgnorable(sib)) return sib;
+   }
+@@ -745,6 +749,7 @@ function parentOf(node, nodeName, limiter) {
+  *  2) null if no such node exists.
+  */
+ function nextSignificantNode(sib) {
++	if (!sib) return null; // CLEAR_WRITER_NULL_GUARD
+   while (sib = sib.nextSibling) {
+     if (!isIgnorable(sib)) return sib;
+   }
+diff --git a/node_modules/pagedjs/src/utils/dom.js b/node_modules/pagedjs/src/utils/dom.js
+index 2c0e50d..af58f65 100644
+--- a/node_modules/pagedjs/src/utils/dom.js
++++ b/node_modules/pagedjs/src/utils/dom.js
+@@ -39,6 +39,7 @@ export function* walk(start, limiter) {
+ }
+ 
+ export function nodeAfter(node, limiter) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+ 	if (limiter && node === limiter) {
+ 		return;
+ 	}
+@@ -60,6 +61,7 @@ export function nodeAfter(node, limiter) {
+ }
+ 
+ export function nodeBefore(node, limiter) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+ 	if (limiter && node === limiter) {
+ 		return;
+ 	}
+@@ -480,6 +482,7 @@ export function cloneNode(n, deep=false) {
+ }
+ 
+ export function findElement(node, doc, forceQuery) {
++	if (!node) return null; // CLEAR_WRITER_NULL_GUARD
+ 	const ref = node.getAttribute("data-ref");
+ 	return findRef(ref, doc, forceQuery);
+ }
+@@ -657,6 +660,7 @@ export function isAllWhitespace(node) {
+  *  2) null if no such node exists.
+  */
+ export function previousSignificantNode(sib) {
++	if (!sib) return null; // CLEAR_WRITER_NULL_GUARD
+ 	while ((sib = sib.previousSibling)) {
+ 		if (!isIgnorable(sib)) return sib;
+ 	}
+@@ -724,6 +728,7 @@ export function parentOf(node, nodeName, limiter) {
+  *  2) null if no such node exists.
+  */
+ export function nextSignificantNode(sib) {
++	if (!sib) return null; // CLEAR_WRITER_NULL_GUARD
+ 	while ((sib = sib.nextSibling)) {
+ 		if (!isIgnorable(sib)) return sib;
+ 	}

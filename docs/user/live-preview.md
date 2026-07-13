@@ -37,4 +37,4 @@ That design keeps the HTML output clean and makes navigation resilient to rerend
 
 ## Practical Result
 
-The preview now follows the editor selection based on the committed document state rather than legacy marker-based tracking. That makes the navigation more stable after images, page breaks, and rerenders, and it keeps the document HTML cleaner for export and diagnostics.
+The preview follows the editor selection based on the committed document state. That keeps navigation stable after images, page breaks, and rerenders, and it keeps the document HTML clean for export and diagnostics.

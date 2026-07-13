@@ -20,13 +20,16 @@
     "profile:preview": "node --expose-gc scripts/profile-preview.mjs",
     "profile:pagination": "node scripts/profile-pagination.mjs",
     "preview": "vite preview --outDir dist-web",
-    "postinstall": "node patch-pagedjs.js"
+    "postinstall": "patch-package",
+    "test:pagedjs-patch": "node scripts/verify-pagedjs-patch.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
     "jszip": "^3.10.1",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "patch-package": "^8.0.1"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -40,9 +43,9 @@
     "@fontsource/inter-tight": "^5.2.7",
     "@lezer/highlight": "^1.2.3",
     "codemirror": "^6.0.2",
-    "morphdom": "^2.7.8",
-    "pagedjs": "^0.4.3",
     "docx": "^8.5.0",
+    "morphdom": "^2.7.8",
+    "pagedjs": "0.4.3",
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "rehype-stringify": "^10.0.1",

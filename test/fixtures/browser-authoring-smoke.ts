@@ -382,8 +382,9 @@ async function run() {
     && state.current.isFullDocMode === false
   ) ? true : null);
   
-  // Verify state restored
-  await waitFor('state test editor restored', () => document.querySelector('.cm-content') ? true : null);
+  // Wait for the explicit activation lifecycle rather than using editor DOM
+  // presence as a proxy for preview/render completion.
+  await editorManager.whenDocumentReady('sections/StateTest.md');
   await waitFor('StateTest selection restored', () => {
     const selection = editorManager.getEditorView()?.getSelection();
     return selection?.from === 15 && selection.to === 20 ? true : null;

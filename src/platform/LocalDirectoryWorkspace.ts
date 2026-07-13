@@ -12,6 +12,7 @@ import { DirectoryHandleCatalogue } from './DirectoryHandleCatalogue';
 import { readJson, writeJson, ensureDirectory, getDirectory, getFile, deleteEntry, listEntries, copyEntry } from './fs-helpers';
 import { resolveImagePath, resolveSectionPath } from './project-paths';
 import { applyProjectSettingsMutation } from '../services/settings-mutations';
+import { runCoordinatedMutation } from './mutation-coordinator';
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -74,6 +75,14 @@ export class LocalDirectoryWorkspaceSession implements WorkspaceSession {
   private async getSettings(): Promise<ProjectSettingsData> {
     if (!this.settingsHandle) return createDefaultSettings();
     return normalizeSettings(await readJson<ProjectSettingsData>(this.settingsHandle));
+  }
+
+  private async writeSettingsSnapshot(settings: ProjectSettingsData): Promise<void> {
+    await this.serializedWrite('settings.json', async () => {
+      if (!this.settingsHandle) this.settingsHandle = await getFile(this.projectDir, 'settings.json', true);
+      if (!this.settingsHandle) throw new Error('Could not create settings.json handle');
+      await writeJson(this.settingsHandle, settings);
+    });
   }
 
   async readSettings(): Promise<ProjectSettingsData> {
@@ -237,21 +246,27 @@ export class LocalDirectoryWorkspaceSession implements WorkspaceSession {
     if (!newParent) return false;
     const newNamePart = newPath.split('/').pop()!;
 
-    await copyEntry(sourceFile ?? sourceDir!, newParent, newNamePart);
-    try {
-      await this.mutateSettings({ type: 'replace-path', oldPath, newPath });
-    } catch (error) {
-      await deleteEntry(this.projectDir, newPath);
-      throw error;
-    }
-
-    if (await deleteEntry(this.projectDir, oldPath)) return true;
-
-    // The source remains intact when deletion fails. Restore its metadata and
-    // remove the copied destination so the project returns to its old state.
-    await this.mutateSettings({ type: 'replace-path', oldPath: newPath, newPath: oldPath });
-    await deleteEntry(this.projectDir, newPath);
-    return false;
+    const sourceParent = await getDirectory(this.projectDir, oldPath.split('/').slice(0, -1).join('/'), true);
+    if (!sourceParent) return false;
+    let sourceDeleted = false;
+    return runCoordinatedMutation({
+      readSettings: () => this.getSettings(),
+      writeSettings: settings => this.writeSettingsSnapshot(settings),
+      applyFilesystem: async () => {
+        await copyEntry(sourceFile ?? sourceDir!, newParent, newNamePart);
+        if (!await deleteEntry(this.projectDir, oldPath)) throw new Error('Unable to remove the original entry.');
+        sourceDeleted = true;
+      },
+      rollbackFilesystem: async () => {
+        if (sourceDeleted) {
+          const copiedFile = await getFile(this.projectDir, newPath, false);
+          const copiedDir = copiedFile ? null : await getDirectory(this.projectDir, newPath, false);
+          if (copiedFile || copiedDir) await copyEntry(copiedFile ?? copiedDir!, sourceParent, oldPath.split('/').pop()!);
+        }
+        await deleteEntry(this.projectDir, newPath);
+      },
+      updateSettings: settings => applyProjectSettingsMutation(settings, { type: 'replace-path', oldPath, newPath })
+    });
   }
 
   async moveSection(
@@ -263,25 +278,56 @@ export class LocalDirectoryWorkspaceSession implements WorkspaceSession {
     const settings = await this.getSettings();
     const move = calculateSectionMove(entries, settings.order, sourceName, targetName, placement);
     if (!move) return { success: false };
-    if (!await this.renameSection(move.source, move.destination)) return { success: false };
-    
-    await this.serializedWrite('settings.json', async () => {
-      const updatedSettings = await this.getSettings();
-      updatedSettings.order = move.order;
-      if (this.settingsHandle) {
-        await writeJson(this.settingsHandle, updatedSettings);
-      }
+    const sourcePath = resolveSectionPath(move.source);
+    const destinationPath = resolveSectionPath(move.destination);
+    const sourceFile = await getFile(this.projectDir, sourcePath, false);
+    const sourceDir = sourceFile ? null : await getDirectory(this.projectDir, sourcePath, false);
+    const destinationParent = await getDirectory(this.projectDir, destinationPath.split('/').slice(0, -1).join('/'), true);
+    if ((!sourceFile && !sourceDir) || !destinationParent) return { success: false };
+    const sourceParent = await getDirectory(this.projectDir, sourcePath.split('/').slice(0, -1).join('/'), true);
+    if (!sourceParent) return { success: false };
+    let sourceDeleted = false;
+    const committed = await runCoordinatedMutation({
+      readSettings: () => this.getSettings(),
+      writeSettings: settings => this.writeSettingsSnapshot(settings),
+      applyFilesystem: async () => {
+        await copyEntry(sourceFile ?? sourceDir!, destinationParent, destinationPath.split('/').pop()!);
+        if (!await deleteEntry(this.projectDir, sourcePath)) throw new Error('Unable to remove the original entry.');
+        sourceDeleted = true;
+      },
+      rollbackFilesystem: async () => {
+        if (sourceDeleted) {
+          const copiedFile = await getFile(this.projectDir, destinationPath, false);
+          const copiedDir = copiedFile ? null : await getDirectory(this.projectDir, destinationPath, false);
+          if (copiedFile || copiedDir) await copyEntry(copiedFile ?? copiedDir!, sourceParent, sourcePath.split('/').pop()!);
+        }
+        await deleteEntry(this.projectDir, destinationPath);
+      },
+      updateSettings: value => { value.order = move.order; applyProjectSettingsMutation(value, { type: 'replace-path', oldPath: move.source, newPath: move.destination }); }
     });
-
-    return { success: true, newPath: move.destination };
+    return committed ? { success: true, newPath: move.destination } : { success: false };
   }
 
   async deleteSection(fileName: string): Promise<boolean> {
     const normalized = resolveSectionPath(fileName);
-    const deleted = await deleteEntry(this.projectDir, normalized);
-    if (!deleted) return false;
-    await this.mutateSettings({ type: 'remove-path', path: normalized });
-    return true;
+    const entryFile = await getFile(this.projectDir, normalized, false);
+    const entryDir = entryFile ? null : await getDirectory(this.projectDir, normalized, false);
+    if (!entryFile && !entryDir) return false;
+    let deleted = false;
+    return runCoordinatedMutation({
+      readSettings: () => this.getSettings(),
+      writeSettings: settings => this.writeSettingsSnapshot(settings),
+      applyFilesystem: async () => {
+        if (!await deleteEntry(this.projectDir, normalized)) throw new Error('Unable to delete the entry.');
+        deleted = true;
+      },
+      rollbackFilesystem: async () => {
+        if (!deleted) return;
+        const parent = await getDirectory(this.projectDir, normalized.split('/').slice(0, -1).join('/'), true);
+        if (parent) await copyEntry(entryFile ?? entryDir!, parent, normalized.split('/').pop()!);
+      },
+      updateSettings: settings => applyProjectSettingsMutation(settings, { type: 'remove-path', path: normalized })
+    });
   }
 
   async writeImage(path: string, data: Uint8Array): Promise<boolean> {

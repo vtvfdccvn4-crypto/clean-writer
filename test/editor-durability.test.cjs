@@ -4,11 +4,13 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
 let server;
 let DocumentSaveCoordinator;
+let EditorSaveCoordinator;
 let DraftRecoveryStore;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24684 } } });
   ({ DocumentSaveCoordinator } = await server.ssrLoadModule('/src/editor/DocumentSaveCoordinator.ts'));
+  ({ EditorSaveCoordinator } = await server.ssrLoadModule('/src/ui/EditorSaveCoordinator.ts'));
   ({ DraftRecoveryStore } = await server.ssrLoadModule('/src/editor/DraftRecoveryStore.ts'));
 });
 
@@ -94,6 +96,31 @@ test('a failed commit restores the dirty state allowing a successful retry', asy
   // Changes are now saved
   assert.equal(queue.hasUnsavedChanges(), false);
   assert.deepEqual(commits, ['important edit']);
+});
+
+test('EditorSaveCoordinator coalesces concurrent editor flushes', async () => {
+  let flushes = 0;
+  let releaseFlush;
+  const editor = {
+    hasUnsavedChanges: () => true,
+    flush: () => new Promise(resolve => { releaseFlush = () => { flushes += 1; resolve(); }; })
+  };
+  const statuses = [];
+  const coordinator = new EditorSaveCoordinator({
+    getEditor: () => editor,
+    updateStatus: status => statuses.push(status),
+    reportError: () => undefined,
+    reportNavigationBlocked: () => undefined
+  });
+
+  const first = coordinator.flushCurrentDocument();
+  const second = coordinator.flushCurrentDocument();
+  assert.equal(coordinator.isSaveInFlight(), true);
+  releaseFlush();
+  await Promise.all([first, second]);
+
+  assert.equal(flushes, 1);
+  assert.deepEqual(statuses, ['saving', 'saved']);
 });
 
 test('draft recovery store saves, reads, and clears section drafts', () => {

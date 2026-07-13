@@ -21,7 +21,7 @@ import { calculateSectionMove } from './section-order';
 import { getBlockGlyphLookupPaths } from '../customBlockGlyphs';
 import { applyProjectSettingsMutation } from '../services/settings-mutations';
 import { createDefaultProjectSettings } from '../services/project-settings';
-import { removeSettingsPath, replaceSettingsPath } from './project-paths';
+import { runCoordinatedMutation } from './mutation-coordinator';
 
 export class InMemoryAssetResolver implements AssetResolver {
   private cache = new Map<string, string>();
@@ -112,6 +112,10 @@ export class InMemoryWorkspaceSession implements WorkspaceSession {
     return {};
   }
 
+  private async writeSettingsSnapshot(settings: ProjectSettingsData): Promise<void> {
+    this.settings = JSON.parse(JSON.stringify(settings));
+  }
+
   async inspectProject(): Promise<ProjectHealthReport> {
     return { valid: true, recoverable: true, issues: [] };
   }
@@ -183,36 +187,32 @@ export class InMemoryWorkspaceSession implements WorkspaceSession {
     }
     if (this.foldersSet.has(normalizedNew) || this.sectionsMap.has(normalizedNew)) return false;
 
-    if (this.foldersSet.has(normalizedOld)) {
-      const nextFolders = new Set<string>();
-      for (const folder of this.foldersSet) {
-        nextFolders.add(replacePathPrefix(folder, normalizedOld, normalizedNew));
-      }
-      const nextSections = new Map<string, string>();
-      for (const [key, value] of this.sectionsMap.entries()) {
-        nextSections.set(replacePathPrefix(key, normalizedOld, normalizedNew), value);
-      }
-      this.foldersSet = nextFolders;
-      this.sectionsMap = nextSections;
-      replaceSettingsPath(this.settings, normalizedOld, normalizedNew);
-      return true;
-    }
-
-    if (this.sectionsMap.has(normalizedOld)) {
-      const nextSections = new Map<string, string>();
-      for (const [key, value] of this.sectionsMap.entries()) {
-        if (key === normalizedOld) {
-          nextSections.set(normalizedNew, value);
+    const previousFolders = new Set(this.foldersSet);
+    const previousSections = new Map(this.sectionsMap);
+    const movedFolder = this.foldersSet.has(normalizedOld);
+    const movedFile = this.sectionsMap.has(normalizedOld);
+    const committed = await runCoordinatedMutation({
+      readSettings: () => this.readSettings(),
+      writeSettings: settings => this.writeSettingsSnapshot(settings),
+      applyFilesystem: async () => {
+        if (movedFolder) {
+          this.foldersSet = new Set(Array.from(this.foldersSet, path => replacePathPrefix(path, normalizedOld, normalizedNew)));
+          this.sectionsMap = new Map(Array.from(this.sectionsMap, ([path, value]) => [replacePathPrefix(path, normalizedOld, normalizedNew), value]));
+        } else if (movedFile) {
+          const content = this.sectionsMap.get(normalizedOld)!;
+          this.sectionsMap.delete(normalizedOld);
+          this.sectionsMap.set(normalizedNew, content);
         } else {
-          nextSections.set(key, value);
+          throw new Error('Source entry does not exist.');
         }
-      }
-      this.sectionsMap = nextSections;
-      replaceSettingsPath(this.settings, normalizedOld, normalizedNew);
-      return true;
-    }
-
-    return false;
+      },
+      rollbackFilesystem: async () => {
+        this.foldersSet = previousFolders;
+        this.sectionsMap = previousSections;
+      },
+      updateSettings: settings => applyProjectSettingsMutation(settings, { type: 'replace-path', oldPath: normalizedOld, newPath: normalizedNew })
+    });
+    return committed;
   }
 
   async moveSection(
@@ -224,41 +224,34 @@ export class InMemoryWorkspaceSession implements WorkspaceSession {
     const move = calculateSectionMove(entries, this.settings.order, sourceName, targetName, placement);
     if (!move) return { success: false };
 
-    const renamed = await this.renameSection(move.source, move.destination);
-    if (!renamed) return { success: false };
-
+    const committed = await this.renameSection(move.source, move.destination);
+    if (!committed) return { success: false };
     this.settings.order = move.order;
     return { success: true, newPath: move.destination };
   }
 
   async deleteSection(fileName: string): Promise<boolean> {
     const normalized = normalizeExplorerPath(fileName);
-    if (this.foldersSet.has(normalized)) {
-      const nextFolders = new Set<string>();
-      for (const folder of this.foldersSet) {
-        if (folder !== normalized && !folder.startsWith(`${normalized}/`)) {
-          nextFolders.add(folder);
+    if (!this.foldersSet.has(normalized) && !this.sectionsMap.has(normalized)) return false;
+    const previousFolders = new Set(this.foldersSet);
+    const previousSections = new Map(this.sectionsMap);
+    return runCoordinatedMutation({
+      readSettings: () => this.readSettings(),
+      writeSettings: settings => this.writeSettingsSnapshot(settings),
+      applyFilesystem: async () => {
+        if (this.foldersSet.has(normalized)) {
+          this.foldersSet = new Set([...this.foldersSet].filter(path => path !== normalized && !path.startsWith(`${normalized}/`)));
+          this.sectionsMap = new Map([...this.sectionsMap].filter(([path]) => path !== normalized && !path.startsWith(`${normalized}/`)));
+        } else {
+          this.sectionsMap.delete(normalized);
         }
-      }
-      const nextSections = new Map<string, string>();
-      for (const [key, value] of this.sectionsMap.entries()) {
-        if (key !== normalized && !key.startsWith(`${normalized}/`)) {
-          nextSections.set(key, value);
-        }
-      }
-      this.foldersSet = nextFolders;
-      this.sectionsMap = nextSections;
-      removeSettingsPath(this.settings, normalized);
-      return true;
-    }
-
-    if (this.sectionsMap.has(normalized)) {
-      this.sectionsMap.delete(normalized);
-      removeSettingsPath(this.settings, normalized);
-      return true;
-    }
-
-    return false;
+      },
+      rollbackFilesystem: async () => {
+        this.foldersSet = previousFolders;
+        this.sectionsMap = previousSections;
+      },
+      updateSettings: settings => applyProjectSettingsMutation(settings, { type: 'remove-path', path: normalized })
+    });
   }
 }
 

@@ -4,8 +4,6 @@ import { extractWritingStatistics } from '../editor/writing-statistics';
 import type { MarkdownEditor } from '../editor';
 import { compileMarkdown } from '../compiler';
 import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
-import { previewMetrics } from '../perf/preview-metrics';
-import { CoalescingTaskQueue } from '../utils/CoalescingTaskQueue';
 import { renderDocumentSection } from '../preview/document-rendering';
 import type { Platform, PdfExportDocument } from '../platform/types';
 import { showNotice } from './components/Notice';
@@ -14,7 +12,11 @@ import { describeWorkspaceError } from '../services/project-runtime-feedback';
 import { applyMarkdownCommand, type MarkdownCommand } from '../editor/markdown-commands';
 import { PreviewCoordinator } from './PreviewCoordinator';
 import { DocumentSessionController } from './DocumentSessionController';
-import { DocumentNavigationController } from './DocumentNavigationController';
+import { EditorStatusController, type EditorSaveStatus } from './EditorStatusController';
+import { EditorSaveCoordinator } from './EditorSaveCoordinator';
+import { DocumentActivationCoordinator } from './DocumentActivationCoordinator';
+import { WelcomeController } from './WelcomeController';
+import { ExportOrchestrationController } from './ExportOrchestrationController';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -23,12 +25,12 @@ export class EditorManager {
   private previewPane: HTMLElement;
   private statsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly documentSession = new DocumentSessionController();
-  private selectionQueue: CoalescingTaskQueue<string>;
-  private readonly documentNavigation = new DocumentNavigationController();
-  private navigationCommandActive = false;
+  private readonly activation: DocumentActivationCoordinator;
+  private readonly welcome: WelcomeController;
   private platform: Platform;
-  private saveInFlight: Promise<void> | null = null;
-  private paginatedExportCache: { key: string; document: PdfExportDocument } | null = null;
+  private readonly exportOrchestration: ExportOrchestrationController;
+  private readonly statusController = new EditorStatusController();
+  private readonly saveCoordinator: EditorSaveCoordinator;
 
   constructor(platform: Platform) {
     this.platform = platform;
@@ -36,10 +38,30 @@ export class EditorManager {
     this.pagedStage = document.getElementById('paged-stage')!;
     this.previewPane = document.querySelector('.preview-pane')!;
     this.preview = new PreviewCoordinator(this.pagedStage, this.platform.assetResolver);
-    this.selectionQueue = new CoalescingTaskQueue(
-      async (_reason, isLatest) => this.handleSelectionChange(isLatest),
-      (reason, error) => this.reportWorkflowError(`Unable to complete ${reason}.`, error)
-    );
+    this.welcome = new WelcomeController({
+      editorContainer: this.editorContainer,
+      workspaceRepository: this.platform.workspaceRepository
+    });
+    this.exportOrchestration = new ExportOrchestrationController({
+      compileSnapshot: () => this.compileExportSnapshot(),
+      forceRender: html => this.preview.forceRender(html),
+      pagedStage: this.pagedStage,
+      getCacheKey: () => this.getPaginatedExportCacheKey(),
+      getPageSetup: () => state.current.pageSetup
+    });
+    this.activation = new DocumentActivationCoordinator({
+      flushCurrentDocument: () => this.flushCurrentDocument(),
+      setActiveFile: path => state.setActiveFile(path),
+      activate: isLatest => this.handleSelectionChange(isLatest),
+      reportError: (reason, error) => this.reportWorkflowError(`Unable to complete ${reason}.`, error),
+      isCurrentDocument: path => this.currentFilePath === path && state.current.activeFile === path
+    });
+    this.saveCoordinator = new EditorSaveCoordinator({
+      getEditor: () => this.currentEditorView,
+      updateStatus: status => this.updateSaveStatus(status),
+      reportError: error => console.error('[EditorManager] Save failed.', error),
+      reportNavigationBlocked: () => showNotice('The current section could not be saved. Your changes remain open. Reconnect the project and try again before continuing.', 'error')
+    });
     this.setPreviewVisible(Boolean(state.current.projectRef));
 
     state.onEditorSetupChanged(() => {
@@ -49,8 +71,8 @@ export class EditorManager {
 
     // Bind state events
     state.onSelectionChanged(() => {
-      if (this.navigationCommandActive) return;
-      this.queueSelectionChange('selection change');
+      if (this.activation.isNavigationCommandActive()) return;
+      this.activation.request('selection change');
     });
     state.onProjectChanged(() => {
       this.setPreviewVisible(Boolean(state.current.projectRef));
@@ -58,14 +80,14 @@ export class EditorManager {
     state.onProjectSnapshotChanged(() => {
       this.applySnapshotSettings();
       this.setPreviewVisible(Boolean(state.current.projectRef));
-      this.queueSelectionChange('project snapshot change');
+      this.activation.request('project snapshot change');
     });
     state.onProjectTreeChanged(() => {
-      this.queueSelectionChange('project tree change');
+      this.activation.request('project tree change');
     });
     state.onSettingsSnapshotChanged(() => {
       this.applySnapshotSettings();
-      this.queueSelectionChange('settings snapshot change');
+      this.activation.request('settings snapshot change');
     });
     state.onPageSetupChanged(() => {
       this.preview.applyPageSetup(state.current.pageSetup);
@@ -80,7 +102,7 @@ export class EditorManager {
       this.preview.applyTableSetup(state.current.tableSetup);
     });
     state.onProjectMetadataChanged(() => {
-      this.queueSelectionChange('project metadata change');
+      this.activation.request('project metadata change');
     });
 
     // Apply initial defaults
@@ -106,10 +128,6 @@ export class EditorManager {
     this.preview.applyListSetup(state.current.listSetup);
     this.preview.applyTableSetup(state.current.tableSetup);
     this.editorContainer.style.setProperty('--editor-font-size', state.current.editorSetup.fontSize);
-  }
-
-  private queueSelectionChange(reason: string) {
-    this.selectionQueue.request(reason);
   }
 
   private reportWorkflowError(message: string, error: unknown) {
@@ -147,8 +165,7 @@ export class EditorManager {
       return;
     }
 
-    this.editorContainer.closest('.editor-pane')?.classList.remove('is-welcome');
-    this.editorContainer.closest('.workspace')?.classList.remove('is-welcome');
+    this.welcome.setVisible(false);
     this.setPreviewVisible(true);
 
     if (isFullDocMode) {
@@ -166,84 +183,10 @@ export class EditorManager {
     this.updateActiveSectionLabel(null);
     this.documentSession.clearPendingFocus();
     this.documentSession.destroyActive();
-    this.editorContainer.closest('.editor-pane')?.classList.add('is-welcome');
-    this.editorContainer.closest('.workspace')?.classList.add('is-welcome');
-    
-    // Keep the welcome page deliberately lightweight: project actions remain
-    // owned by SidebarController, and this page simply invokes them.
-    this.editorContainer.innerHTML = `
-      <div class="empty-canvas welcome-screen">
-        <div class="welcome-content">
-          <header class="welcome-brand">
-            <span class="welcome-brand-mark" aria-hidden="true">C</span>
-            <h1>Clear Writer</h1>
-          </header>
-          <section class="welcome-section" aria-labelledby="welcome-start-title">
-            <h2 id="welcome-start-title">Start</h2>
-            <div class="welcome-actions">
-              <button id="empty-canvas-new-project" type="button" class="welcome-action">
-                <span class="welcome-action-icon" aria-hidden="true">+</span>
-                <span>New Document</span>
-              </button>
-              <button id="empty-canvas-open-folder" type="button" class="welcome-action">
-                <span class="welcome-action-icon welcome-action-icon-folder" aria-hidden="true"></span>
-                <span>Open Document</span>
-              </button>
-            </div>
-          </section>
-          <section id="welcome-recents" class="welcome-section welcome-recents" aria-labelledby="welcome-recent-title" hidden>
-            <h2 id="welcome-recent-title">Recent</h2>
-            <div id="welcome-recent-list" class="welcome-recent-list"></div>
-          </section>
-        </div>
-      </div>
-    `;
-
-    this.editorContainer.querySelector('#empty-canvas-open-folder')?.addEventListener('click', () => {
-      document.getElementById('btn-open')?.click();
-    });
-    this.editorContainer.querySelector('#empty-canvas-new-project')?.addEventListener('click', () => {
-      document.getElementById('btn-new')?.click();
-    });
-    this.populateWelcomeRecents();
+    this.welcome.setVisible(true);
+    this.welcome.render();
 
     this.preview.clear();
-  }
-
-  private async populateWelcomeRecents() {
-    const recentSection = this.editorContainer.querySelector<HTMLElement>('#welcome-recents');
-    const recentList = this.editorContainer.querySelector<HTMLElement>('#welcome-recent-list');
-    const listKnownWorkspaces = this.platform.workspaceRepository.listKnownBrowserWorkspaces;
-    if (!recentSection || !recentList || !listKnownWorkspaces) return;
-
-    try {
-      const recents = await listKnownWorkspaces.call(this.platform.workspaceRepository);
-      // The user may have already opened a document while the asynchronous
-      // catalogue lookup was in progress.
-      if (!this.editorContainer.contains(recentSection) || recents.length === 0) return;
-
-      for (const entry of recents.slice(0, 8)) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'welcome-recent-item';
-        button.title = entry.displayName;
-
-        const name = document.createElement('span');
-        name.className = 'welcome-recent-name';
-        name.textContent = entry.displayName;
-        const kind = document.createElement('span');
-        kind.className = 'welcome-recent-kind';
-        kind.textContent = entry.ref.kind === 'directory' ? 'Local folder' : 'Browser storage';
-        button.append(name, kind);
-        button.addEventListener('click', () => {
-          document.dispatchEvent(new CustomEvent('clear-writer-open-recent', { detail: { ref: entry.ref } }));
-        });
-        recentList.append(button);
-      }
-      recentSection.hidden = recentList.childElementCount === 0;
-    } catch (error) {
-      console.warn('Unable to load recent documents for the welcome page:', error);
-    }
   }
 
   private setPreviewVisible(visible: boolean) {
@@ -413,7 +356,7 @@ export class EditorManager {
 
     // Reset scroll positions to top
     this.preview.scrollToTop();
-    this.documentSession.restoreViewState(projectRef, filename);
+    await this.documentSession.restoreViewState(projectRef, filename);
     this.documentSession.applyPendingFocus(filename);
     this.updateSaveStatus('saved');
   }
@@ -422,27 +365,20 @@ export class EditorManager {
     return this.currentEditorView;
   }
 
+  /**
+   * Resolves when the requested document activation has completed its editor,
+   * preview, and view-state restoration phases.
+   */
+  public async whenDocumentReady(path: string): Promise<void> {
+    await this.activation.whenReady(path);
+    if (!this.currentEditorView) throw new Error(`Editor is not available for ${path}.`);
+  }
+
   /** Selects a document and resolves after the corresponding editor render settles. */
   public async openDocument(path: string): Promise<void> {
     // Persist under the current file identity before publishing the next one.
     // The autosave callback intentionally rejects writes once selection changes.
-    await this.flushCurrentDocument();
-    this.navigationCommandActive = true;
-    try {
-      state.setActiveFile(path);
-    } finally {
-      this.navigationCommandActive = false;
-    }
-    await this.documentNavigation.navigate(async isCurrent => {
-      // Preview work may invalidate a render after its editor session has been
-      // created. Navigation owns the completion contract, so retry within this
-      // transaction until the requested document is the live editor.
-      for (let attempt = 0; attempt < 3 && isCurrent(); attempt += 1) {
-        await this.handleSelectionChange(isCurrent);
-        if (this.currentFilePath === path && state.current.activeFile === path) return;
-      }
-      if (isCurrent()) throw new Error(`Unable to activate document: ${path}`);
-    });
+    await this.activation.openDocument(path);
   }
 
   public insertTextAtCursor(text: string): boolean {
@@ -463,42 +399,19 @@ export class EditorManager {
   }
 
   public hasUnsavedChanges(): boolean {
-    return this.currentEditorView ? this.currentEditorView.hasUnsavedChanges() : false;
+    return this.saveCoordinator.hasUnsavedChanges();
   }
 
   public isSaveInFlight(): boolean {
-    return this.saveInFlight !== null;
+    return this.saveCoordinator.isSaveInFlight();
   }
 
   public async prepareForNavigation(): Promise<boolean> {
-    try {
-      await this.flushCurrentDocument();
-      return true;
-    } catch (error) {
-      console.error('[EditorManager] Navigation blocked because the current section could not be saved:', error);
-      showNotice('The current section could not be saved. Your changes remain open. Reconnect the project and try again before continuing.', 'error');
-      return false;
-    }
+    return this.saveCoordinator.prepareForNavigation();
   }
 
   public async flushCurrentDocument(): Promise<void> {
-    if (this.saveInFlight) return this.saveInFlight;
-    const editor = this.currentEditorView;
-    if (!editor) return;
-    if (!editor.hasUnsavedChanges()) return;
-    this.updateSaveStatus('saving');
-    this.saveInFlight = (async () => {
-      try {
-        await editor.flush();
-        this.updateSaveStatus('saved');
-      } catch (e) {
-        this.updateSaveStatus('error');
-        throw e;
-      } finally {
-        this.saveInFlight = null;
-      }
-    })();
-    return this.saveInFlight;
+    return this.saveCoordinator.flushCurrentDocument();
   }
 
   /** Compile a fresh, durable snapshot; never export the preview cache. */
@@ -523,54 +436,7 @@ export class EditorManager {
 
   /** Compile and paginate the durable snapshot used by browser PDF export. */
   public async compilePaginatedExportSnapshot(): Promise<PdfExportDocument> {
-    const exportStarted = performance.now();
-    const cacheKey = this.getPaginatedExportCacheKey();
-    if (this.paginatedExportCache?.key === cacheKey) {
-      previewMetrics.recordPdfExportCache(true);
-      previewMetrics.recordPdfExportPhase('orchestration-total', performance.now() - exportStarted);
-      return this.paginatedExportCache.document;
-    }
-    previewMetrics.recordPdfExportCache(false);
-
-    try {
-      let rendered = false;
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const snapshotStarted = performance.now();
-        const html = await this.compileExportSnapshot();
-        previewMetrics.recordPdfExportPhase('snapshot', performance.now() - snapshotStarted);
-        const paginationStarted = performance.now();
-        const renderResult = await this.preview.forceRender(html);
-        previewMetrics.recordPdfExportPhase('pagination', performance.now() - paginationStarted);
-        if (renderResult.status === 'rendered') {
-          rendered = true;
-          break;
-        }
-        if (renderResult.status === 'degraded' || attempt === 1) {
-          const detail = renderResult.error ? `: ${renderResult.error.message}` : '.';
-          throw new Error(`PDF export pagination ${renderResult.status}${detail}`);
-        }
-        // A live preview render may supersede this export render while the
-        // snapshot is being prepared. Rebuild once against the latest state.
-      }
-      if (!rendered) {
-        throw new Error('PDF export pagination did not commit a render.');
-      }
-      const pageCount = this.pagedStage.querySelectorAll('.pagedjs_page').length;
-      if (pageCount === 0) throw new Error('PDF export pagination produced no printable pages.');
-      const document: PdfExportDocument = {
-        html: this.pagedStage.innerHTML,
-        pageSetup: state.current.pageSetup,
-        isPaginated: true
-      };
-      if (this.getPaginatedExportCacheKey() === cacheKey) {
-        this.paginatedExportCache = { key: cacheKey, document };
-      } else {
-        this.paginatedExportCache = null;
-      }
-      return document;
-    } finally {
-      previewMetrics.recordPdfExportPhase('orchestration-total', performance.now() - exportStarted);
-    }
+    return this.exportOrchestration.compilePaginatedSnapshot();
   }
 
   private getPaginatedExportCacheKey(): string {
@@ -616,28 +482,8 @@ export class EditorManager {
     statsLabel.hidden = false;
   }
 
-  private updateSaveStatus(state: 'idle' | 'dirty' | 'saving' | 'saved' | 'error') {
-    const statusText = document.getElementById('editor-status');
-    const statusDot = document.getElementById('editor-status-dot');
-    if (!statusText || !statusDot) return;
-
-    statusDot.className = 'status-dot ' + state;
-
-    const labels = {
-      idle: 'Ready',
-      dirty: 'Unsaved changes',
-      saving: 'Saving...',
-      saved: 'Saved',
-      error: 'Save failed'
-    };
-
-    statusText.textContent = labels[state];
-    document.body.dataset.editorSaveState = state;
-    document.querySelectorAll<HTMLElement>('.tree-row.active .section-save-indicator').forEach(indicator => {
-      indicator.dataset.state = state;
-      indicator.title = labels[state];
-    });
-    window.dispatchEvent(new CustomEvent('clear-writer-save-state', { detail: { state } }));
+  private updateSaveStatus(status: EditorSaveStatus) {
+    this.statusController.setStatus(status);
   }
 
 }

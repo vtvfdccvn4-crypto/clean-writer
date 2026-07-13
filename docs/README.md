@@ -22,6 +22,12 @@ Clear Writer is a browser/PWA document authoring app for writing Markdown in a C
 - Storage: browser OPFS projects and local directory projects when supported by the browser.
 - Runtime: browser/PWA only; there is no Electron or desktop-shell dependency.
 
+## Current Refactor And Cleanup Notes
+
+- Preview navigation is revision-aware and uses an in-memory compiler manifest plus the committed Paged.js DOM. It does not add serialized navigation anchors to exported HTML.
+- The project explorer is a compact two-area sidebar for sections and images.
+- Release validation is centered on `npm run release:prep`, with focused reruns of browser and PWA smoke checks when diagnosing transient browser timing failures.
+
 ## Maintenance Notes
 
 Keep documentation grounded in source files. When behavior changes, update the relevant map entries in `DOCUMENTATION_MAP.md` first, then update the user-facing or developer-facing page that owns the behavior.

@@ -114,47 +114,6 @@
   flex: 0 0 auto;
 }
 
-.explorer-vertical-splitter {
-  display: block;
-  position: relative;
-  min-height: 7px;
-  cursor: row-resize;
-  outline: 0;
-  touch-action: none;
-}
-
-.explorer-vertical-splitter span {
-  position: absolute;
-  top: 3px;
-  right: 5px;
-  left: 5px;
-  height: 1px;
-  background: rgba(112, 88, 58, 0.13);
-  transition: background-color 120ms ease, height 120ms ease;
-}
-
-.explorer-vertical-splitter:hover span,
-.explorer-vertical-splitter:focus-visible span,
-.explorer-vertical-splitter.is-dragging span {
-  height: 2px;
-  background: rgba(78, 105, 90, 0.48);
-}
-
-.sidebar-content:has(> .sections-section[open]):has(> .images-section[open]) {
-  display: grid;
-  gap: 0;
-  grid-template-rows:
-    minmax(56px, calc(var(--explorer-sections-ratio, 50) * 1%))
-    7px
-    minmax(194px, 1fr);
-}
-
-body.is-resizing-explorer-vertically,
-body.is-resizing-explorer-vertically * {
-  cursor: row-resize !important;
-  user-select: none !important;
-}
-
 .project-tree-section[open] > .file-list {
   min-height: 0;
   overflow-y: auto;
