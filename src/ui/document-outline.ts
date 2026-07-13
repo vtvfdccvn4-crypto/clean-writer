@@ -184,13 +184,11 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
 
   async function navigateToSection(path: string) {
     if (!await editorManager.prepareForNavigation()) return;
-    state.setActiveFile(path);
+    await editorManager.openDocument(path);
   }
 
   async function navigateToHeading(path: string, line: number) {
-    await navigateToSection(path);
-    requestAnimationFrame(() => {
-      editorManager.focusLine(line);
-    });
+    if (!await editorManager.prepareForNavigation()) return;
+    await editorManager.navigateToLine(path, line);
   }
 }

@@ -77,10 +77,11 @@ export class DocumentSessionController {
     this.editor.focus();
   }
 
-  applyPendingFocus(filePath: string): void {
+  applyPendingFocus(filePath: string): boolean {
     const pending = this.pendingFocusLine;
-    if (!pending || pending.path !== filePath) return;
+    if (!pending || pending.path !== filePath) return false;
     this.pendingFocusLine = null;
     this.focusLine(filePath, pending.line);
+    return true;
   }
 }

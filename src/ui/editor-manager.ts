@@ -351,6 +351,8 @@ export class EditorManager {
     };
 
     this.documentSession.activate(projectRef, filename, createEditor(this.editorContainer, content, callbacks));
+    // Apply outline/search navigation before the new editor can first paint at line 1.
+    const focusedPendingLine = this.documentSession.applyPendingFocus(filename);
 
     // Initial exact layout
     const { sections } = state.current;
@@ -371,8 +373,9 @@ export class EditorManager {
 
     // Reset scroll positions to top
     this.preview.scrollToTop();
-    await this.documentSession.restoreViewState(projectRef, filename);
-    this.documentSession.applyPendingFocus(filename);
+    if (!focusedPendingLine) {
+      await this.documentSession.restoreViewState(projectRef, filename);
+    }
     this.updateSaveStatus('saved');
   }
 
@@ -391,9 +394,26 @@ export class EditorManager {
 
   /** Selects a document and resolves after the corresponding editor render settles. */
   public async openDocument(path: string): Promise<void> {
+    if (this.currentFilePath === path && state.current.activeFile === path) return;
     // Persist under the current file identity before publishing the next one.
     // The autosave callback intentionally rejects writes once selection changes.
     await this.activation.openDocument(path);
+  }
+
+  /** Opens a document only when needed, then places the requested line at the top. */
+  public async navigateToLine(path: string, line: number): Promise<void> {
+    if (this.currentFilePath === path && state.current.activeFile === path) {
+      this.documentSession.focusLine(path, line);
+      return;
+    }
+
+    this.documentSession.focusLine(path, line);
+    try {
+      await this.activation.openDocument(path);
+    } catch (error) {
+      this.documentSession.clearPendingFocus();
+      throw error;
+    }
   }
 
   public insertTextAtCursor(text: string): boolean {
