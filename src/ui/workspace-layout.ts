@@ -71,6 +71,7 @@ export function initWorkspaceLayout(): void {
   resizer.addEventListener('pointerdown', (event) => {
     if (!canResize()) return;
     event.preventDefault();
+    const pointerId = event.pointerId;
     const startX = event.clientX;
     const startWidth = explorerWidth;
     let pendingWidth = startWidth;
@@ -80,32 +81,41 @@ export function initWorkspaceLayout(): void {
       animationFrame = 0;
       resizer.style.transform = `translateX(${pendingWidth - startWidth}px)`;
     };
-    const move = (moveEvent: PointerEvent) => {
-      pendingWidth = clampWidth(startWidth + moveEvent.clientX - startX);
+    const updatePendingWidth = (clientX: number) => {
+      pendingWidth = clampWidth(startWidth + clientX - startX);
       if (!animationFrame) animationFrame = requestAnimationFrame(updateGuide);
     };
-    const finish = () => {
+    const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId === pointerId) updatePendingWidth(moveEvent.clientX);
+    };
+    const finish = (endEvent?: Event) => {
       if (finished) return;
       finished = true;
+      if (endEvent instanceof PointerEvent && endEvent.pointerId === pointerId && endEvent.type !== 'pointercancel') {
+        updatePendingWidth(endEvent.clientX);
+      }
       if (animationFrame) cancelAnimationFrame(animationFrame);
       resizer.style.removeProperty('transform');
       resizer.classList.remove('is-dragging');
       document.body.classList.remove('is-resizing-explorer');
       applyWidth(pendingWidth, true);
-      resizer.removeEventListener('pointermove', move);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
       window.removeEventListener('blur', finish);
-      if (resizer.hasPointerCapture(event.pointerId)) {
-        resizer.releasePointerCapture(event.pointerId);
+      resizer.removeEventListener('lostpointercapture', finish);
+      if (resizer.hasPointerCapture(pointerId)) {
+        resizer.releasePointerCapture(pointerId);
       }
     };
-    resizer.setPointerCapture(event.pointerId);
+    resizer.setPointerCapture(pointerId);
     resizer.classList.add('is-dragging');
     document.body.classList.add('is-resizing-explorer');
-    resizer.addEventListener('pointermove', move);
-    resizer.addEventListener('pointerup', finish, { once: true });
-    resizer.addEventListener('pointercancel', finish, { once: true });
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
     window.addEventListener('blur', finish);
-    resizer.addEventListener('lostpointercapture', finish, { once: true });
+    resizer.addEventListener('lostpointercapture', finish);
   });
 
   resizer.addEventListener('keydown', (event) => {
