@@ -1,20 +1,11 @@
 type ActivityView = string | null;
 
-const STORAGE_KEY = 'clear-writer.explorer-width';
+const DEFAULT_EXPLORER_WIDTH = 304;
 const MIN_EXPLORER_WIDTH = 220;
 const MAX_EXPLORER_WIDTH = 520;
 
 function clampWidth(width: number): number {
   return Math.max(MIN_EXPLORER_WIDTH, Math.min(MAX_EXPLORER_WIDTH, width));
-}
-
-function readStoredWidth(): number {
-  try {
-    const width = Number(window.localStorage.getItem(STORAGE_KEY));
-    return Number.isFinite(width) ? clampWidth(width) : 304;
-  } catch {
-    return 304;
-  }
 }
 
 /** Owns activity-panel state and the explorer's lightweight resize interaction. */
@@ -31,17 +22,12 @@ export function initWorkspaceLayout(): void {
   );
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-activity-view]')];
   let activeView: ActivityView = 'explorer';
-  let explorerWidth = readStoredWidth();
+  let explorerWidth = DEFAULT_EXPLORER_WIDTH;
 
-  const applyWidth = (width: number, persist = false) => {
-    const nextWidth = clampWidth(width);
-    const changed = nextWidth !== explorerWidth;
-    explorerWidth = nextWidth;
+  const applyWidth = (width: number) => {
+    explorerWidth = clampWidth(width);
     workspace.style.setProperty('--explorer-width', `${explorerWidth}px`);
     resizer.setAttribute('aria-valuenow', String(explorerWidth));
-    if (persist && changed) {
-      try { window.localStorage.setItem(STORAGE_KEY, String(explorerWidth)); } catch { /* Storage may be unavailable. */ }
-    }
   };
 
   resizer.setAttribute('aria-valuemin', String(MIN_EXPLORER_WIDTH));
@@ -69,7 +55,7 @@ export function initWorkspaceLayout(): void {
 
   const canResize = () => !workspace.classList.contains('is-activity-collapsed') && window.matchMedia('(min-width: 1101px)').matches;
   resizer.addEventListener('pointerdown', (event) => {
-    if (!canResize()) return;
+    if (!event.isPrimary || event.button !== 0 || !canResize()) return;
     event.preventDefault();
     const pointerId = event.pointerId;
     const startX = event.clientX;
@@ -81,9 +67,9 @@ export function initWorkspaceLayout(): void {
       animationFrame = 0;
       resizer.style.transform = `translateX(${pendingWidth - startWidth}px)`;
     };
-    const updatePendingWidth = (clientX: number) => {
+    const updatePendingWidth = (clientX: number, showGuide = true) => {
       pendingWidth = clampWidth(startWidth + clientX - startX);
-      if (!animationFrame) animationFrame = requestAnimationFrame(updateGuide);
+      if (showGuide && !animationFrame) animationFrame = requestAnimationFrame(updateGuide);
     };
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId === pointerId) updatePendingWidth(moveEvent.clientX);
@@ -92,13 +78,13 @@ export function initWorkspaceLayout(): void {
       if (finished) return;
       finished = true;
       if (endEvent instanceof PointerEvent && endEvent.pointerId === pointerId && endEvent.type !== 'pointercancel') {
-        updatePendingWidth(endEvent.clientX);
+        updatePendingWidth(endEvent.clientX, false);
       }
       if (animationFrame) cancelAnimationFrame(animationFrame);
       resizer.style.removeProperty('transform');
       resizer.classList.remove('is-dragging');
       document.body.classList.remove('is-resizing-explorer');
-      applyWidth(pendingWidth, true);
+      applyWidth(pendingWidth);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', finish);
@@ -123,7 +109,7 @@ export function initWorkspaceLayout(): void {
     const adjustments: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16, Home: MIN_EXPLORER_WIDTH - explorerWidth, End: MAX_EXPLORER_WIDTH - explorerWidth };
     if (!(event.key in adjustments)) return;
     event.preventDefault();
-    applyWidth(explorerWidth + adjustments[event.key], true);
+    applyWidth(explorerWidth + adjustments[event.key]);
   });
 
   applyWidth(explorerWidth);

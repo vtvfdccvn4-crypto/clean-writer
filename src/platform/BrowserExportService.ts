@@ -71,7 +71,7 @@ export class BrowserExportService implements DocumentExportService {
         waitForFonts(popup.document)
       ]);
       previewMetrics.recordPdfExportPhase('resources', performance.now() - resourcesStarted);
-      await waitForAnimationFrames(popup, 3);
+      await waitForStablePrintLayout(popup);
       popup.print();
       previewMetrics.recordPdfExportPhase('browser-total', performance.now() - browserStarted);
       return true;
@@ -236,19 +236,61 @@ async function waitForFonts(doc: Document): Promise<void> {
   });
 }
 
-function waitForAnimationFrames(target: Window, count: number): Promise<void> {
+/**
+ * Wait until the isolated print document reports the same page/layout metrics
+ * for two consecutive frames. This prevents opening the browser print UI while
+ * CSS, fonts, or image sizing is still moving the paged document.
+ */
+function waitForStablePrintLayout(target: Window, timeoutMs = 2000): Promise<void> {
   return new Promise(resolve => {
-    const frame = (remaining: number) => {
-      if (remaining <= 0) {
-        resolve();
+    let previousSignature: string | null = null;
+    let stableFrames = 0;
+    let settled = false;
+    let timeoutId: ReturnType<typeof globalThis.setTimeout> | null = null;
+    let frameId: number | null = null;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== null) globalThis.clearTimeout(timeoutId);
+      if (frameId !== null && typeof target.cancelAnimationFrame === 'function') {
+        target.cancelAnimationFrame(frameId);
+      }
+      resolve();
+    };
+
+    const sample = () => {
+      const signature = getPrintLayoutSignature(target.document);
+      stableFrames = signature === previousSignature ? stableFrames + 1 : 0;
+      previousSignature = signature;
+      if (stableFrames >= 2) {
+        finish();
         return;
       }
       if (typeof target.requestAnimationFrame === 'function') {
-        target.requestAnimationFrame(() => frame(remaining - 1));
+        frameId = target.requestAnimationFrame(sample);
       } else {
-        globalThis.setTimeout(() => frame(remaining - 1), 16);
+        globalThis.setTimeout(sample, 16);
       }
     };
-    frame(count);
+
+    timeoutId = globalThis.setTimeout(finish, timeoutMs);
+    sample();
   });
+}
+
+function getPrintLayoutSignature(doc: Document): string {
+  const root = doc.getElementById?.('clear-writer-pdf-document') ?? doc.documentElement;
+  const body = doc.body;
+  const rect = root?.getBoundingClientRect?.();
+  const pageCount = doc.querySelectorAll?.('.pagedjs_page').length ?? 0;
+  return [
+    pageCount,
+    root?.scrollWidth ?? 0,
+    root?.scrollHeight ?? 0,
+    body?.scrollWidth ?? 0,
+    body?.scrollHeight ?? 0,
+    rect?.width ?? 0,
+    rect?.height ?? 0
+  ].join(':');
 }
