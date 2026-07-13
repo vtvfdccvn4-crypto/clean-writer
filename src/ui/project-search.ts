@@ -1,4 +1,4 @@
-import { state, APP_STATE_EVENTS } from '../state';
+import { state } from '../state';
 import { closeDrawer, toggleDrawer } from './drawer-manager';
 import type { EditorManager } from './editor-manager';
 import type { Platform } from '../platform/types';
@@ -48,7 +48,7 @@ export function initProjectSearchDrawer(platform: Platform, editorManager: Edito
     }, 300);
   });
 
-  state.on(APP_STATE_EVENTS.projectTreeChanged, () => {
+  state.onProjectTreeChanged(() => {
     if (!drawerEl.classList.contains('hidden')) {
       void performSearch(input.value);
     } else {
@@ -56,7 +56,7 @@ export function initProjectSearchDrawer(platform: Platform, editorManager: Edito
     }
   });
 
-  state.on(APP_STATE_EVENTS.projectChanged, () => {
+  state.onProjectChanged(() => {
     clearSearch();
   });
 

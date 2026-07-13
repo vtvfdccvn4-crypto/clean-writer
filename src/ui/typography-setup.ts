@@ -1,8 +1,8 @@
-import { APP_STATE_EVENTS, state } from '../state';
+import { state } from '../state';
 import type { TypographySetup } from '../state';
 import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
 import { DEFAULT_BODY_FONT_FAMILY, DEFAULT_HEADING_FONT_FAMILY, setFontFamilySelectValue } from '../config/font-families';
-import { onSettingsTabActivated } from './settings-drawer';
+import { bindProjectSettingsPanel } from './project-settings-panel';
 
 let currentElementKey: keyof TypographySetup = 'paragraph';
 
@@ -32,11 +32,8 @@ export function initTypographyDrawer(onSaveSetup: (setup: TypographySetup) => Pr
   bindDrawerToggleButton(fontBoldCheck);
   bindDrawerToggleButton(fontItalicCheck);
 
-  state.addEventListener('typography-setup-changed', syncInputs);
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, syncInputs);
-  state.on(APP_STATE_EVENTS.settingsSnapshotChanged, syncInputs);
-
-  onSettingsTabActivated('typography', syncInputs);
+  state.onTypographySetupChanged(syncInputs);
+  bindProjectSettingsPanel(syncInputs, { tabId: 'typography' });
 
   elementSelect.addEventListener('change', () => {
     currentElementKey = elementSelect.value as keyof TypographySetup;
@@ -47,7 +44,7 @@ export function initTypographyDrawer(onSaveSetup: (setup: TypographySetup) => Pr
     // We update the current element in the state.
     // To avoid mutating the reference directly in a way that skips EventTarget detection,
     // we clone the setup, modify it, and set it.
-    const setup = JSON.parse(JSON.stringify(state.get.typographySetup)) as TypographySetup;
+    const setup = JSON.parse(JSON.stringify(state.current.typographySetup)) as TypographySetup;
     
     setup[currentElementKey] = {
       fontFamily: fontFamilySelect.value,
@@ -60,7 +57,6 @@ export function initTypographyDrawer(onSaveSetup: (setup: TypographySetup) => Pr
       marginBottom: readDrawerNumber(marginBottomInput, 0, { min: 0, max: 500 })
     };
 
-    state.setTypographySetup(setup);
     await onSaveSetup(setup);
   });
 
@@ -68,7 +64,7 @@ export function initTypographyDrawer(onSaveSetup: (setup: TypographySetup) => Pr
 }
 
 function syncInputs() {
-  const setup = state.get.typographySetup;
+  const setup = state.current.typographySetup;
   const currentStyle = setup[currentElementKey];
 
   const fallbackFont = currentElementKey === 'paragraph' ? DEFAULT_BODY_FONT_FAMILY : DEFAULT_HEADING_FONT_FAMILY;

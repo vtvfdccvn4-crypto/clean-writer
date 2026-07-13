@@ -4,11 +4,11 @@ import {
   InMemoryPaginationTransport,
 } from './InMemoryWorkspace';
 import { OPFSCatalogue } from './OPFSCatalogue';
-import { OPFSAppLifecycle, OPFSWorkspaceRepository, OPFSWorkspaceSession } from './OPFSWorkspace';
+import { OPFSAppLifecycle, OPFSWorkspaceRepository } from './OPFSWorkspace';
 import { DirectoryHandleCatalogue } from './DirectoryHandleCatalogue';
-import { LocalDirectoryWorkspaceRepository, LocalDirectoryWorkspaceSession } from './LocalDirectoryWorkspace';
+import { LocalDirectoryWorkspaceRepository } from './LocalDirectoryWorkspace';
 import { BlobUrlAssetResolver } from './BlobUrlAssetResolver';
-import { ProjectService } from '../services/ProjectService';
+import { projectSession } from '../services/ProjectSessionStore';
 import { BrowserExportService } from './BrowserExportService';
 
 export type RecentWorkspaceEntry = { ref: WorkspaceRef, displayName: string, time: number };
@@ -92,38 +92,6 @@ class CompositeWorkspaceRepository implements WorkspaceRepository {
   }
 }
 
-class TrackingWorkspaceRepository implements WorkspaceRepository {
-  private repository: WorkspaceRepository;
-  private onOpen: (session: WorkspaceSession) => void;
-
-  constructor(repository: WorkspaceRepository, onOpen: (session: WorkspaceSession) => void) {
-    this.repository = repository;
-    this.onOpen = onOpen;
-  }
-
-  async open(ref: WorkspaceRef): Promise<WorkspaceSession> {
-    const session = await this.repository.open(ref);
-    this.onOpen(session);
-    return session;
-  }
-
-  async selectDirectory(options?: { kind?: 'opfs' | 'directory', name?: string }): Promise<WorkspaceRef | null> {
-    return this.repository.selectDirectory(options);
-  }
-
-  async pickWorkspace(): Promise<WorkspaceRef | null> {
-    return this.repository.pickWorkspace ? this.repository.pickWorkspace() : null;
-  }
-
-  async getLastOpenedWorkspace(): Promise<WorkspaceRef | null> {
-    return this.repository.getLastOpenedWorkspace ? this.repository.getLastOpenedWorkspace() : null;
-  }
-
-  async listKnownBrowserWorkspaces(): Promise<Array<{ref: WorkspaceRef, displayName: string, time: number}>> {
-    return this.repository.listKnownBrowserWorkspaces ? this.repository.listKnownBrowserWorkspaces() : [];
-  }
-}
-
 export function createAppPlatform(win: Window = window): Platform {
   const opfsCatalogue = new OPFSCatalogue();
   const opfsRepo = new OPFSWorkspaceRepository(opfsCatalogue);
@@ -134,24 +102,14 @@ export function createAppPlatform(win: Window = window): Platform {
 
   const compositeRepo = new CompositeWorkspaceRepository(opfsRepo, dirRepo);
 
-  let activeSession: OPFSWorkspaceSession | LocalDirectoryWorkspaceSession | null = null;
-  const repository = new TrackingWorkspaceRepository(
-    compositeRepo,
-    session => {
-      activeSession = (session instanceof OPFSWorkspaceSession || session instanceof LocalDirectoryWorkspaceSession)
-        ? session
-        : null;
-      ProjectService.setActiveSession(session);
-    }
-  );
-
   return {
-    workspaceRepository: repository,
+    workspaceRepository: compositeRepo,
     exportService: new BrowserExportService(),
     appLifecycle: new OPFSAppLifecycle(),
     assetResolver: new BlobUrlAssetResolver(async (path) => {
-      if (!activeSession || typeof activeSession.readBlob !== 'function') return null;
-      try { return await activeSession.readBlob(path); }
+      const session = projectSession.getSession();
+      if (!session || typeof session.readBlob !== 'function') return null;
+      try { return await session.readBlob(path); }
       catch { return null; }
     }),
     paginationTransport: new InMemoryPaginationTransport()

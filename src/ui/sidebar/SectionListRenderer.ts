@@ -1,11 +1,9 @@
 import { state } from '../../state';
-import { ProjectService } from '../../services/ProjectService';
+import { sectionTreeActions } from './SectionTreeActions';
 import { showNotice } from '../components/Notice';
 import { showConfirmDialog } from '../confirm-dialog';
 import { describeWorkspaceError } from '../../services/project-runtime-feedback';
-import type { Platform } from '../../platform/types';
 
-let activePlatform: Platform | null = null;
 import { getBaseName, getParentPath, isDescendantPath, normalizeExplorerPath } from '../../utils/path-utils';
 import { getExplorerDisplayRoots, type ExplorerTreeNode } from '../../utils/tree-utils';
 import {
@@ -24,14 +22,6 @@ import {
 } from './SectionListInteractions';
 import { getCollapsedFoldersForActiveProject, setFolderCollapsed, revealAncestorFolders } from './SectionListState';
 import { SECTION_TEMPLATES, getSectionTemplate, type SectionTemplateId } from '../../editor/section-templates';
-
-async function openActiveProjectSession() {
-  const projectRef = state.get.projectRef;
-  if (!activePlatform || !projectRef) {
-    throw new Error('No project is open.');
-  }
-  return activePlatform.workspaceRepository.open(projectRef);
-}
 
 function showProjectUpdateError(operation: string, error: unknown): void {
   console.error(`[SectionList] Failed to ${operation}:`, error);
@@ -211,15 +201,13 @@ function renderNode(
     if (normalizedDraggedFile === normalizedTargetFile) return;
 
     try {
-      const session = await openActiveProjectSession();
       const success = dropIsCenter && node.isDir
         ? isDescendantPath(normalizedDraggedFile, normalizedTargetFile)
           ? false
-          : await ProjectService.moveSection(session, normalizedDraggedFile, normalizedTargetFile, 'inside')
+          : await sectionTreeActions.move(normalizedDraggedFile, normalizedTargetFile, 'inside')
         : isDescendantPath(normalizedDraggedFile, normalizedTargetFile)
           ? false
-          : await ProjectService.moveSection(
-            session,
+          : await sectionTreeActions.move(
             normalizedDraggedFile,
             normalizedTargetFile,
             dropIsAfter ? 'after' : 'before'
@@ -242,8 +230,7 @@ function renderNode(
       e.stopPropagation();
       btnPageBreak.disabled = true;
       try {
-        const session = await openActiveProjectSession();
-        const result = await ProjectService.togglePageBreak(session, node.path);
+        const result = await sectionTreeActions.togglePageBreak(node.path);
         if (!result) showNotice('The page break setting could not be updated. Try again.', 'error');
       } catch (err) {
         showProjectUpdateError('update the page break', err);
@@ -265,7 +252,7 @@ function renderNode(
   const btnRename = row.querySelector('.btn-rename') as HTMLElement;
   btnRename.addEventListener('click', async (e) => {
     e.stopPropagation();
-    const { projectRef } = state.get;
+    const { projectRef } = state.current;
     if (!projectRef) return;
 
     try {
@@ -320,8 +307,7 @@ function renderNode(
       const fullNewName = prefix ? `${prefix}/${newName}` : newName;
 
       try {
-        const session = await openActiveProjectSession();
-        const success = await ProjectService.renameSection(session, node.path, fullNewName);
+        const success = await sectionTreeActions.rename(node.path, fullNewName);
         if (success) {
           revealAncestorFolders(fullNewName);
           return;
@@ -346,7 +332,7 @@ function renderNode(
   const btnDelete = row.querySelector('.btn-delete') as HTMLElement;
   btnDelete.addEventListener('click', async (e) => {
     e.stopPropagation();
-    const { projectRef } = state.get;
+    const { projectRef } = state.current;
     if (!projectRef) return;
 
     try {
@@ -365,8 +351,7 @@ function renderNode(
     if (!proceed) return;
 
     try {
-      const session = await openActiveProjectSession();
-      const success = await ProjectService.deleteSection(session, node.path);
+      const success = await sectionTreeActions.remove(node.path);
       if (!success) showNotice('Failed to delete file.', 'error');
     } catch (error) {
       showProjectUpdateError('delete the section', error);
@@ -403,8 +388,7 @@ function createRootDropZone(container: HTMLElement): HTMLLIElement {
     clearDragState(container);
     if (!sourcePath) return;
     try {
-      const session = await openActiveProjectSession();
-      const success = await ProjectService.moveSection(session, sourcePath, null, 'root');
+      const success = await sectionTreeActions.move(sourcePath, null, 'root');
       if (!success) showNotice('The section could not be moved to the project root. Try again.', 'error');
     } catch (error) {
       showProjectUpdateError('move the section to the project root', error);
@@ -418,10 +402,9 @@ export function renderSectionList(
   container: HTMLElement,
   globalSaveActiveFile: () => Promise<boolean>,
   requestRender: () => void,
-  platform: Platform
+  _platform: unknown
 ) {
-  activePlatform = platform;
-  const { sections, activeFile } = state.get;
+  const { sections, activeFile } = state.current;
   const normalizedActiveFile = activeFile ? normalizeExplorerPath(activeFile) : null;
   // `sections` is the workspace storage root, already represented by this
   // panel's heading, so render its contents directly.
@@ -522,9 +505,9 @@ export function renderInlineCreate(container: HTMLElement, isFolder: boolean = f
 
     const name = input.value.trim();
     const fullName = parentFolder ? `${normalizeExplorerPath(parentFolder)}/${name}` : name;
-    const projectRef = state.get.projectRef;
+    const projectRef = state.current.projectRef;
 
-    if (!activePlatform || !projectRef) {
+    if (!projectRef) {
       showNotice('The project is still loading. Please try again in a moment.', 'error');
       input.focus();
       isFinished = false;
@@ -533,11 +516,9 @@ export function renderInlineCreate(container: HTMLElement, isFolder: boolean = f
 
     let success = false;
     try {
-      const session = await activePlatform.workspaceRepository.open(projectRef);
       success = isFolder
-        ? await ProjectService.createFolder(session, fullName)
-        : await ProjectService.createSection(
-          session,
+        ? await sectionTreeActions.createFolder(fullName)
+        : await sectionTreeActions.createSection(
           fullName,
           getSectionTemplate(templateSelect.value as SectionTemplateId).markdown
         );

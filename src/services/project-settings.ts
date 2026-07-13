@@ -1,34 +1,11 @@
 import { DEFAULT_EDITOR_SETUP, DEFAULT_LIST_SETUP, DEFAULT_PAGE_SETUP, DEFAULT_PROJECT_METADATA, DEFAULT_TABLE_SETUP, DEFAULT_TYPOGRAPHY_SETUP } from '../config/defaults';
-import type { CustomBlockStyle, CustomStyle, EditorSetup, ListSetup, PageSetup, ProjectMetadata, TableSetup, TypographySetup } from '../types';
+import type { CustomBlockStyle, CustomStyle, ListSetup, ProjectMetadata, ProjectSettingsData, TableSetup, TypographySetup } from '../types';
 import { normalizeExplorerPath } from '../utils/path-utils';
 import { resolveFontFamily } from '../config/font-families';
 
 export const PROJECT_SETTINGS_SCHEMA_VERSION = 4;
 
-export interface ProjectSettingsData {
-  schemaVersion: number;
-  order: string[];
-  pageBreaks: string[];
-  hiddenHeaders: string[];
-  hiddenFooters: string[];
-  numberedHeadings: string[];
-  tocSections: string[];
-  pageSetup: PageSetup;
-  typographySetup: TypographySetup;
-  listSetup: ListSetup;
-  tableSetup: TableSetup;
-  projectMetadata: ProjectMetadata;
-  customStyles: CustomStyle[];
-  customBlockStyles: CustomBlockStyle[];
-  editorSetup: EditorSetup;
-}
-
 export type ProjectSettingsInput = Partial<ProjectSettingsData> & Record<string, unknown>;
-
-export interface ProjectSettingsIO {
-  readFile(filePath: string): Promise<string>;
-  writeFile(filePath: string, content: string): Promise<boolean>;
-}
 
 const KNOWN_SETTING_KEYS = new Set([
   'schemaVersion',
@@ -47,11 +24,6 @@ const KNOWN_SETTING_KEYS = new Set([
   'customBlockStyles',
   'editorSetup'
 ]);
-
-// DATA-INTEGRITY BOUNDARY: every read-modify-write for one project must share
-// this queue. Without it, two UI actions can both read version N and one can
-// silently overwrite the other's version N+1 update.
-const projectUpdateQueues = new Map<string, Promise<unknown>>();
 
 function cloneValue<T>(value: T): T {
   if (value === undefined) return value;
@@ -341,52 +313,4 @@ export function normalizeProjectSettings(raw: unknown): { settings: ProjectSetti
     settings: validatedSettings,
     migrated
   };
-}
-
-export async function readProjectSettings(projectPath: string, io: ProjectSettingsIO): Promise<ProjectSettingsData> {
-  const settingsPath = `${projectPath}\\settings.json`;
-  const settingsRaw = await io.readFile(settingsPath);
-
-  if (!settingsRaw) {
-    return createDefaultProjectSettings();
-  }
-
-  try {
-    const parsed = JSON.parse(settingsRaw);
-    const normalized = normalizeProjectSettings(parsed);
-    // Reads are deliberately side-effect free. Production settings mutations
-    // are serialized in the main process; writing a renderer-side migration
-    // here could overwrite a concurrent move/rename transaction.
-    return normalized.settings;
-  } catch (error) {
-    console.error('Failed to parse settings.json', error);
-    throw new Error('settings.json is malformed. The original file was left unchanged.', { cause: error });
-  }
-}
-
-export async function writeProjectSettings(projectPath: string, settings: ProjectSettingsInput, io: ProjectSettingsIO): Promise<ProjectSettingsData> {
-  const settingsPath = `${projectPath}\\settings.json`;
-  const normalized = normalizeProjectSettings(settings).settings;
-  await io.writeFile(settingsPath, JSON.stringify(normalized, null, 2));
-  return normalized;
-}
-
-export async function updateProjectSettings(
-  projectPath: string,
-  updater: (settings: ProjectSettingsInput) => void | ProjectSettingsInput,
-  io: ProjectSettingsIO
-): Promise<ProjectSettingsData> {
-  const queueKey = projectPath.replace(/\\/g, '/').toLowerCase();
-  const previous = projectUpdateQueues.get(queueKey) ?? Promise.resolve();
-  const operation = previous.catch(() => undefined).then(async () => {
-    const current = await readProjectSettings(projectPath, io);
-    const draft = cloneValue(current) as ProjectSettingsInput;
-    const updated = updater(draft);
-    return writeProjectSettings(projectPath, updated ?? draft, io);
-  });
-  projectUpdateQueues.set(queueKey, operation);
-
-  return operation.finally(() => {
-    if (projectUpdateQueues.get(queueKey) === operation) projectUpdateQueues.delete(queueKey);
-  });
 }

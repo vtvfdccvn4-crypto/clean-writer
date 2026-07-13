@@ -1,0 +1,13 @@
+[2m03:02:49[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled rejection] [1mError[22m: No project is open.
+[39m > ProjectSessionStore.requireSession src/services/ProjectSessionStore.ts:19:29
+    17 |  
+    18 |    requireSession(): WorkspaceSession {
+    19 |      if (!this.session) throw new Error('No project is open.');
+       |                               ^
+    20 |      return this.session;
+    21 |    }
+ > loadBlockGlyphOptions src/ui/block-glyph-picker.ts:96:35
+ > initCustomStylesDrawer src/ui/custom-styles-setup.ts:353:7
+ > bootApp src/boot/app.ts:319:2
+ > src/main.ts:32:11
+

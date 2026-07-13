@@ -1,4 +1,4 @@
-import { APP_STATE_EVENTS, state } from '../state';
+import { state } from '../state';
 import type { PageSetup, HeaderFooterRow, HeaderFooterCell } from '../state';
 import {
   bindDrawerToggleButton,
@@ -10,7 +10,7 @@ import {
 } from './components/drawerControls';
 import { DEFAULT_HEADER_FOOTER_FONT_FAMILY, setFontFamilySelectValue } from '../config/font-families';
 import { initSectionVisibilityControls } from './components/SectionVisibilityDrawer';
-import { onSettingsTabActivated } from './settings-drawer';
+import { bindProjectSettingsPanel } from './project-settings-panel';
 
 type HeaderFooterCellKey = 'left' | 'center' | 'right';
 
@@ -65,13 +65,10 @@ export function initPageSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<v
   let activeHeaderCell: HeaderFooterCellKey = 'left';
   let activeFooterCell: HeaderFooterCellKey = 'left';
 
-  state.addEventListener('page-setup-changed', syncInputs);
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, syncInputs);
-  state.on(APP_STATE_EVENTS.settingsSnapshotChanged, syncInputs);
-
-  onSettingsTabActivated('page-setup', () => {
-    syncInputs();
-    refreshSectionVisibilityControls();
+  state.onPageSetupChanged(syncInputs);
+  bindProjectSettingsPanel(syncInputs, {
+    tabId: 'page-setup',
+    onTabActivated: refreshSectionVisibilityControls
   });
 
   const getCellConfig = (prefix: string): HeaderFooterCell => {
@@ -115,11 +112,10 @@ export function initPageSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<v
       showGuidelines: showGuidelinesInput.checked
     };
     
-    state.setPageSetup(setup);
     await onSaveSetup(setup);
   });
 
-  const syncCellConfig = (prefix: string, cell: HeaderFooterCell) => {
+  function syncCellConfig(prefix: string, cell: HeaderFooterCell) {
     (document.getElementById(`${prefix}-content`) as HTMLInputElement).value = cell.content || '';
     setFontFamilySelectValue(
       document.getElementById(`${prefix}-font`) as HTMLSelectElement,
@@ -134,16 +130,16 @@ export function initPageSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<v
       cell.horizontalAlign,
       cell.verticalAlign
     );
-  };
+  }
 
-  const syncRowControls = (type: 'header' | 'footer') => {
+  function syncRowControls(type: 'header' | 'footer') {
     const activeCell = type === 'header' ? activeHeaderCell : activeFooterCell;
     const workingRow = type === 'header' ? workingHeader : workingFooter;
     const cellSelect = type === 'header' ? headerCellSelect : footerCellSelect;
     cellSelect.value = activeCell;
     (document.getElementById(`${type}-center-width`) as HTMLInputElement).value = workingRow.centerWidth || '100px';
     syncCellConfig(`${type}-selected`, workingRow[activeCell]);
-  };
+  }
 
   headerCellSelect.addEventListener('change', () => {
     storeVisibleCell('header');
@@ -159,7 +155,7 @@ export function initPageSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<v
 
   syncInputs();
   function syncInputs() {
-    const setup = state.get.pageSetup;
+    const setup = state.current.pageSetup;
     paperSizeSelect.value = `${setup.paperWidth},${setup.paperHeight}`;
     marginTopInput.value = String(setup.marginTop);
     marginBottomInput.value = String(setup.marginBottom);

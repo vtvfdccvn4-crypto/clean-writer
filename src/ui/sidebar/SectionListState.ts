@@ -6,7 +6,7 @@ const collapsedFoldersInitializedByProject = new Set<string>();
 let activeProjectPath: string | null = null;
 
 export function getCollapsedFoldersForActiveProject(): Set<string> {
-  const projectPath = state.get.projectRef?.id || '';
+  const projectPath = state.current.projectRef?.id || '';
   if (activeProjectPath !== projectPath) {
     activeProjectPath = projectPath;
     if (!collapsedFoldersByProject.has(projectPath)) {
@@ -16,7 +16,7 @@ export function getCollapsedFoldersForActiveProject(): Set<string> {
 
   const collapsedFolders = collapsedFoldersByProject.get(projectPath)!;
   if (!collapsedFoldersInitializedByProject.has(projectPath)) {
-    for (const section of state.get.sections) {
+    for (const section of state.current.sections) {
       if (section.isDir) {
         collapsedFolders.add(normalizeExplorerPath(section.path));
       }

@@ -1,4 +1,4 @@
-import { APP_STATE_EVENTS, state } from '../state';
+import { state } from '../state';
 import type { CustomStyle, CustomBlockStyle } from '../types';
 import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
 import { setFontFamilySelectValue } from '../config/font-families';
@@ -6,6 +6,7 @@ import { createBlockIcon, initBlockGlyphPicker, loadBlockGlyphOptions, updateBlo
 import { showConfirmDialog } from './confirm-dialog';
 import type { Platform } from '../platform/types';
 import { onSettingsTabActivated } from './settings-drawer';
+import { bindProjectSettingsPanel } from './project-settings-panel';
 
 let activePlatform: Platform | null = null;
 let onSaveCallback: ((styles: CustomStyle[], blockStyles: CustomBlockStyle[]) => Promise<void>) | null = null;
@@ -230,7 +231,6 @@ async function deleteStyle(id: string) {
   });
   if (!proceed) return;
   const newStyles = (state.current.customStyles || []).filter(s => s.id !== id);
-  state.setCustomStyles(newStyles);
   if (onSaveCallback) await onSaveCallback(newStyles, state.current.customBlockStyles || []);
 }
 
@@ -243,7 +243,6 @@ async function deleteBlockStyle(id: string) {
   });
   if (!proceed) return;
   const newStyles = (state.current.customBlockStyles || []).filter(s => s.id !== id);
-  state.setCustomBlockStyles(newStyles);
   if (onSaveCallback) await onSaveCallback(state.current.customStyles || [], newStyles);
 }
 
@@ -306,7 +305,6 @@ export function initCustomStylesDrawer(platform: Platform, onSave: (styles: Cust
         currentStyles.push(newStyle);
       }
 
-      state.setCustomStyles(currentStyles);
       if (onSaveCallback) await onSaveCallback(currentStyles, state.current.customBlockStyles || []);
       closeInlineEditor();
     });
@@ -340,25 +338,18 @@ export function initCustomStylesDrawer(platform: Platform, onSave: (styles: Cust
         currentBlockStyles.push(newStyle);
       }
 
-      state.setCustomBlockStyles(currentBlockStyles);
       if (onSaveCallback) await onSaveCallback(state.current.customStyles || [], currentBlockStyles);
       closeBlockEditor();
     });
   }
 
-  state.on(APP_STATE_EVENTS.customStylesChanged, renderStylesList);
-  state.on(APP_STATE_EVENTS.customBlockStylesChanged, renderBlockStylesList);
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, () => {
+  state.onCustomStylesChanged(renderStylesList);
+  state.onCustomBlockStylesChanged(renderBlockStylesList);
+  bindProjectSettingsPanel(() => {
     renderStylesList();
     renderBlockStylesList();
   });
-  state.on(APP_STATE_EVENTS.settingsSnapshotChanged, () => {
-    renderStylesList();
-    renderBlockStylesList();
-  });
-  
-  renderStylesList();
-  renderBlockStylesList();
+
   void loadBlockGlyphOptions(platform);
   setBlockSpacingInputs();
 }

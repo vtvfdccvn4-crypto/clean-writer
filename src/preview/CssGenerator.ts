@@ -2,7 +2,7 @@ import type { PageSetup, TypographySetup, ListSetup, ListStyle, TableSetup, Tabl
 import { state } from '../state';
 
 export const resolveMarginContent = (content: string, pageNumber?: number) => {
-  const meta = state.get.projectMetadata;
+  const meta = state.current.projectMetadata;
   let formatted = content;
   
   if (meta) {
@@ -73,7 +73,7 @@ const renderMarginBox = (box: string, cell?: any) => {
 
 export function generatePageCss(s: PageSetup): string {
   const isWorker = window.location.search.includes('worker=true');
-  const shouldShowHeaders = isWorker || state.get.isFullDocMode;
+  const shouldShowHeaders = isWorker || state.current.isFullDocMode;
 
   const emptyCell = {content:''};
   const emptyBox = { centerWidth: '100px', left: emptyCell, center: emptyCell, right: emptyCell };

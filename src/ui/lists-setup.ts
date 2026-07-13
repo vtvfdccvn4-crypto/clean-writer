@@ -1,8 +1,8 @@
-import { APP_STATE_EVENTS, state } from '../state';
+import { state } from '../state';
 import type { ListSetup, ListStyle } from '../state';
 import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
 import { DEFAULT_LIST_FONT_FAMILY, setFontFamilySelectValue } from '../config/font-families';
-import { onSettingsTabActivated } from './settings-drawer';
+import { bindProjectSettingsPanel } from './project-settings-panel';
 
 const unorderedListKeys = ['ulAsterisk', 'ulDash', 'ulPlus'] as const;
 const orderedListKeys = ['ol', 'olParen'] as const;
@@ -45,11 +45,8 @@ export function initListsDrawer(onSaveSetup: (setup: ListSetup) => Promise<void>
   let activeUnorderedKey: UnorderedListKey = 'ulAsterisk';
   let activeOrderedKey: OrderedListKey = 'ol';
 
-  state.addEventListener('list-setup-changed', syncInputs);
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, syncInputs);
-  state.on(APP_STATE_EVENTS.settingsSnapshotChanged, syncInputs);
-
-  onSettingsTabActivated('lists', syncInputs);
+  state.onListSetupChanged(syncInputs);
+  bindProjectSettingsPanel(syncInputs, { tabId: 'lists' });
 
   ['ul-selected', 'ol-selected'].forEach(prefix => {
     bindDrawerToggleButton(`${prefix}-bold`);
@@ -71,7 +68,7 @@ export function initListsDrawer(onSaveSetup: (setup: ListSetup) => Promise<void>
     };
   };
 
-  const syncListConfig = (prefix: string, config: ListStyle) => {
+  function syncListConfig(prefix: string, config: ListStyle) {
     if (!config) return;
     setFontFamilySelectValue(
       document.getElementById(`${prefix}-font`) as HTMLSelectElement,
@@ -87,25 +84,25 @@ export function initListsDrawer(onSaveSetup: (setup: ListSetup) => Promise<void>
     (document.getElementById(`${prefix}-bullet-color`) as HTMLInputElement).value = config.bulletColor || '#000000';
     (document.getElementById(`${prefix}-margin-left`) as HTMLInputElement).value = String(config.marginLeft ?? 20);
     (document.getElementById(`${prefix}-padding-left`) as HTMLInputElement).value = String(config.paddingLeft ?? 8);
-  };
+  }
 
   const storeVisibleControls = () => {
     workingSetup[activeUnorderedKey] = readListConfig('ul-selected');
     workingSetup[activeOrderedKey] = readListConfig('ol-selected');
   };
 
-  const syncUnorderedControls = () => {
+  function syncUnorderedControls() {
     unorderedSelect.value = activeUnorderedKey;
     syncListConfig('ul-selected', workingSetup[activeUnorderedKey]);
-  };
+  }
 
-  const syncOrderedControls = () => {
+  function syncOrderedControls() {
     orderedSelect.value = activeOrderedKey;
     syncListConfig('ol-selected', workingSetup[activeOrderedKey]);
-  };
+  }
 
   function syncInputs() {
-    workingSetup = cloneListSetup(state.get.listSetup);
+    workingSetup = cloneListSetup(state.current.listSetup);
     activeUnorderedKey = resolveUnorderedKey(unorderedSelect.value);
     activeOrderedKey = resolveOrderedKey(orderedSelect.value);
     syncUnorderedControls();
@@ -128,7 +125,6 @@ export function initListsDrawer(onSaveSetup: (setup: ListSetup) => Promise<void>
     storeVisibleControls();
     const setup = cloneListSetup(workingSetup);
 
-    state.setListSetup(setup);
     await onSaveSetup(setup);
   });
 

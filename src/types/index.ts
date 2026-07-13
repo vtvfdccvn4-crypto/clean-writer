@@ -213,12 +213,15 @@ export interface WorkspaceRef {
   displayName: string;
 }
 
+export type ProjectSettingsPatch = Partial<Omit<ProjectSettingsData, 'schemaVersion'>>;
+export type ProjectPathSettingKey = 'pageBreaks' | 'hiddenHeaders' | 'hiddenFooters' | 'numberedHeadings' | 'tocSections';
+
 export type ProjectSettingsMutation =
-  | { type: 'patch'; values: Record<string, unknown> }
+  | { type: 'patch'; values: ProjectSettingsPatch }
   | { type: 'append-order'; path: string }
   | { type: 'replace-path'; oldPath: string; newPath: string }
   | { type: 'remove-path'; path: string }
-  | { type: 'set-path-flag'; key: string; path: string; enabled?: boolean };
+  | { type: 'set-path-flag'; key: ProjectPathSettingKey; path: string; enabled?: boolean };
 
 export type SectionPlacement = 'inside' | 'before' | 'after' | 'root';
 

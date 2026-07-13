@@ -1,34 +1,32 @@
-import { APP_STATE_EVENTS, state } from '../state';
+import { state } from '../state';
 import { createEditor, DraftRecoveryStore } from '../editor';
 import { extractWritingStatistics } from '../editor/writing-statistics';
 import type { MarkdownEditor } from '../editor';
-import { compileMarkdown, compilePreviewDocument } from '../compiler';
-import { compileExportSnapshot as compileSnapshot, scanMarkdownForImages, scanCustomBlockStyleIcons } from '../services/ExportSnapshotService';
-import { PreviewController } from '../preview';
+import { compileMarkdown } from '../compiler';
+import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
 import { previewMetrics } from '../perf/preview-metrics';
 import { CoalescingTaskQueue } from '../utils/CoalescingTaskQueue';
-import {
-  renderDocumentSection
-} from '../preview/document-rendering';
+import { renderDocumentSection } from '../preview/document-rendering';
 import type { Platform, PdfExportDocument } from '../platform/types';
 import { showNotice } from './components/Notice';
 import { showConfirmDialog } from './confirm-dialog';
 import { describeWorkspaceError } from '../services/project-runtime-feedback';
 import { applyMarkdownCommand, type MarkdownCommand } from '../editor/markdown-commands';
+import { PreviewCoordinator } from './PreviewCoordinator';
+import { DocumentSessionController } from './DocumentSessionController';
+import { DocumentNavigationController } from './DocumentNavigationController';
 
 export class EditorManager {
-  private currentEditorView: MarkdownEditor | null = null;
-  private previewController: PreviewController;
+  private preview: PreviewCoordinator;
   private editorContainer: HTMLElement;
   private pagedStage: HTMLElement;
   private previewPane: HTMLElement;
-  private previewRevision = 0;
   private statsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private currentFilePath: string | null = null;
+  private readonly documentSession = new DocumentSessionController();
   private selectionQueue: CoalescingTaskQueue<string>;
+  private readonly documentNavigation = new DocumentNavigationController();
+  private navigationCommandActive = false;
   private platform: Platform;
-  private viewStates: Record<string, { selectionFrom: number; selectionTo: number; scrollTop: number }> = {};
-  private pendingFocusLine: { path: string; line: number } | null = null;
   private saveInFlight: Promise<void> | null = null;
   private paginatedExportCache: { key: string; document: PdfExportDocument } | null = null;
 
@@ -37,67 +35,77 @@ export class EditorManager {
     this.editorContainer = document.getElementById('editor-container')!;
     this.pagedStage = document.getElementById('paged-stage')!;
     this.previewPane = document.querySelector('.preview-pane')!;
-    this.previewController = new PreviewController(this.pagedStage, this.platform.assetResolver);
+    this.preview = new PreviewCoordinator(this.pagedStage, this.platform.assetResolver);
     this.selectionQueue = new CoalescingTaskQueue(
       async (_reason, isLatest) => this.handleSelectionChange(isLatest),
       (reason, error) => this.reportWorkflowError(`Unable to complete ${reason}.`, error)
     );
     this.setPreviewVisible(Boolean(state.current.projectRef));
 
-    state.on(APP_STATE_EVENTS.editorSetupChanged, () => {
+    state.onEditorSetupChanged(() => {
       this.editorContainer.style.setProperty('--editor-font-size', state.current.editorSetup.fontSize);
     });
     this.editorContainer.style.setProperty('--editor-font-size', state.current.editorSetup.fontSize);
 
     // Bind state events
-    state.on(APP_STATE_EVENTS.selectionChanged, () => {
+    state.onSelectionChanged(() => {
+      if (this.navigationCommandActive) return;
       this.queueSelectionChange('selection change');
     });
-    state.on(APP_STATE_EVENTS.projectChanged, () => {
+    state.onProjectChanged(() => {
       this.setPreviewVisible(Boolean(state.current.projectRef));
     });
-    state.on(APP_STATE_EVENTS.projectSnapshotChanged, () => {
+    state.onProjectSnapshotChanged(() => {
       this.applySnapshotSettings();
       this.setPreviewVisible(Boolean(state.current.projectRef));
       this.queueSelectionChange('project snapshot change');
     });
-    state.on(APP_STATE_EVENTS.projectTreeChanged, () => {
+    state.onProjectTreeChanged(() => {
       this.queueSelectionChange('project tree change');
     });
-    state.on(APP_STATE_EVENTS.settingsSnapshotChanged, () => {
+    state.onSettingsSnapshotChanged(() => {
       this.applySnapshotSettings();
       this.queueSelectionChange('settings snapshot change');
     });
-    state.on(APP_STATE_EVENTS.pageSetupChanged, () => {
-      this.previewController.applyPageSetup(state.current.pageSetup);
+    state.onPageSetupChanged(() => {
+      this.preview.applyPageSetup(state.current.pageSetup);
     });
-    state.on(APP_STATE_EVENTS.typographySetupChanged, () => {
-      this.previewController.applyTypographySetup(state.current.typographySetup);
+    state.onTypographySetupChanged(() => {
+      this.preview.applyTypographySetup(state.current.typographySetup);
     });
-    state.on(APP_STATE_EVENTS.listSetupChanged, () => {
-      this.previewController.applyListSetup(state.current.listSetup);
+    state.onListSetupChanged(() => {
+      this.preview.applyListSetup(state.current.listSetup);
     });
-    state.on(APP_STATE_EVENTS.tableSetupChanged, () => {
-      this.previewController.applyTableSetup(state.current.tableSetup);
+    state.onTableSetupChanged(() => {
+      this.preview.applyTableSetup(state.current.tableSetup);
     });
-    state.on(APP_STATE_EVENTS.projectMetadataChanged, () => {
+    state.onProjectMetadataChanged(() => {
       this.queueSelectionChange('project metadata change');
     });
 
     // Apply initial defaults
-    this.previewController.applyPageSetup(state.current.pageSetup);
-    this.previewController.applyTypographySetup(state.current.typographySetup);
-    this.previewController.applyListSetup(state.current.listSetup);
-    this.previewController.applyTableSetup(state.current.tableSetup);
+    this.preview.applyPageSetup(state.current.pageSetup);
+    this.preview.applyTypographySetup(state.current.typographySetup);
+    this.preview.applyListSetup(state.current.listSetup);
+    this.preview.applyTableSetup(state.current.tableSetup);
+  }
+
+  private get currentEditorView(): MarkdownEditor | null {
+    return this.documentSession.currentEditor;
+  }
+
+  private get currentFilePath(): string | null {
+    return this.documentSession.currentFilePath;
   }
 
   private applySnapshotSettings() {
     // The snapshot listener queues a fresh compile below, so rendering the cached
     // document here would briefly render stale content and duplicate the work.
-    this.previewController.applyPageSetup(state.current.pageSetup, false);
-    this.previewController.applyTypographySetup(state.current.typographySetup);
-    this.previewController.applyListSetup(state.current.listSetup);
-    this.previewController.applyTableSetup(state.current.tableSetup);
+    this.preview.applyPageSetup(state.current.pageSetup, false);
+    this.preview.applyTypographySetup(state.current.typographySetup);
+    this.preview.applyListSetup(state.current.listSetup);
+    this.preview.applyTableSetup(state.current.tableSetup);
+    this.editorContainer.style.setProperty('--editor-font-size', state.current.editorSetup.fontSize);
   }
 
   private queueSelectionChange(reason: string) {
@@ -107,7 +115,7 @@ export class EditorManager {
   private reportWorkflowError(message: string, error: unknown) {
     console.error(`[EditorManager] ${message}`, error);
     this.updateSaveStatus('error');
-    showNotice(`${describeWorkspaceError(error, 'save')}\n\nYour current document has been kept open. Please retry or use Save before continuing.`, 'error');
+    showNotice(`${describeWorkspaceError(error, 'save')}\n\nYour current document has been kept open. Reconnect the project and try again before continuing.`, 'error');
   }
 
   private notifyProjectStatsChanged() {
@@ -148,20 +156,16 @@ export class EditorManager {
     } else if (activeFile) {
       await this.renderSingleDocument(activeFile, isLatest);
     }
+
   }
 
   public renderEmptyWorkspace() {
-    this.previewRevision += 1;
+    this.preview.beginRevision();
     this.setPreviewVisible(false);
     this.updateSaveStatus('idle');
     this.updateActiveSectionLabel(null);
-    this.pendingFocusLine = null;
-    if (this.currentEditorView) {
-      this.saveViewState(this.currentFilePath);
-      this.currentEditorView.destroy();
-      this.currentEditorView = null;
-    }
-    this.currentFilePath = null;
+    this.documentSession.clearPendingFocus();
+    this.documentSession.destroyActive();
     this.editorContainer.closest('.editor-pane')?.classList.add('is-welcome');
     this.editorContainer.closest('.workspace')?.classList.add('is-welcome');
     
@@ -203,7 +207,7 @@ export class EditorManager {
     });
     this.populateWelcomeRecents();
 
-    this.previewController.clear();
+    this.preview.clear();
   }
 
   private async populateWelcomeRecents() {
@@ -248,20 +252,15 @@ export class EditorManager {
   }
 
   private async renderFullDocument(isLatest: () => boolean) {
-    const revision = ++this.previewRevision;
+    const revision = this.preview.beginRevision();
     const { projectRef } = state.current;
     if (!projectRef) throw new Error('No project is open.');
     
     // Cleanup old editor
-    if (this.currentEditorView) {
-      this.saveViewState(this.currentFilePath);
-      this.currentEditorView.destroy();
-      this.currentEditorView = null;
-    }
-    this.currentFilePath = null;
+    this.documentSession.destroyActive();
     this.updateSaveStatus('idle');
     this.updateActiveSectionLabel('Full Document', 'Full Document Mode');
-    this.pendingFocusLine = null;
+    this.documentSession.clearPendingFocus();
     this.editorContainer.innerHTML = '<div style="padding: 40px; color: var(--text-muted); text-align: center;">Editor disabled in Full Document mode. Select a section to edit.</div>';
     
     const { sections } = state.current;
@@ -279,21 +278,18 @@ export class EditorManager {
       activeFile: null,
       sections
     }, {
-      compile: async (markdown: string, assetResolver: typeof this.platform.assetResolver) => {
+      compile: async (markdown: string) => {
         // These counters are intentionally coarse: they let us compare the
         // number of preview compiles before and after snapshot-flow changes.
-        const compileStarted = performance.now();
-        const compiled = await compileMarkdown(markdown, assetResolver);
-        previewMetrics.recordPreviewCompile('full-document', performance.now() - compileStarted);
-        return compiled;
+        return this.preview.compileFullDocument(markdown);
       }
     });
-    if (revision !== this.previewRevision || !isLatest()) return;
-    await this.previewController.forceRender(initialHtml);
+    if (!this.preview.isCurrent(revision) || !isLatest()) return;
+    await this.preview.forceRender(initialHtml);
   }
 
   private async renderSingleDocument(filename: string, isLatest: () => boolean) {
-    const initialRevision = ++this.previewRevision;
+    const initialRevision = this.preview.beginRevision();
     const { projectRef } = state.current;
     if (!projectRef) throw new Error('No project is open.');
     
@@ -318,11 +314,7 @@ export class EditorManager {
     }
     
     // Cleanup old editor
-    if (this.currentEditorView) {
-      this.saveViewState(this.currentFilePath);
-      this.currentEditorView.destroy();
-    }
-    this.currentFilePath = filename;
+    this.documentSession.destroyActive();
     this.updateActiveSectionLabel(filename);
     this.editorContainer.innerHTML = '';
     
@@ -346,7 +338,7 @@ export class EditorManager {
         }
       },
       onChange: async (newDoc: string) => {
-        const changeRevision = ++this.previewRevision;
+        const changeRevision = this.preview.beginRevision();
         const sections = state.current.sections;
         const markdownToCompile = renderDocumentSection(
           {
@@ -358,25 +350,21 @@ export class EditorManager {
         );
 
         // Preload referenced images in the updated Markdown
-        const imagePaths = scanMarkdownForImages(markdownToCompile);
-        await this.platform.assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()]);
-        if (changeRevision !== this.previewRevision
+        if (!this.preview.isCurrent(changeRevision)
           || this.currentFilePath !== filename
           || state.current.activeFile !== filename) return;
 
-        const compileStarted = performance.now();
         this.updateSaveStatus('saving');
 
         try {
           const [compiledPreview] = await Promise.all([
-            compilePreviewDocument(markdownToCompile, this.platform.assetResolver, { sourceLineOffset: 2 }),
+            this.preview.compileDocument(markdownToCompile, 'single-document-edit'),
             session.writeSection(filename, newDoc)
           ]);
-          previewMetrics.recordPreviewCompile('single-document-edit', performance.now() - compileStarted);
 
           // Compilation and session updates are asynchronous. Only the newest edit may
           // update the preview if several callbacks complete out of order.
-          if (changeRevision !== this.previewRevision
+          if (!this.preview.isCurrent(changeRevision)
             || this.currentFilePath !== filename
             || state.current.activeFile !== filename) return;
           
@@ -386,10 +374,9 @@ export class EditorManager {
           this.notifyProjectStatsChanged();
 
           // Two-Lane engine
-          this.previewController.updateFastLane(compiledPreview.html, compiledPreview.manifest, changeRevision);
-          this.previewController.updateExactLane(compiledPreview.html, compiledPreview.manifest, changeRevision);
+          this.preview.publish(compiledPreview, changeRevision);
         } catch (error) {
-          if (changeRevision !== this.previewRevision
+          if (!this.preview.isCurrent(changeRevision)
             || this.currentFilePath !== filename
             || state.current.activeFile !== filename) return;
           this.updateSaveStatus('error');
@@ -401,11 +388,11 @@ export class EditorManager {
         this.reportWorkflowError(`Autosave failed for ${filename}.`, error);
       },
       onSelectionChange: (line: number) => {
-        this.previewController.navigateToSourceLine(line, this.previewRevision);
+        this.preview.navigateToSourceLine(line);
       }
     };
 
-    this.currentEditorView = createEditor(this.editorContainer, content, callbacks);
+    this.documentSession.activate(projectRef, filename, createEditor(this.editorContainer, content, callbacks));
 
     // Initial exact layout
     const { sections } = state.current;
@@ -419,67 +406,43 @@ export class EditorManager {
     );
 
     // Preload referenced images in initial layout
-    const imagePaths = scanMarkdownForImages(markdownToCompile);
-    await this.platform.assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()]);
-    if (initialRevision !== this.previewRevision || !isLatest()) return;
-
-    const compileStarted = performance.now();
-    const initialPreview = await compilePreviewDocument(markdownToCompile, this.platform.assetResolver, { sourceLineOffset: 2 });
-    previewMetrics.recordPreviewCompile('single-document-load', performance.now() - compileStarted);
-    if (initialRevision !== this.previewRevision || !isLatest()) return;
-    await this.previewController.forceRender(initialPreview.html, initialPreview.manifest, initialRevision);
-    if (initialRevision !== this.previewRevision || !isLatest()) return;
+    const initialPreview = await this.preview.compileDocument(markdownToCompile, 'single-document-load');
+    if (!this.preview.isCurrent(initialRevision) || !isLatest()) return;
+    await this.preview.forceRender(initialPreview.html, initialPreview.manifest, initialRevision);
+    if (!this.preview.isCurrent(initialRevision) || !isLatest()) return;
 
     // Reset scroll positions to top
-    this.previewController.scrollToTop();
-    this.restoreViewState(filename);
-    this.applyPendingFocusLine(filename);
+    this.preview.scrollToTop();
+    this.documentSession.restoreViewState(projectRef, filename);
+    this.documentSession.applyPendingFocus(filename);
     this.updateSaveStatus('saved');
-  }
-
-  private saveViewState(filename: string | null) {
-    if (!filename || !this.currentEditorView) return;
-    const { projectRef } = state.current;
-    if (!projectRef) return;
-    
-    const key = `${projectRef.kind}:${projectRef.id}:${filename}`;
-    const selection = this.currentEditorView.getSelection();
-    const scrollTop = this.currentEditorView.view.scrollDOM.scrollTop;
-    
-    this.viewStates[key] = {
-      selectionFrom: selection.from,
-      selectionTo: selection.to,
-      scrollTop
-    };
-  }
-
-  private restoreViewState(filename: string) {
-    if (!this.currentEditorView) return;
-    const { projectRef } = state.current;
-    if (!projectRef) return;
-    
-    const key = `${projectRef.kind}:${projectRef.id}:${filename}`;
-    const saved = this.viewStates[key];
-    if (saved) {
-      // Clamp to document length
-      const docLength = this.currentEditorView.getValue().length;
-      const from = Math.min(Math.max(0, saved.selectionFrom), docLength);
-      const to = Math.min(Math.max(0, saved.selectionTo), docLength);
-      
-      this.currentEditorView.setSelection(from, to);
-      // Wait for layout/render to complete before setting scrollTop
-      requestAnimationFrame(() => {
-        if (this.currentEditorView && this.currentEditorView.view.scrollDOM) {
-          this.currentEditorView.view.scrollDOM.scrollTop = saved.scrollTop;
-        }
-      });
-    } else {
-      this.currentEditorView.setSelection(0);
-    }
   }
 
   public getEditorView() {
     return this.currentEditorView;
+  }
+
+  /** Selects a document and resolves after the corresponding editor render settles. */
+  public async openDocument(path: string): Promise<void> {
+    // Persist under the current file identity before publishing the next one.
+    // The autosave callback intentionally rejects writes once selection changes.
+    await this.flushCurrentDocument();
+    this.navigationCommandActive = true;
+    try {
+      state.setActiveFile(path);
+    } finally {
+      this.navigationCommandActive = false;
+    }
+    await this.documentNavigation.navigate(async isCurrent => {
+      // Preview work may invalidate a render after its editor session has been
+      // created. Navigation owns the completion contract, so retry within this
+      // transaction until the requested document is the live editor.
+      for (let attempt = 0; attempt < 3 && isCurrent(); attempt += 1) {
+        await this.handleSelectionChange(isCurrent);
+        if (this.currentFilePath === path && state.current.activeFile === path) return;
+      }
+      if (isCurrent()) throw new Error(`Unable to activate document: ${path}`);
+    });
   }
 
   public insertTextAtCursor(text: string): boolean {
@@ -496,18 +459,7 @@ export class EditorManager {
   }
 
   public focusLine(line: number): void {
-    const targetPath = state.current.activeFile ?? this.currentFilePath;
-    if (!targetPath || !this.currentEditorView || this.currentFilePath !== targetPath) {
-      if (targetPath) {
-        this.pendingFocusLine = { path: targetPath, line };
-      }
-      return;
-    }
-
-    const view = this.currentEditorView.view;
-    const docLine = view.state.doc.line(Math.min(Math.max(1, line), view.state.doc.lines));
-    this.currentEditorView.setSelection(docLine.from);
-    this.currentEditorView.focus();
+    this.documentSession.focusLine(state.current.activeFile ?? this.currentFilePath, line);
   }
 
   public hasUnsavedChanges(): boolean {
@@ -524,7 +476,7 @@ export class EditorManager {
       return true;
     } catch (error) {
       console.error('[EditorManager] Navigation blocked because the current section could not be saved:', error);
-      showNotice('The current section could not be saved. Your changes remain open. Retry Save before continuing.', 'error');
+      showNotice('The current section could not be saved. Your changes remain open. Reconnect the project and try again before continuing.', 'error');
       return false;
     }
   }
@@ -587,7 +539,7 @@ export class EditorManager {
         const html = await this.compileExportSnapshot();
         previewMetrics.recordPdfExportPhase('snapshot', performance.now() - snapshotStarted);
         const paginationStarted = performance.now();
-        const renderResult = await this.previewController.forceRender(html);
+        const renderResult = await this.preview.forceRender(html);
         previewMetrics.recordPdfExportPhase('pagination', performance.now() - paginationStarted);
         if (renderResult.status === 'rendered') {
           rendered = true;
@@ -625,7 +577,7 @@ export class EditorManager {
     const current = state.current;
     return JSON.stringify([
       current.projectRevision,
-      this.previewRevision,
+      this.preview.currentRevision,
       current.projectRef?.kind ?? null,
       current.projectRef?.id ?? null,
       current.activeFile,
@@ -688,10 +640,4 @@ export class EditorManager {
     window.dispatchEvent(new CustomEvent('clear-writer-save-state', { detail: { state } }));
   }
 
-  private applyPendingFocusLine(filename: string) {
-    const pending = this.pendingFocusLine;
-    if (!pending || pending.path !== filename || !this.currentEditorView) return;
-    this.pendingFocusLine = null;
-    this.focusLine(pending.line);
-  }
 }

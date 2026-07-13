@@ -35,16 +35,6 @@ function openIconMarkup(): string {
   `;
 }
 
-function saveIconMarkup(): string {
-  return `
-    <svg class="explorer-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path d="M3.5 3.5h7.6l1.4 1.4v7.6a.75.75 0 0 1-.75.75h-9.5a.75.75 0 0 1-.75-.75v-8.25a.75.75 0 0 1 .75-.75Z" />
-      <path d="M5.1 3.5V7h5.8V3.5" />
-      <path d="M5.25 12.5h5.5" />
-    </svg>
-  `;
-}
-
 function metadataIconMarkup(): string {
   return `
     <svg class="explorer-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -77,9 +67,6 @@ export const projectExplorerTemplate = (): string => `
         </button>
         <button id="btn-open" class="project-explorer-action-button" type="button" title="Open project" aria-label="Open project">
           ${openIconMarkup()}
-        </button>
-        <button id="btn-save" class="project-explorer-action-button" type="button" title="Save project" aria-label="Save project">
-          ${saveIconMarkup()}
         </button>
         <button id="btn-close-project" class="project-explorer-action-button" type="button" title="Close project" aria-label="Close project">
           ${closeIconMarkup()}

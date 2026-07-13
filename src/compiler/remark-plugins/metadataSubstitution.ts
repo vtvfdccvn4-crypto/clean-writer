@@ -5,7 +5,7 @@ import { state } from '../../state';
 
 export const metadataSubstitutionPlugin: Plugin<[], Root> = () => {
   return (tree: Root) => {
-    const meta = state.get.projectMetadata;
+    const meta = state.current.projectMetadata;
     if (!meta) return;
 
     visit(tree, 'text', (node: any) => {

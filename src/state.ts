@@ -17,7 +17,7 @@ import { DEFAULT_APP_STATE } from './config/defaults';
 
 export * from './types';
 
-export const APP_STATE_EVENTS = {
+const APP_STATE_EVENTS = {
   projectChanged: 'project-changed',
   projectSnapshotChanged: 'project-snapshot-changed',
   projectTreeChanged: 'project-tree-changed',
@@ -33,7 +33,7 @@ export const APP_STATE_EVENTS = {
   editorSetupChanged: 'editor-setup-changed'
 } as const;
 
-export type AppStateEvent = typeof APP_STATE_EVENTS[keyof typeof APP_STATE_EVENTS];
+type AppStateEvent = typeof APP_STATE_EVENTS[keyof typeof APP_STATE_EVENTS];
 
 class AppState extends EventTarget {
   private data: AppStateData;
@@ -52,15 +52,24 @@ class AppState extends EventTarget {
     return Object.freeze(result) as any;
   }
 
-  /** @deprecated Migrate callers incrementally to `state.current`. */
-  get get(): Readonly<AppStateData & { projectPath: string | null }> {
-    return this.current;
-  }
-
-  on(eventName: AppStateEvent, listener: EventListener): () => void {
+  private on(eventName: AppStateEvent, listener: EventListener): () => void {
     this.addEventListener(eventName, listener);
     return () => this.removeEventListener(eventName, listener);
   }
+
+  onProjectChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.projectChanged, listener); }
+  onProjectSnapshotChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.projectSnapshotChanged, listener); }
+  onProjectTreeChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.projectTreeChanged, listener); }
+  onSettingsSnapshotChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.settingsSnapshotChanged, listener); }
+  onSelectionChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.selectionChanged, listener); }
+  onPageSetupChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.pageSetupChanged, listener); }
+  onTypographySetupChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.typographySetupChanged, listener); }
+  onListSetupChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.listSetupChanged, listener); }
+  onTableSetupChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.tableSetupChanged, listener); }
+  onProjectMetadataChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.projectMetadataChanged, listener); }
+  onCustomStylesChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.customStylesChanged, listener); }
+  onCustomBlockStylesChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.customBlockStylesChanged, listener); }
+  onEditorSetupChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.editorSetupChanged, listener); }
 
   private emit(eventName: AppStateEvent) {
     this.dispatchEvent(new Event(eventName));
@@ -82,19 +91,10 @@ class AppState extends EventTarget {
   closeProject() {
     this.data = freezeSnapshot({
       ...cloneValue(DEFAULT_APP_STATE),
-      editorSetup: cloneValue(this.data.editorSetup),
       projectRevision: this.data.projectRevision + 1
     });
     this.emit(APP_STATE_EVENTS.projectChanged);
     this.emit(APP_STATE_EVENTS.projectSnapshotChanged);
-  }
-
-  setProjectPath(path: string | null) {
-    if (path === null) {
-      this.setProjectRef(null);
-    } else {
-      throw new Error('setProjectPath is not available in the web-only runtime. Use setProjectRef instead.');
-    }
   }
 
   commitProjectSnapshot(snapshot: ProjectSnapshot) {
@@ -118,7 +118,6 @@ class AppState extends EventTarget {
 
   commitSettingsSnapshot(settings: ProjectSettingsSnapshot) {
     this.replaceProject(settings);
-    this.replace({ editorSetup: settings.editorSetup });
     this.emit(APP_STATE_EVENTS.settingsSnapshotChanged);
   }
 

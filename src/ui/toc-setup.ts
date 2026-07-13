@@ -1,10 +1,10 @@
-import { APP_STATE_EVENTS, state } from '../state';
+import { state } from '../state';
 import type { PageSetup, TocSetup, TocStyle } from '../state';
 import { DEFAULT_BODY_FONT_FAMILY, setFontFamilySelectValue } from '../config/font-families';
-import { ProjectService } from '../services/ProjectService';
+import { projectSession } from '../services/ProjectSessionStore';
 import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
 import { createSectionToggle, getSectionVisibilityNodes } from './components/SectionVisibilityDrawer';
-import { onSettingsTabActivated } from './settings-drawer';
+import { bindProjectSettingsPanel, bindProjectTreePanel } from './project-settings-panel';
 
 const tocLevels = [1, 2, 3, 4, 5, 6] as const;
 type TocLevel = typeof tocLevels[number];
@@ -156,9 +156,9 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
     if (panel && !panel.classList.contains('hidden')) refreshSectionControls();
   };
 
-  onSettingsTabActivated('toc', () => {
-    syncInputs();
-    refreshSectionControls();
+  bindProjectSettingsPanel(syncInputs, {
+    tabId: 'toc',
+    onTabActivated: refreshSectionControls
   });
 
   sectionSelect.addEventListener('change', () => {
@@ -170,16 +170,10 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
     storeActiveLevelStyle();
     syncLineHeightToWorkingSetup();
     const setup = { ...state.current.pageSetup, toc: workingSetup };
-    state.setPageSetup(setup);
     await onSaveSetup(setup);
   });
 
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, syncInputs);
-  state.on(APP_STATE_EVENTS.settingsSnapshotChanged, syncInputs);
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, refreshOpenSectionControls);
-  state.on(APP_STATE_EVENTS.projectTreeChanged, refreshOpenSectionControls);
-  state.on(APP_STATE_EVENTS.settingsSnapshotChanged, refreshOpenSectionControls);
-  syncInputs();
+  bindProjectTreePanel(refreshOpenSectionControls);
 }
 
 function syncTocSectionSelect(select: HTMLSelectElement, preferredPath: string | null): string | null {
@@ -240,7 +234,7 @@ function renderTocSectionControls(container: HTMLElement, selectedPath: string |
   const tocCb = tocToggle.input;
   tocCb.addEventListener('change', async () => {
     tocCb.disabled = true;
-    const success = await ProjectService.toggleToc(node.path, tocCb.checked);
+    const success = await projectSession.toggleToc(node.path, tocCb.checked);
     if (!success) tocCb.checked = !tocCb.checked;
     tocCb.disabled = false;
   });
@@ -249,7 +243,7 @@ function renderTocSectionControls(container: HTMLElement, selectedPath: string |
   const numberingCb = numberingToggle.input;
   numberingCb.addEventListener('change', async () => {
     numberingCb.disabled = true;
-    const success = await ProjectService.toggleHeadingNumbering(node.path, numberingCb.checked);
+    const success = await projectSession.toggleHeadingNumbering(node.path, numberingCb.checked);
     if (!success) numberingCb.checked = !numberingCb.checked;
     numberingCb.disabled = false;
   });

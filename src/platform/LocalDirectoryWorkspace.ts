@@ -9,9 +9,9 @@ import type {
 import { createDefaultProjectSettings, normalizeProjectSettings } from '../services/project-settings';
 import { calculateSectionMove } from './section-order';
 import { DirectoryHandleCatalogue } from './DirectoryHandleCatalogue';
-import { normalizeExplorerPath } from '../utils/path-utils';
 import { readJson, writeJson, ensureDirectory, getDirectory, getFile, deleteEntry, listEntries, copyEntry } from './fs-helpers';
-import { removeSettingsPath, replaceSettingsPath, resolveImagePath, resolveSectionPath } from './project-paths';
+import { resolveImagePath, resolveSectionPath } from './project-paths';
+import { applyProjectSettingsMutation } from '../services/settings-mutations';
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -88,27 +88,7 @@ export class LocalDirectoryWorkspaceSession implements WorkspaceSession {
       }
       if (!this.settingsHandle) throw new Error('Could not create settings.json handle');
       const settings = await this.getSettings();
-      if (mutation.type === 'patch') {
-        Object.assign(settings, mutation.values);
-      } else if (mutation.type === 'append-order') {
-        const normalized = normalizeExplorerPath(mutation.path);
-        if (!settings.order.includes(normalized)) settings.order.push(normalized);
-      } else if (mutation.type === 'set-path-flag') {
-        const normalized = normalizeExplorerPath(mutation.path);
-        const list = (settings as unknown as Record<string, unknown>)[mutation.key] as string[] | undefined;
-        if (list) {
-          const enabled = mutation.enabled ?? !list.includes(normalized);
-          if (enabled && !list.includes(normalized)) list.push(normalized);
-          if (!enabled) {
-            const index = list.indexOf(normalized);
-            if (index !== -1) list.splice(index, 1);
-          }
-        }
-      } else if (mutation.type === 'replace-path') {
-        replaceSettingsPath(settings, normalizeExplorerPath(mutation.oldPath), normalizeExplorerPath(mutation.newPath));
-      } else if (mutation.type === 'remove-path') {
-        removeSettingsPath(settings, normalizeExplorerPath(mutation.path));
-      }
+      applyProjectSettingsMutation(settings, mutation);
       try {
         await writeJson(this.settingsHandle, settings);
       } catch (err) {

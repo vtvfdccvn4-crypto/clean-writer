@@ -21,7 +21,7 @@ export const customBlockStylesHighlightPlugin = ViewPlugin.fromClass(class {
 
   buildDecorations(view: EditorView) {
     const builder = new RangeSetBuilder<Decoration>();
-    const blockStyles = appState.get.customBlockStyles || [];
+  const blockStyles = appState.current.customBlockStyles || [];
     if (blockStyles.length === 0) return builder.finish();
 
     const lineStyles = blockStyles.map(s => ({

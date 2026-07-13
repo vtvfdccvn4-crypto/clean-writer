@@ -1,5 +1,6 @@
 import { state } from '../state';
 import type { EditorSetup } from '../types';
+import { bindProjectSettingsPanel } from './project-settings-panel';
 
 function normalizeEditorFontSize(value: string | null | undefined, fallback: string): string {
   const trimmed = (value || '').trim();
@@ -11,7 +12,7 @@ function getEditorFontSizeSelectValue(value: string | null | undefined, fallback
   return normalizeEditorFontSize(value, fallback).replace(/pt$/i, '');
 }
 
-export function setupEditorSettingsDrawer(): void {
+export function setupEditorSettingsDrawer(onSave: (setup: EditorSetup) => Promise<void>): void {
   const fontSizeSelect = document.getElementById('drawer-editor-font-size') as HTMLSelectElement | null;
   const foldGlyphSelect = document.getElementById('editor-fold-gutter-glyph') as HTMLSelectElement | null;
   const switches: Array<[string, keyof EditorSetup]> = [
@@ -33,43 +34,47 @@ export function setupEditorSettingsDrawer(): void {
     ['editor-rectangular-selection', 'rectangularSelection'],
     ['editor-selection-matches', 'highlightSelectionMatches']
   ];
+  const save = (setup: EditorSetup) => {
+    if (!state.current.projectRef) return;
+    void onSave(setup).catch(() => undefined);
+  };
 
   for (const [id, setting] of switches) {
     const checkbox = document.getElementById(id) as HTMLInputElement | null;
     if (!checkbox) continue;
-    checkbox.checked = Boolean(state.get.editorSetup[setting]);
+    checkbox.checked = Boolean(state.current.editorSetup[setting]);
     checkbox.addEventListener('change', () => {
-      state.setEditorSetup({
-        ...state.get.editorSetup,
+      save({
+        ...state.current.editorSetup,
         [setting]: checkbox.checked
       });
     });
   }
 
   if (fontSizeSelect) {
-    fontSizeSelect.value = getEditorFontSizeSelectValue(state.get.editorSetup.fontSize, '10pt');
+    fontSizeSelect.value = getEditorFontSizeSelectValue(state.current.editorSetup.fontSize, '10pt');
     fontSizeSelect.addEventListener('change', (e) => {
       const target = e.target as HTMLSelectElement;
-      state.setEditorSetup({
-        ...state.get.editorSetup,
-        fontSize: normalizeEditorFontSize(target.value, state.get.editorSetup.fontSize)
+      save({
+        ...state.current.editorSetup,
+        fontSize: normalizeEditorFontSize(target.value, state.current.editorSetup.fontSize)
       });
     });
   }
 
   if (foldGlyphSelect) {
-    foldGlyphSelect.value = state.get.editorSetup.foldGutterGlyph;
-    foldGlyphSelect.disabled = !state.get.editorSetup.foldGutter;
+    foldGlyphSelect.value = state.current.editorSetup.foldGutterGlyph;
+    foldGlyphSelect.disabled = !state.current.editorSetup.foldGutter;
     foldGlyphSelect.addEventListener('change', () => {
-      state.setEditorSetup({
-        ...state.get.editorSetup,
+      save({
+        ...state.current.editorSetup,
         foldGutterGlyph: foldGlyphSelect.value as EditorSetup['foldGutterGlyph']
       });
     });
   }
 
-  state.addEventListener('editor-setup-changed', () => {
-    const setup = state.get.editorSetup;
+  const syncControls = () => {
+    const setup = state.current.editorSetup;
     for (const [id, setting] of switches) {
       const checkbox = document.getElementById(id) as HTMLInputElement | null;
       if (checkbox && checkbox.checked !== Boolean(setup[setting])) {
@@ -86,6 +91,9 @@ export function setupEditorSettingsDrawer(): void {
       }
       foldGlyphSelect.disabled = !setup.foldGutter;
     }
-  });
+  };
+
+  state.onEditorSetupChanged(syncControls);
+  bindProjectSettingsPanel(syncControls, { tabId: 'editor' });
 
 }

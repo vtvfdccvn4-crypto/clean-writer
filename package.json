@@ -14,6 +14,7 @@
     "test": "node --test --test-concurrency=1 test/*.test.cjs",
     "test:perf": "node --test --test-concurrency=1 test/*.perf.cjs",
     "test:browser-smoke": "node scripts/release-browser-smoke.mjs",
+    "diagnose:browser-runtime": "node scripts/diagnose-browser-runtime.mjs",
     "test:pwa-smoke": "npm run build && node scripts/release-web-shell-smoke.mjs",
     "release:prep": "npm test && npm run test:perf && npm run test:browser-smoke && npm run test:pwa-smoke",
     "profile:preview": "node --expose-gc scripts/profile-preview.mjs",

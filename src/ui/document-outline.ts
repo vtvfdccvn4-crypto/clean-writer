@@ -1,4 +1,4 @@
-import { state, APP_STATE_EVENTS } from '../state';
+import { state } from '../state';
 import { closeDrawer, toggleDrawer } from './drawer-manager';
 import type { EditorManager } from './editor-manager';
 import type { Platform } from '../platform/types';
@@ -30,13 +30,13 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
     });
   }
 
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, () => {
+  state.onProjectSnapshotChanged(() => {
     if (!drawer.classList.contains('hidden')) {
       void rebuildOutline();
     }
   });
 
-  state.on(APP_STATE_EVENTS.projectTreeChanged, () => {
+  state.onProjectTreeChanged(() => {
     if (!drawer.classList.contains('hidden')) {
       void rebuildOutline();
     }
@@ -48,7 +48,7 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
     }
   });
 
-  state.on(APP_STATE_EVENTS.projectChanged, () => {
+  state.onProjectChanged(() => {
     if (!state.current.projectRef) {
       clearOutline();
     } else if (!drawer.classList.contains('hidden')) {

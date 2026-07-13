@@ -9,14 +9,14 @@ test('browser authoring fixture retains Step 7 editor reliability checks', () =>
   const source = fs.readFileSync(fixturePath, 'utf-8');
 
   [
-    'savedViaShortcut',
-    'fullDocSaveNoticeSeen',
+    'autosaveCompleted',
+    'undoAfterAutosave',
     'viewStateRestored',
     'searchPanelOpened',
     'recoveryConfirmShown',
     'draftRestored',
     'fileDropNoticeSeen',
-    'longTextSaved',
+    'longTextAutosaved',
     'longTextPreserved',
     'longTextCursorRestored'
   ].forEach(marker => {

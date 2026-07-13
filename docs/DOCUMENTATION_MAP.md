@@ -337,7 +337,7 @@ Should cover:
   - OPFS and local directory implementations.
 - Editor architecture:
   - CodeMirror setup through compartments.
-  - Autosave with `ChangeCommitQueue`.
+  - Autosave with `DocumentSaveCoordinator`.
   - Draft recovery and save-status reporting.
 - Preview architecture:
   - Compile pipeline, Paged.js render, exact render scheduling.
@@ -356,7 +356,7 @@ Source map:
 - `src/platform/runtime.ts`
 - `src/ui/editor-manager.ts`
 - `src/editor/createEditor.ts`
-- `src/editor/ChangeCommitQueue.ts`
+- `src/editor/DocumentSaveCoordinator.ts`
 - `src/preview/*`
 - `src/services/*`
 - `src/ui/components/Notice.ts`
@@ -615,7 +615,7 @@ Primary source:
 - `src/editor/createEditor.ts`
 - `src/ui/editor-manager.ts`
 - `src/editor/markdown-commands.ts`
-- `src/editor/ChangeCommitQueue.ts`
+- `src/editor/DocumentSaveCoordinator.ts`
 - `src/editor/DraftRecoveryStore.ts`
 - `src/ui/components/EditorPanel.ts`
 

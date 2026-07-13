@@ -1,7 +1,6 @@
 import { state } from '../state';
-import type { PageSetup, TypographySetup, ListSetup, ProjectMetadata, CustomStyle, CustomBlockStyle, TableSetup } from '../types';
+import type { ProjectSettingsPatch } from '../types';
 import type { WorkspaceSession } from '../platform/types';
-import { PROJECT_SETTINGS_SCHEMA_VERSION } from './project-settings';
 import { previewMetrics } from '../perf/preview-metrics';
 
 export const SettingsService = {
@@ -27,31 +26,11 @@ export const SettingsService = {
     }
   },
 
-  async saveSettings(
-    session: WorkspaceSession,
-    pageSetup?: PageSetup, 
-    typographySetup?: TypographySetup, 
-    listSetup?: ListSetup,
-    projectMetadata?: ProjectMetadata,
-    customStyles?: CustomStyle[],
-    customBlockStyles?: CustomBlockStyle[],
-    tableSetup?: TableSetup,
-    editorSetup?: import('../types').EditorSetup
-  ): Promise<void> {
+  async saveSettings(session: WorkspaceSession, patch: ProjectSettingsPatch): Promise<void> {
     try {
       await session.mutateSettings({
         type: 'patch',
-        values: {
-          schemaVersion: PROJECT_SETTINGS_SCHEMA_VERSION,
-          pageSetup: pageSetup ?? state.current.pageSetup,
-          typographySetup: typographySetup ?? state.current.typographySetup,
-          listSetup: listSetup ?? state.current.listSetup,
-          tableSetup: tableSetup ?? state.current.tableSetup,
-          projectMetadata: projectMetadata ?? state.current.projectMetadata,
-          customStyles: customStyles ?? state.current.customStyles,
-          customBlockStyles: customBlockStyles ?? state.current.customBlockStyles,
-          editorSetup: editorSetup ?? state.current.editorSetup
-        }
+        values: patch
       });
     } catch (e) {
       console.error('Failed to save settings.json', e);

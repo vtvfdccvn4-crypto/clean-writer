@@ -1,6 +1,5 @@
 import { state } from '../state';
 import type { EditorManager } from './editor-manager';
-import { showNotice } from './components/Notice';
 
 export function initWritingWorkflow(editorManager: EditorManager): () => void {
   const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -8,14 +7,6 @@ export function initWritingWorkflow(editorManager: EditorManager): () => void {
     if (!element) return false;
     if (element.closest('.cm-editor')) return false;
     return Boolean(element.matches('input, textarea, select, [contenteditable="true"]'));
-  };
-
-  const save = async () => {
-    if (!state.current.isFullDocMode && state.current.activeFile) {
-      try { await editorManager.flushCurrentDocument(); } catch (error) { console.error('Failed to save document:', error); }
-    } else {
-      showNotice('Open a section to save changes.', 'info');
-    }
   };
 
   const navigateSection = async (direction: -1 | 1) => {
@@ -38,7 +29,8 @@ export function initWritingWorkflow(editorManager: EditorManager): () => void {
 
     if (modifier && key === 's') {
       event.preventDefault();
-      void save();
+      // Document changes are persisted through autosave. Keep the browser
+      // from opening its page-save dialog without creating a second save path.
     } else if (modifier && event.shiftKey && key === 'f') {
       event.preventDefault();
       document.getElementById('btn-open-project-search')?.click();

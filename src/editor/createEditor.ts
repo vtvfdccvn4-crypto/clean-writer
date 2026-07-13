@@ -35,7 +35,7 @@ import { getCustomStylesExtension, updateCustomStyles } from './customStylesPlug
 import { getCustomBlockStylesExtension, updateCustomBlockStyles } from './customBlockStylesPlugin';
 import { state as appState } from '../state';
 import type { EditorSetup, TypographySetup } from '../types';
-import { ChangeCommitQueue } from './ChangeCommitQueue';
+import { DocumentSaveCoordinator } from './DocumentSaveCoordinator';
 
 export interface EditorSelectionRange {
   from: number;
@@ -75,7 +75,7 @@ export function createEditor(
     if (callbacks.onError) callbacks.onError(error);
     else console.error('[MarkdownEditor] Autosave failed:', error);
   };
-  const changeQueue = new ChangeCommitQueue(callbacks.onChange, reportBackgroundSaveError);
+  const changeQueue = new DocumentSaveCoordinator(callbacks.onChange, reportBackgroundSaveError);
 
   const styleSearchPanelButtons = () => {
     const panel = view?.dom?.querySelector('.cm-panel.cm-search');
@@ -153,7 +153,7 @@ export function createEditor(
     ]));
   };
 
-  const editorSetup = appState.get.editorSetup;
+  const editorSetup = appState.current.editorSetup;
 
   const state = EditorState.create({
     doc: initialContent,
@@ -174,7 +174,7 @@ export function createEditor(
       markdown(),
       customTheme,
       compartments.lineWrapping.of(optional(editorSetup.lineWrapping, EditorView.lineWrapping)),
-      compartments.markdownAppearance.of(markdownAppearance(editorSetup, appState.get.typographySetup)),
+      compartments.markdownAppearance.of(markdownAppearance(editorSetup, appState.current.typographySetup)),
       compartments.lineNumbers.of(optional(editorSetup.lineNumbers, lineNumbers())),
       compartments.foldGutter.of(optional(editorSetup.foldGutter, foldingControls(editorSetup))),
       compartments.activeLine.of(optional(editorSetup.highlightActiveLine, [highlightActiveLine(), highlightActiveLineGutter()])),
@@ -201,11 +201,11 @@ export function createEditor(
   const onCustomStylesChanged = () => updateCustomStyles(view);
   const onCustomBlockStylesChanged = () => updateCustomBlockStyles(view);
   const onEditorSetupChanged = () => {
-    const setup = appState.get.editorSetup;
+    const setup = appState.current.editorSetup;
     view.dispatch({
       effects: [
         compartments.lineWrapping.reconfigure(optional(setup.lineWrapping, EditorView.lineWrapping)),
-        compartments.markdownAppearance.reconfigure(markdownAppearance(setup, appState.get.typographySetup)),
+        compartments.markdownAppearance.reconfigure(markdownAppearance(setup, appState.current.typographySetup)),
         compartments.lineNumbers.reconfigure(optional(setup.lineNumbers, lineNumbers())),
         compartments.foldGutter.reconfigure(optional(setup.foldGutter, foldingControls(setup))),
         compartments.activeLine.reconfigure(optional(setup.highlightActiveLine, [highlightActiveLine(), highlightActiveLineGutter()])),
@@ -223,7 +223,7 @@ export function createEditor(
   const onTypographySetupChanged = () => {
     view.dispatch({
       effects: compartments.markdownAppearance.reconfigure(
-        markdownAppearance(appState.get.editorSetup, appState.get.typographySetup)
+        markdownAppearance(appState.current.editorSetup, appState.current.typographySetup)
       )
     });
   };

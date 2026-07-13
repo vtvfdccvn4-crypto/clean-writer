@@ -1,8 +1,8 @@
 import { isBlockGlyphPath, toBlockGlyphPath } from '../customBlockGlyphs';
 import { resolveImageSource } from '../images/imageSources';
-import { APP_STATE_EVENTS, state } from '../state';
+import { state } from '../state';
 import type { Platform, AssetResolver } from '../platform/types';
-import { ProjectService } from '../services/ProjectService';
+import { projectSession } from '../services/ProjectSessionStore';
 import { showNotice } from './components/Notice';
 import { normalizeExplorerPath } from '../utils/path-utils';
 
@@ -93,7 +93,8 @@ export async function loadBlockGlyphOptions(platform: Platform, selectedValue?: 
 
   const { projectRef } = state.current;
   if (projectRef) {
-    const session = await platform.workspaceRepository.open(projectRef);
+    const session = projectSession.getSession();
+    if (!session) return;
     const entries = await session.listImages();
     // The workspace image listing also contains regular images. Glyphs are
     // canonical assets under assets/glyphs and must be selected directly,
@@ -137,7 +138,7 @@ export function initBlockGlyphPicker(platform: Platform) {
   });
   
   document.getElementById('btn-upload-glyph')?.addEventListener('click', () => {
-    const { projectRef } = state.get;
+    const { projectRef } = state.current;
     if (!projectRef) return showNotice('No project open', 'warning');
     
     const input = document.createElement('input');
@@ -149,12 +150,12 @@ export function initBlockGlyphPicker(platform: Platform) {
       if (!files || files.length === 0) return;
       
       try {
-        const session = await platform.workspaceRepository.open(projectRef);
+        const session = projectSession.requireSession();
         let lastUploadedPath = '';
         for (const file of Array.from(files)) {
           const buffer = new Uint8Array(await file.arrayBuffer());
           const glyphName = `assets/glyphs/${file.name}`;
-          const success = await ProjectService.uploadImage(session, glyphName, buffer);
+          const success = await projectSession.uploadImage(glyphName, buffer);
           if (success) {
             // Need to retrieve final name in case of collision
             const imgs = await session.listImages();
@@ -171,6 +172,6 @@ export function initBlockGlyphPicker(platform: Platform) {
     input.click();
   });
 
-  state.on(APP_STATE_EVENTS.projectChanged, () => void loadBlockGlyphOptions(platform));
+  state.onProjectChanged(() => void loadBlockGlyphOptions(platform));
   document.addEventListener('click', closeBlockGlyphMenu);
 }

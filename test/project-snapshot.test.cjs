@@ -4,14 +4,13 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
 let server;
 let ProjectService;
-let APP_STATE_EVENTS;
 let state;
 let previewMetrics;
 let InMemoryWorkspaceSession;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24686 } } });
-  ({ APP_STATE_EVENTS, state } = await server.ssrLoadModule('/src/state.ts'));
+  ({ state } = await server.ssrLoadModule('/src/state.ts'));
   ({ ProjectService } = await server.ssrLoadModule('/src/services/ProjectService.ts'));
   ({ previewMetrics } = await server.ssrLoadModule('/src/perf/preview-metrics.ts'));
   ({ InMemoryWorkspaceSession } = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts'));
@@ -32,12 +31,11 @@ test('project loading reads each source once and publishes one snapshot', async 
   previewMetrics.reset();
   let snapshotEvents = 0;
   let treeEvents = 0;
-  const unsubscribeSnapshot = state.on(APP_STATE_EVENTS.projectSnapshotChanged, () => snapshotEvents++);
-  const unsubscribeTree = state.on(APP_STATE_EVENTS.projectTreeChanged, () => treeEvents++);
+  const unsubscribeSnapshot = state.onProjectSnapshotChanged(() => snapshotEvents++);
+  const unsubscribeTree = state.onProjectTreeChanged(() => treeEvents++);
   const session = createSession('Project');
 
   state.setProjectRef({ id: session.id, kind: 'memory', displayName: session.displayName });
-  ProjectService.setActiveSession(session);
   await ProjectService.loadProjectSnapshot(session);
   unsubscribeSnapshot();
   unsubscribeTree();
@@ -71,13 +69,11 @@ test('a slower project read cannot overwrite a newer project snapshot', async ()
   };
 
   let snapshots = 0;
-  const unsubscribe = state.on(APP_STATE_EVENTS.projectSnapshotChanged, () => snapshots++);
+  const unsubscribe = state.onProjectSnapshotChanged(() => snapshots++);
 
   state.setProjectRef({ id: slowSession.id, kind: 'memory', displayName: slowSession.displayName });
-  ProjectService.setActiveSession(slowSession);
   const staleLoad = ProjectService.loadProjectSnapshot(slowSession);
   state.setProjectRef({ id: fastSession.id, kind: 'memory', displayName: fastSession.displayName });
-  ProjectService.setActiveSession(fastSession);
   await ProjectService.loadProjectSnapshot(fastSession);
   releaseSlowRead();
   await staleLoad;
@@ -93,7 +89,6 @@ test('tree refreshes are timed separately from project snapshot loads', async ()
   previewMetrics.reset();
   const session = createSession('Project');
   state.setProjectRef({ id: session.id, kind: 'memory', displayName: session.displayName });
-  ProjectService.setActiveSession(session);
   await ProjectService.loadProjectSnapshot(session);
   await ProjectService.refreshProjectTree(session, 'chapter.md');
 

@@ -17,7 +17,7 @@ after(async () => {
 
 test('web runtime uses the OPFS-backed platform', async () => {
   const platform = createAppPlatform({ prompt: () => 'Runtime Test Project' });
-  assert.equal(platform.workspaceRepository.constructor.name, 'TrackingWorkspaceRepository');
+  assert.equal(platform.workspaceRepository.constructor.name, 'CompositeWorkspaceRepository');
   assert.equal(typeof platform.workspaceRepository.pickWorkspace, 'function');
   assert.equal(typeof platform.workspaceRepository.getLastOpenedWorkspace, 'function');
   assert.strictEqual(platform.assetResolver.constructor.name, 'BlobUrlAssetResolver');

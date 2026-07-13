@@ -1,5 +1,5 @@
-import { APP_STATE_EVENTS, state } from '../../state';
-import { ProjectService } from '../../services/ProjectService';
+import { state } from '../../state';
+import { projectSession } from '../../services/ProjectSessionStore';
 import { getBaseName } from '../../utils/path-utils';
 import { getExplorerDisplayRoots, type ExplorerTreeNode } from '../../utils/tree-utils';
 import type { FileNode } from '../../types';
@@ -17,8 +17,8 @@ export function initSectionVisibilityControls(sectionSelect: HTMLSelectElement, 
     renderVisibilityControls(listContainer, selectedSectionPath);
   };
 
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, refreshSectionControls);
-  state.on(APP_STATE_EVENTS.projectTreeChanged, refreshSectionControls);
+  state.onProjectSnapshotChanged(refreshSectionControls);
+  state.onProjectTreeChanged(refreshSectionControls);
   refreshSectionControls();
   return refreshSectionControls;
 }
@@ -97,7 +97,7 @@ function syncSectionSelect(select: HTMLSelectElement, preferredPath: string | nu
 
 function renderVisibilityControls(container: HTMLElement, selectedPath: string | null) {
   container.innerHTML = '';
-  const sections = state.get.sections;
+  const sections = state.current.sections;
   const sortedNodes = getSectionVisibilityNodes(sections);
 
   if (sortedNodes.length === 0 || !selectedPath) {
@@ -115,7 +115,7 @@ function renderVisibilityControls(container: HTMLElement, selectedPath: string |
   const headerToggle = createSectionToggle('Header', !stateNode.hideHeader, 'Show', 'Hide');
   headerToggle.input.addEventListener('change', async () => {
     headerToggle.input.disabled = true;
-    const success = await ProjectService.toggleHeaderVisibility(node.path, !headerToggle.input.checked);
+    const success = await projectSession.toggleHeaderVisibility(node.path, !headerToggle.input.checked);
     if (!success) headerToggle.input.checked = !headerToggle.input.checked;
     headerToggle.input.disabled = false;
   });
@@ -123,7 +123,7 @@ function renderVisibilityControls(container: HTMLElement, selectedPath: string |
   const footerToggle = createSectionToggle('Footer', !stateNode.hideFooter, 'Show', 'Hide');
   footerToggle.input.addEventListener('change', async () => {
     footerToggle.input.disabled = true;
-    const success = await ProjectService.toggleFooterVisibility(node.path, !footerToggle.input.checked);
+    const success = await projectSession.toggleFooterVisibility(node.path, !footerToggle.input.checked);
     if (!success) footerToggle.input.checked = !footerToggle.input.checked;
     footerToggle.input.disabled = false;
   });

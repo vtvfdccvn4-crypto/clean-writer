@@ -1,6 +1,7 @@
-import { APP_STATE_EVENTS, state } from '../state';
+import { state } from '../state';
 import type { ProjectMetadata } from '../state';
 import { closeDrawer, toggleDrawer } from './drawer-manager';
+import { bindProjectSettingsPanel } from './project-settings-panel';
 
 export function initProjectMetadataDrawer(onSaveMetadata: (metadata: ProjectMetadata) => Promise<void>) {
   const btnProjectMetadata = document.getElementById('btn-project-metadata');
@@ -25,9 +26,8 @@ export function initProjectMetadataDrawer(onSaveMetadata: (metadata: ProjectMeta
     productVersion: document.getElementById('meta-prod-version') as HTMLInputElement
   };
 
-  state.addEventListener('project-metadata-changed', syncInputs);
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, syncInputs);
-  state.on(APP_STATE_EVENTS.settingsSnapshotChanged, syncInputs);
+  state.onProjectMetadataChanged(syncInputs);
+  bindProjectSettingsPanel(syncInputs);
 
   btnProjectMetadata.addEventListener('click', () => {
     if (projectMetadataDrawer.classList.contains('hidden')) {
@@ -53,12 +53,11 @@ export function initProjectMetadataDrawer(onSaveMetadata: (metadata: ProjectMeta
       productVersion: inputs.productVersion.value
     };
     
-    state.setProjectMetadata(metadata);
     await onSaveMetadata(metadata);
   });
 
   function syncInputs() {
-    const data = state.get.projectMetadata;
+    const data = state.current.projectMetadata;
     if (!data) return;
     inputs.author.value = data.author || '';
     inputs.documentTitle.value = data.documentTitle || '';

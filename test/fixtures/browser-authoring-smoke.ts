@@ -1,4 +1,5 @@
 import { state } from '/src/state.ts';
+import { redo, undo } from '@codemirror/commands';
 import { click, getTexts, getVisibleCardTitle, getVisibleDetailsTitle, isHidden, waitFor as waitForSmoke } from './helpers/smoke-dom.ts';
 
 declare global {
@@ -335,7 +336,7 @@ async function run() {
     return null;
   });
 
-  // Verify manual save shortcut and view state memory
+  // Verify autosave and view state memory
   await click('#btn-new-section');
   const section2Input = await waitFor('section2 input', () => document.querySelector<HTMLInputElement>('.inline-input'));
   section2Input.value = 'StateTest';
@@ -350,24 +351,31 @@ async function run() {
 
   // Type something and change cursor
   const stateTestView = editorManager.getEditorView();
-  stateTestView.setValue('Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n', false);
+  const initialStateTestContent = stateTestView.getValue();
+  const stateTestContent = 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n';
+  stateTestView.setValue(stateTestContent);
   stateTestView.setSelection(15, 20);
 
-  // Manual save
-  window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }));
-  await editorManager.flushCurrentDocument();
-  const savedViaShortcut = await waitFor('status saved via shortcut', () => {
+  const autosaveCompleted = await waitFor('autosave completed', () => {
     return document.getElementById('editor-status')?.textContent === 'Saved' ? true : null;
   });
 
-  // Test full doc Ctrl+S notice
+  const undoApplied = undo(stateTestView.view);
+  const undoAfterAutosave = undoApplied && await waitFor('undo after autosave', () => (
+    stateTestView.getValue() === initialStateTestContent ? true : null
+  ));
+  redo(stateTestView.view);
+  await waitFor('redo after autosave', () => stateTestView.getValue() === stateTestContent ? true : null);
+  stateTestView.setSelection(15, 20);
+  await waitFor('redo autosaved', () => document.getElementById('editor-status')?.textContent === 'Saved' ? true : null);
+
   await click('#btn-full-doc');
   await waitFor('full document mode for state test', () => state.current.isFullDocMode === true ? true : null);
   await waitFor('full document editor state', () => document.getElementById('editor-container')?.textContent?.includes('Editor disabled in Full Document mode') ? true : null);
-  window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }));
-  const fullDocSaveNoticeSeen = await waitFor('full doc save notice', () => Array.from(document.querySelectorAll('#notice-container .notice')).some(node => node.textContent?.includes('Open a section to save changes.')) ? true : null);
 
   // Switch back
+  // Let the full-document render boundary settle before requesting the next
+  // single-document render; this mirrors the user-visible mode transition.
   state.setActiveFile('sections/StateTest.md');
   await waitFor('StateTest active again', () => (
     state.current.activeFile === 'sections/StateTest.md'
@@ -451,24 +459,26 @@ async function run() {
   longTextView.setSelection(insertPos);
   longTextView.insertText('=== EDIT NEAR END ===');
   const cursorAfterInsert = longTextView.getSelection().to;
-  
-  // Verify manual save
-  window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }));
-  await editorManager.flushCurrentDocument();
-  const longTextSaved = await waitFor('long text status saved', () => {
-    return document.getElementById('editor-status')?.textContent === 'Saved' ? true : null;
+
+  await waitFor('long text marked dirty', () => (
+    longTextView.hasUnsavedChanges() ? true : null
+  ));
+  const longTextAutosaved = await waitFor('long text autosaved', () => {
+    return !longTextView.hasUnsavedChanges()
+      && document.getElementById('editor-status')?.textContent === 'Saved'
+      ? true
+      : null;
   });
 
   // Switch away and back to verify view state restoration and text preservation
-  state.setActiveFile('sections/MyRenamedSection.md');
+  await editorManager.openDocument('sections/MyRenamedSection.md');
   await waitForEditor(
     editorManager,
     'sections/MyRenamedSection.md',
     value => !value.includes('=== EDIT NEAR END ==='),
     'control section loaded'
   );
-  
-  state.setActiveFile('sections/LongTextSection.md');
+  await editorManager.openDocument('sections/LongTextSection.md');
   await waitForEditor(
     editorManager,
     'sections/LongTextSection.md',
@@ -734,14 +744,14 @@ async function run() {
     deleteCancelPreservedSection,
     deleteConfirmShownOnConfirm,
     deleteConfirmedRemovedSection,
-    savedViaShortcut,
-    fullDocSaveNoticeSeen,
+    autosaveCompleted,
+    undoAfterAutosave,
     viewStateRestored,
     searchPanelOpened,
     recoveryConfirmShown,
     draftRestored,
     fileDropNoticeSeen,
-    longTextSaved,
+    longTextAutosaved,
     longTextPreserved,
     longTextCursorRestored,
     exportButtonsDisabled,

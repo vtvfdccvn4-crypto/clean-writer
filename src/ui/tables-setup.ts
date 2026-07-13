@@ -1,8 +1,8 @@
-import { APP_STATE_EVENTS, state } from '../state';
+import { state } from '../state';
 import type { TableSetup, TableStyle } from '../types';
 import { setFontFamilySelectValue } from '../config/font-families';
 import { readDrawerNumber } from './components/drawerControls';
-import { onSettingsTabActivated } from './settings-drawer';
+import { bindProjectSettingsPanel } from './project-settings-panel';
 
 export function initTablesDrawer(onSave: (setup: TableSetup) => Promise<void>) {
   const applyButton = document.getElementById('btn-apply-tables')!;
@@ -23,7 +23,7 @@ export function initTablesDrawer(onSave: (setup: TableSetup) => Promise<void>) {
     marginBottom: readDrawerNumber(`${prefix}-margin-bottom`, 12, { min: 0, max: 200 })
   });
 
-  const syncStyle = (prefix: string, style: TableStyle) => {
+  function syncStyle(prefix: string, style: TableStyle) {
     setFontFamilySelectValue(document.getElementById(`${prefix}-font`) as HTMLSelectElement, style.fontFamily);
     (document.getElementById(`${prefix}-font-size`) as HTMLInputElement).value = String(style.fontSize);
     (document.getElementById(`${prefix}-header-text`) as HTMLInputElement).value = style.headerTextColor;
@@ -37,20 +37,16 @@ export function initTablesDrawer(onSave: (setup: TableSetup) => Promise<void>) {
     (document.getElementById(`${prefix}-cell-padding`) as HTMLInputElement).value = String(style.cellPadding);
     (document.getElementById(`${prefix}-margin-top`) as HTMLInputElement).value = String(style.marginTop);
     (document.getElementById(`${prefix}-margin-bottom`) as HTMLInputElement).value = String(style.marginBottom);
-  };
+  }
 
-  const syncInputs = () => {
+  function syncInputs() {
     syncStyle('table-1', state.current.tableSetup.table1);
     syncStyle('table-2', state.current.tableSetup.table2);
-  };
+  }
 
-  onSettingsTabActivated('tables', syncInputs);
+  bindProjectSettingsPanel(syncInputs, { tabId: 'tables' });
   applyButton.addEventListener('click', async () => {
     const setup = { table1: readStyle('table-1'), table2: readStyle('table-2') };
-    state.setTableSetup(setup);
     await onSave(setup);
   });
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, syncInputs);
-  state.on(APP_STATE_EVENTS.settingsSnapshotChanged, syncInputs);
-  syncInputs();
 }

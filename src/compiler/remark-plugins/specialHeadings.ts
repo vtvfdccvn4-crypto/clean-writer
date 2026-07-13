@@ -5,7 +5,7 @@ import { state } from '../../state';
 
 /** Converts configured :::directives into semantic headings before document assembly. */
 export const specialHeadingsPlugin: Plugin<[], Root> = () => tree => {
-  const definitions = state.get.pageSetup.specialHeadings || [];
+  const definitions = state.current.pageSetup.specialHeadings || [];
   visit(tree, 'element', (node: any) => {
     if (node.tagName !== 'p' || node.children?.[0]?.type !== 'text') return;
     const text = node.children[0].value as string;

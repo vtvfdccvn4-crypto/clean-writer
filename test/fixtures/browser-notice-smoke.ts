@@ -44,12 +44,11 @@ async function run() {
     throw new Error(window.__CLEAR_WRITER_BOOT_ERROR__);
   }
 
-  await click('#btn-save');
   await click('#btn-new-section');
   await click('#btn-new-folder');
   await click('#btn-add-image');
 
-  await waitFor('rendered notices', () => document.querySelectorAll('#notice-container .notice').length === 2 ? true : null);
+  await waitFor('rendered notices', () => document.querySelectorAll('#notice-container .notice').length === 1 ? true : null);
 
   const notices = Array.from(document.querySelectorAll<HTMLElement>('#notice-container .notice')).map(notice => ({
     text: notice.textContent?.trim() || '',

@@ -1,8 +1,11 @@
 /**
- * Serializes debounced editor persistence and makes the pending value
- * explicitly flushable at navigation/export/window-close boundaries.
+ * Coalesces CodeMirror document changes into durable autosaves.
+ *
+ * It writes only the latest version after the user pauses typing, and can be
+ * flushed at navigation, export, and close boundaries. It never modifies the
+ * editor document, so CodeMirror history remains available for undo/redo.
  */
-export class ChangeCommitQueue {
+export class DocumentSaveCoordinator {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private pendingValue: string | null = null;
   private commitQueue: Promise<void> = Promise.resolve();
@@ -14,7 +17,7 @@ export class ChangeCommitQueue {
   constructor(
     commit: (value: string) => void | Promise<void>,
     onBackgroundError: (error: unknown) => void,
-    delayMs = 300
+    delayMs = 750
   ) {
     this.commit = commit;
     this.onBackgroundError = onBackgroundError;
@@ -48,9 +51,7 @@ export class ChangeCommitQueue {
       try {
         await this.commit(value);
       } catch (error) {
-        if (this.pendingValue === null) {
-          this.pendingValue = value;
-        }
+        if (this.pendingValue === null) this.pendingValue = value;
         throw error;
       } finally {
         this.inFlightCommits = Math.max(0, this.inFlightCommits - 1);

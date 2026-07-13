@@ -32,7 +32,6 @@ async function run() {
   view.setValue('Toolbar text', false); view.setSelection(0, 7);
   await click('[data-markdown-command="bold"]');
   const toolbarEdited = view.getValue() === '**Toolbar** text';
-  window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }));
   await editorManager.flushCurrentDocument();
   const originalAppendChild = Element.prototype.appendChild;
   let pdfPrintCalled = false;

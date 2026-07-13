@@ -13,7 +13,7 @@ interface CustomBlockStylesOptions {
 
 export const customBlockStylesPlugin: Plugin<[CustomBlockStylesOptions?], Root> = (options = {}) => {
   return (tree: Root) => {
-    const blockStyles = state.get.customBlockStyles || [];
+    const blockStyles = state.current.customBlockStyles || [];
     if (blockStyles.length === 0) return;
 
     visit(tree, 'element', (node: any) => {
@@ -37,7 +37,7 @@ export const customBlockStylesPlugin: Plugin<[CustomBlockStylesOptions?], Root> 
           if (style.color) cssProps.push(`color: ${style.color}`);
           if (style.isBold) cssProps.push(`font-weight: bold`);
           if (style.isItalic) cssProps.push(`font-style: italic`);
-          const paragraphSpacing = state.get.typographySetup.paragraph;
+          const paragraphSpacing = state.current.typographySetup.paragraph;
           cssProps.push(`line-height: ${style.lineHeight ?? paragraphSpacing.lineHeight}`);
           cssProps.push(`margin-top: ${style.marginTop ?? paragraphSpacing.marginTop}pt`);
           cssProps.push(`margin-bottom: ${style.marginBottom ?? paragraphSpacing.marginBottom}pt`);

@@ -10,26 +10,19 @@ type PathFlagKey = 'pageBreaks' | 'hiddenHeaders' | 'hiddenFooters' | 'numberedH
 // Project reads can overlap during fast navigation. Only the newest request
 // may publish, preventing a slower response from restoring stale state.
 let latestProjectRead = 0;
-let activeWorkspaceSession: WorkspaceSession | null = null;
 
 export const ProjectService = {
-  setActiveSession(session: WorkspaceSession | null): void {
-    activeWorkspaceSession = session;
-  },
-
-  async loadProjectSnapshot(session?: WorkspaceSession): Promise<void> {
+  async loadProjectSnapshot(session: WorkspaceSession): Promise<void> {
     const readId = ++latestProjectRead;
     const projectRef = state.current.projectRef;
     if (!projectRef) return;
-
-    const activeSession = session ?? getActiveSession();
 
     // ARCHITECTURE QA NOTE: this coarse timing is meant for trend comparisons
     // across snapshot-flow changes, not for sub-millisecond profiling.
     const started = performance.now();
     let loaded = false;
     try {
-      const { sections, images, settings } = await readProjectSnapshot(activeSession);
+      const { sections, images, settings } = await readProjectSnapshot(session);
       if (readId !== latestProjectRead || state.current.projectRef !== projectRef) return;
       state.commitProjectSnapshot({
         projectRef,
@@ -58,29 +51,12 @@ export const ProjectService = {
     }
   },
 
-  async refreshProjectTree(sessionOrActiveFile?: WorkspaceSession | string | null, activeFile: string | null = state.current.activeFile): Promise<void> {
+  async refreshProjectTree(session: WorkspaceSession, activeFile: string | null = state.current.activeFile): Promise<void> {
     const readId = ++latestProjectRead;
     const projectRef = state.current.projectRef;
     if (!projectRef) {
       state.setProjectTree([], []);
       return;
-    }
-
-    let session: WorkspaceSession;
-    let finalActiveFile: string | null;
-
-    if (typeof sessionOrActiveFile === 'string') {
-      session = getActiveSession();
-      finalActiveFile = sessionOrActiveFile;
-    } else if (sessionOrActiveFile === null) {
-      session = getActiveSession();
-      finalActiveFile = null;
-    } else if (sessionOrActiveFile && typeof sessionOrActiveFile === 'object' && 'listSections' in sessionOrActiveFile) {
-      session = sessionOrActiveFile;
-      finalActiveFile = activeFile;
-    } else {
-      session = getActiveSession();
-      finalActiveFile = activeFile;
     }
 
     // Keep tree-refresh timing separate from full snapshot loads so we can
@@ -89,7 +65,7 @@ export const ProjectService = {
     try {
       const { sections, images } = await readProjectSnapshot(session);
       if (readId !== latestProjectRead || state.current.projectRef !== projectRef) return;
-      state.setProjectTree(sections, images, finalActiveFile);
+      state.setProjectTree(sections, images, activeFile);
     } catch (e) {
       if (readId !== latestProjectRead || state.current.projectRef !== projectRef) return;
       console.error('Failed to refresh project tree', e);
@@ -99,16 +75,8 @@ export const ProjectService = {
     }
   },
 
-  async createSection(sessionOrName: WorkspaceSession | string, name?: string, content?: string): Promise<boolean> {
-    let session: WorkspaceSession;
-    let finalName: string;
-    if (typeof sessionOrName === 'string') {
-      session = getActiveSession();
-      finalName = sessionOrName;
-    } else {
-      session = sessionOrName;
-      finalName = name!;
-    }
+  async createSection(session: WorkspaceSession, name: string, content?: string): Promise<boolean> {
+    let finalName = name;
 
     if (!finalName.toLowerCase().endsWith('.md')) finalName += '.md';
 
@@ -129,16 +97,7 @@ export const ProjectService = {
     return false;
   },
 
-  async createFolder(sessionOrName: WorkspaceSession | string, name?: string): Promise<boolean> {
-    let session: WorkspaceSession;
-    let folderName: string;
-    if (typeof sessionOrName === 'string') {
-      session = getActiveSession();
-      folderName = sessionOrName;
-    } else {
-      session = sessionOrName;
-      folderName = name!;
-    }
+  async createFolder(session: WorkspaceSession, folderName: string): Promise<boolean> {
 
     const result = await session.createFolder(folderName);
     if (result && typeof result === 'object' && result.success) {
@@ -153,19 +112,7 @@ export const ProjectService = {
     return false;
   },
 
-  async renameSection(sessionOrOldName: WorkspaceSession | string, oldNameOrNewName: string, newName?: string): Promise<boolean> {
-    let session: WorkspaceSession;
-    let oldName: string;
-    let finalNewName: string;
-    if (typeof sessionOrOldName === 'string') {
-      session = getActiveSession();
-      oldName = sessionOrOldName;
-      finalNewName = oldNameOrNewName;
-    } else {
-      session = sessionOrOldName;
-      oldName = oldNameOrNewName;
-      finalNewName = newName!;
-    }
+  async renameSection(session: WorkspaceSession, oldName: string, finalNewName: string): Promise<boolean> {
 
     const { activeFile, sections } = state.current;
     const normalizedOldName = normalizeExplorerPath(oldName);
@@ -194,16 +141,7 @@ export const ProjectService = {
     return false;
   },
 
-  async deleteSection(sessionOrName: WorkspaceSession | string, name?: string): Promise<boolean> {
-    let session: WorkspaceSession;
-    let fileName: string;
-    if (typeof sessionOrName === 'string') {
-      session = getActiveSession();
-      fileName = sessionOrName;
-    } else {
-      session = sessionOrName;
-      fileName = name!;
-    }
+  async deleteSection(session: WorkspaceSession, fileName: string): Promise<boolean> {
 
     const { activeFile } = state.current;
     const success = await session.deleteSection(fileName);
@@ -231,27 +169,7 @@ export const ProjectService = {
     }
   },
 
-  async moveSection(
-    sessionOrSource: WorkspaceSession | string,
-    sourceOrTarget: string | null,
-    targetOrPlacement?: string | null | SectionPlacement,
-    placementArg?: SectionPlacement
-  ): Promise<boolean> {
-    let session: WorkspaceSession;
-    let sourcePath: string;
-    let targetPath: string | null;
-    let placement: SectionPlacement;
-    if (typeof sessionOrSource === 'string') {
-      session = getActiveSession();
-      sourcePath = sessionOrSource;
-      targetPath = sourceOrTarget;
-      placement = targetOrPlacement as SectionPlacement;
-    } else {
-      session = sessionOrSource;
-      sourcePath = sourceOrTarget!;
-      targetPath = targetOrPlacement as string | null;
-      placement = placementArg!;
-    }
+  async moveSection(session: WorkspaceSession, sourcePath: string, targetPath: string | null, placement: SectionPlacement): Promise<boolean> {
 
     const { activeFile } = state.current;
     try {
@@ -272,48 +190,32 @@ export const ProjectService = {
     }
   },
 
-  async togglePageBreak(sessionOrPath: WorkspaceSession | string, path?: string): Promise<boolean> {
-    const session = typeof sessionOrPath === 'string' ? getActiveSession() : sessionOrPath;
-    const finalPath = typeof sessionOrPath === 'string' ? sessionOrPath : path!;
-    return this._setPathFlag(session, 'pageBreaks', finalPath);
+  async togglePageBreak(session: WorkspaceSession, path: string): Promise<boolean> {
+    return this._setPathFlag(session, 'pageBreaks', path);
   },
 
-  async toggleHeaderVisibility(sessionOrPath: WorkspaceSession | string, pathOrHide: string | boolean, hide?: boolean): Promise<boolean> {
-    const session = typeof sessionOrPath === 'string' ? getActiveSession() : sessionOrPath;
-    const finalPath = typeof sessionOrPath === 'string' ? sessionOrPath : pathOrHide as string;
-    const finalHide = typeof sessionOrPath === 'string' ? pathOrHide as boolean : hide!;
-    return this._setPathFlag(session, 'hiddenHeaders', finalPath, finalHide);
+  async toggleHeaderVisibility(session: WorkspaceSession, path: string, hide: boolean): Promise<boolean> {
+    return this._setPathFlag(session, 'hiddenHeaders', path, hide);
   },
 
-  async toggleFooterVisibility(sessionOrPath: WorkspaceSession | string, pathOrHide: string | boolean, hide?: boolean): Promise<boolean> {
-    const session = typeof sessionOrPath === 'string' ? getActiveSession() : sessionOrPath;
-    const finalPath = typeof sessionOrPath === 'string' ? sessionOrPath : pathOrHide as string;
-    const finalHide = typeof sessionOrPath === 'string' ? pathOrHide as boolean : hide!;
-    return this._setPathFlag(session, 'hiddenFooters', finalPath, finalHide);
+  async toggleFooterVisibility(session: WorkspaceSession, path: string, hide: boolean): Promise<boolean> {
+    return this._setPathFlag(session, 'hiddenFooters', path, hide);
   },
 
-  async toggleHeadingNumbering(sessionOrPath: WorkspaceSession | string, pathOrEnabled: string | boolean, enabled?: boolean): Promise<boolean> {
-    const session = typeof sessionOrPath === 'string' ? getActiveSession() : sessionOrPath;
-    const finalPath = typeof sessionOrPath === 'string' ? sessionOrPath : pathOrEnabled as string;
-    const finalEnabled = typeof sessionOrPath === 'string' ? pathOrEnabled as boolean : enabled!;
-    return this._setPathFlag(session, 'numberedHeadings', finalPath, finalEnabled);
+  async toggleHeadingNumbering(session: WorkspaceSession, path: string, enabled: boolean): Promise<boolean> {
+    return this._setPathFlag(session, 'numberedHeadings', path, enabled);
   },
 
-  async toggleToc(sessionOrPath: WorkspaceSession | string, pathOrEnabled: string | boolean, enabled?: boolean): Promise<boolean> {
-    const session = typeof sessionOrPath === 'string' ? getActiveSession() : sessionOrPath;
-    const finalPath = typeof sessionOrPath === 'string' ? sessionOrPath : pathOrEnabled as string;
-    const finalEnabled = typeof sessionOrPath === 'string' ? pathOrEnabled as boolean : enabled!;
-    return this._setPathFlag(session, 'tocSections', finalPath, finalEnabled);
+  async toggleToc(session: WorkspaceSession, path: string, enabled: boolean): Promise<boolean> {
+    return this._setPathFlag(session, 'tocSections', path, enabled);
   },
 
-  async checkProjectHealth(session?: WorkspaceSession): Promise<ProjectHealthReport> {
-    const activeSession = getActiveSession(session);
-    return activeSession.inspectProject();
+  async checkProjectHealth(session: WorkspaceSession): Promise<ProjectHealthReport> {
+    return session.inspectProject();
   },
 
-  async recoverProjectSettings(session?: WorkspaceSession): Promise<boolean> {
-    const activeSession = getActiveSession(session);
-    const report = await activeSession.recoverProjectSettings();
+  async recoverProjectSettings(session: WorkspaceSession): Promise<boolean> {
+    const report = await session.recoverProjectSettings();
     return !report.issues.some(issue => issue.code === 'settings-invalid' || issue.code === 'settings-missing');
   },
 
@@ -375,12 +277,6 @@ export const ProjectService = {
     }
   }
 };
-
-function getActiveSession(session?: WorkspaceSession): WorkspaceSession {
-  if (session) return session;
-  if (activeWorkspaceSession) return activeWorkspaceSession;
-  throw new Error('No active workspace session is available.');
-}
 
 async function readProjectSnapshot(session: WorkspaceSession) {
   const [rawSections, rawImages, settings] = await Promise.all([

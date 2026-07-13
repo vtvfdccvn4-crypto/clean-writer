@@ -63,7 +63,7 @@ The platform layer separates application behavior from storage and browser capab
 ## State And Persistence
 
 - `src/state.ts` owns immutable application snapshots and typed state events.
-- CodeMirror changes pass through `ChangeCommitQueue` for debounced, serialized persistence.
+- CodeMirror changes pass through `DocumentSaveCoordinator` for debounced, serialized persistence.
 - `DraftRecoveryStore` provides local draft recovery when durable persistence has not completed.
 - Project settings are normalized, migrated, validated, and persisted through the settings services.
 - Navigation, project switching, close-project, export, and window-close paths flush pending editor changes before proceeding.

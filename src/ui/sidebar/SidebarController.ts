@@ -1,7 +1,8 @@
 import { SectionList } from './SectionList';
 import { ImageList } from './ImageList';
-import { APP_STATE_EVENTS, state } from '../../state';
+import { state } from '../../state';
 import { ProjectService } from '../../services/ProjectService';
+import { projectSession } from '../../services/ProjectSessionStore';
 import type { ProjectHealthReport } from '../../types';
 import type { Platform, WorkspaceSession } from '../../platform/types';
 import { showNewProjectModal, showOpenProjectModal } from '../project-flow-modal';
@@ -19,7 +20,6 @@ import {
 export class SidebarController {
   private btnNew: HTMLElement;
   private btnOpen: HTMLElement;
-  private btnSave: HTMLElement;
   private btnCloseProject: HTMLButtonElement | null;
   private btnFullDoc: HTMLElement | null;
   private btnNewSection: HTMLElement | null;
@@ -29,7 +29,8 @@ export class SidebarController {
   private imagePreviewEmptyEl: HTMLElement;
   private imagePreviewCaptionEl: HTMLElement;
 
-  private onLoadProject: (session: WorkspaceSession) => Promise<void>;
+  private onLoadProject: (ref: WorkspaceRef, session: WorkspaceSession) => Promise<void>;
+  private onCloseProject: () => void;
   private onSaveActiveFile: () => Promise<boolean>;
   private onInsertText?: (text: string) => boolean;
   private platform: Platform;
@@ -37,7 +38,8 @@ export class SidebarController {
 
   constructor(
     platform: Platform,
-    onLoadProject: (session: WorkspaceSession) => Promise<void>,
+    onLoadProject: (ref: WorkspaceRef, session: WorkspaceSession) => Promise<void>,
+    onCloseProject: () => void,
     onSaveActiveFile: () => Promise<boolean>,
     onInsertText?: (text: string) => boolean
   ) {
@@ -45,7 +47,6 @@ export class SidebarController {
     this.onInsertText = onInsertText;
     this.btnNew = document.getElementById('btn-new')!;
     this.btnOpen = document.getElementById('btn-open')!;
-    this.btnSave = document.getElementById('btn-save')!;
     this.btnCloseProject = document.getElementById('btn-close-project') as HTMLButtonElement | null;
     this.btnFullDoc = document.getElementById('btn-full-doc');
     this.btnNewSection = document.getElementById('btn-new-section');
@@ -59,12 +60,13 @@ export class SidebarController {
     this.btnInsertImage = previewContainer.querySelector('#btn-insert-image');
 
     this.onLoadProject = onLoadProject;
+    this.onCloseProject = onCloseProject;
     this.onSaveActiveFile = onSaveActiveFile;
 
     this.setupEventListeners();
 
     // Bind state changes
-    state.on(APP_STATE_EVENTS.projectChanged, () => {
+    state.onProjectChanged(() => {
       const { projectRef } = state.current;
       const sidebarContainer = document.querySelector('.explorer-container');
       if (sidebarContainer) {
@@ -73,17 +75,17 @@ export class SidebarController {
       this.syncProjectIdentity();
     });
 
-    state.on(APP_STATE_EVENTS.projectTreeChanged, () => {
+    state.onProjectTreeChanged(() => {
       this.render();
     });
 
-    state.on(APP_STATE_EVENTS.projectSnapshotChanged, () => {
+    state.onProjectSnapshotChanged(() => {
       this.render();
     });
 
 
 
-    state.on(APP_STATE_EVENTS.selectionChanged, () => {
+    state.onSelectionChanged(() => {
       this.updateActiveStates();
     });
 
@@ -106,11 +108,9 @@ export class SidebarController {
         if (ref) {
           await this.onSaveActiveFile();
           this.prepareForProjectTransition();
-          state.setProjectRef(ref);
           const session = await this.platform.workspaceRepository.open(ref);
           this.updateWorkspaceChip(session);
-          await this.onLoadProject(session);
-          state.setFullDocMode();
+          await this.onLoadProject(ref, session);
         }
       } catch (error) {
         console.error('Failed to create new project:', error);
@@ -150,8 +150,7 @@ export class SidebarController {
         try {
           await this.onSaveActiveFile();
           this.prepareForProjectTransition();
-          ProjectService.setActiveSession(null);
-          state.closeProject();
+          this.onCloseProject();
         } catch (error) {
           console.error('Failed to close project:', error);
           showNotice(describeWorkspaceError(error, 'close'), 'error');
@@ -161,32 +160,17 @@ export class SidebarController {
 
     if (this.btnFullDoc) {
       this.btnFullDoc.addEventListener('click', async () => {
-        if (!state.get.projectRef) return;
+        if (!state.current.projectRef) return;
         await this.onSaveActiveFile();
         state.setFullDocMode();
       });
     }
 
-    this.btnSave.addEventListener('click', async () => {
-      if (!state.get.isFullDocMode && state.current.activeFile) {
-        try {
-          await this.onSaveActiveFile();
-          this.btnSave.style.color = '#10b981';
-          setTimeout(() => this.btnSave.style.color = '', 1000);
-        } catch (error) {
-          console.error('Save failed:', error);
-          showNotice(describeWorkspaceError(error, 'save'), 'error');
-        }
-      } else {
-        showNotice('Open a specific section to save it.', 'info');
-      }
-    });
-
     if (this.btnNewSection) {
       this.btnNewSection.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const { projectRef } = state.get;
+        const { projectRef } = state.current;
         if (!projectRef) return showNotice('No project open', 'warning');
         SectionList.renderInlineCreate(this.sectionListEl, false);
       });
@@ -197,7 +181,7 @@ export class SidebarController {
       btnNewFolder.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const { projectRef } = state.get;
+        const { projectRef } = state.current;
         if (!projectRef) return showNotice('No project open', 'warning');
         SectionList.renderInlineCreate(this.sectionListEl, true);
       });
@@ -206,7 +190,7 @@ export class SidebarController {
     const btnAddImage = document.getElementById('btn-add-image');
     if (btnAddImage) {
       btnAddImage.addEventListener('click', () => {
-        const { projectRef } = state.get;
+        const { projectRef } = state.current;
         if (!projectRef) return showNotice('No project open', 'warning');
         
         const input = document.createElement('input');
@@ -218,10 +202,9 @@ export class SidebarController {
           if (!files || files.length === 0) return;
           
           try {
-            const session = await this.platform.workspaceRepository.open(projectRef);
             for (const file of Array.from(files)) {
               const buffer = new Uint8Array(await file.arrayBuffer());
-              await ProjectService.uploadImage(session, file.name, buffer);
+              await projectSession.uploadImage(file.name, buffer);
             }
           } catch (err) {
             console.error('Failed to upload image:', err);
@@ -246,7 +229,7 @@ export class SidebarController {
         const files = ev.dataTransfer?.files;
         if (!files || files.length === 0) return;
         
-        const { projectRef } = state.get;
+        const { projectRef } = state.current;
         if (!projectRef) return;
         
         const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -254,10 +237,9 @@ export class SidebarController {
         
         ev.preventDefault();
         try {
-          const session = await this.platform.workspaceRepository.open(projectRef);
           for (const file of imageFiles) {
             const buffer = new Uint8Array(await file.arrayBuffer());
-            await ProjectService.uploadImage(session, file.name, buffer);
+            await projectSession.uploadImage(file.name, buffer);
           }
         } catch (err) {
           console.error('Failed to drop upload image:', err);
@@ -272,7 +254,7 @@ export class SidebarController {
         const altText = this.btnInsertImage?.dataset.altText || 'image';
         if (!imagePath) return;
 
-        const { isFullDocMode, activeFile } = state.get;
+        const { isFullDocMode, activeFile } = state.current;
         if (isFullDocMode || !activeFile) {
           showNotice('Open a section to insert an image.', 'warning');
           return;
@@ -324,11 +306,9 @@ export class SidebarController {
         return;
       }
 
-      state.setProjectRef(ref);
       const session = await this.platform.workspaceRepository.open(ref);
       this.updateWorkspaceChip(session);
-      await this.onLoadProject(session);
-      state.setFullDocMode();
+      await this.onLoadProject(ref, session);
     } catch (error) {
       console.error('Failed to open project:', error);
       showNotice(describeWorkspaceError(error, 'open'), 'warning');
@@ -340,6 +320,7 @@ export class SidebarController {
     const modalHost = document.getElementById('project-flow-modal');
     if (modalHost) modalHost.innerHTML = '';
   }
+
 
   private syncProjectIdentity() {
     const projectName = document.getElementById('project-name');
@@ -395,7 +376,7 @@ export class SidebarController {
   }
 
   private updateActiveStates() {
-    const { isFullDocMode, activeFile } = state.get;
+    const { isFullDocMode, activeFile } = state.current;
     const normalizedActiveFile = activeFile ? activeFile.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '') : null;
 
     if (this.btnFullDoc) {

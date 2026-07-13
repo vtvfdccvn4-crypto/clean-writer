@@ -1,6 +1,5 @@
 import type {
   FileNode,
-  ProjectSettingsMutation,
   ProjectHealthReport,
   ProjectSettingsData
 } from '../types';
@@ -17,18 +16,11 @@ import type {
   AppLifecycle,
   SectionPlacement
 } from './types';
-import {
-  DEFAULT_EDITOR_SETUP,
-  DEFAULT_PAGE_SETUP,
-  DEFAULT_TYPOGRAPHY_SETUP,
-  DEFAULT_LIST_SETUP,
-  DEFAULT_TABLE_SETUP,
-  DEFAULT_PROJECT_METADATA
-} from '../config/defaults';
-import { PROJECT_SETTINGS_SCHEMA_VERSION } from '../services/project-settings';
 import { normalizeExplorerPath, replacePathPrefix } from '../utils/path-utils';
 import { calculateSectionMove } from './section-order';
 import { getBlockGlyphLookupPaths } from '../customBlockGlyphs';
+import { applyProjectSettingsMutation } from '../services/settings-mutations';
+import { createDefaultProjectSettings } from '../services/project-settings';
 import { removeSettingsPath, replaceSettingsPath } from './project-paths';
 
 export class InMemoryAssetResolver implements AssetResolver {
@@ -105,59 +97,16 @@ export class InMemoryWorkspaceSession implements WorkspaceSession {
   ) {
     this.id = id;
     this.displayName = displayName;
-    this.settings = {
-      schemaVersion: PROJECT_SETTINGS_SCHEMA_VERSION,
-      order: [],
-      pageBreaks: [],
-      hiddenHeaders: [],
-      hiddenFooters: [],
-      numberedHeadings: [],
-      tocSections: [],
-      pageSetup: { ...DEFAULT_PAGE_SETUP },
-      typographySetup: { ...DEFAULT_TYPOGRAPHY_SETUP },
-      listSetup: { ...DEFAULT_LIST_SETUP },
-      tableSetup: { ...DEFAULT_TABLE_SETUP },
-      projectMetadata: { ...DEFAULT_PROJECT_METADATA },
-      customStyles: [],
-      customBlockStyles: [],
-      editorSetup: { ...DEFAULT_EDITOR_SETUP }
-    };
+    this.settings = createDefaultProjectSettings();
   }
 
   async readSettings(): Promise<ProjectSettingsData> {
     return JSON.parse(JSON.stringify(this.settings));
   }
 
-  async mutateSettings(mutation: ProjectSettingsMutation): Promise<Record<string, unknown>> {
+  async mutateSettings(mutation: import('../types').ProjectSettingsMutation): Promise<Record<string, unknown>> {
     const clone = JSON.parse(JSON.stringify(this.settings));
-
-    if (mutation.type === 'patch') {
-      Object.assign(clone, mutation.values);
-    } else if (mutation.type === 'append-order') {
-      const normalized = normalizeExplorerPath(mutation.path);
-      if (!clone.order.includes(normalized)) {
-        clone.order.push(normalized);
-      }
-    } else if (mutation.type === 'set-path-flag') {
-      const normalized = normalizeExplorerPath(mutation.path);
-      const list = clone[mutation.key] as string[];
-      if (list) {
-        const isEnabled = mutation.enabled ?? !list.includes(normalized);
-        if (isEnabled && !list.includes(normalized)) {
-          list.push(normalized);
-        } else if (!isEnabled) {
-          const index = list.indexOf(normalized);
-          if (index !== -1) list.splice(index, 1);
-        }
-      }
-    } else if (mutation.type === 'replace-path') {
-      const oldNorm = normalizeExplorerPath(mutation.oldPath);
-      const newNorm = normalizeExplorerPath(mutation.newPath);
-      replaceSettingsPath(clone, oldNorm, newNorm);
-    } else if (mutation.type === 'remove-path') {
-      const norm = normalizeExplorerPath(mutation.path);
-      removeSettingsPath(clone, norm);
-    }
+    applyProjectSettingsMutation(clone, mutation);
 
     this.settings = clone;
     return {};

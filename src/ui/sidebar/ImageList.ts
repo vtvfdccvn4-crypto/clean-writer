@@ -56,7 +56,7 @@ function showEmptyPreview(preview: ImagePreviewElements): void {
 
 export const ImageList = {
   render(container: HTMLElement, preview: ImagePreviewElements, platform: Platform): void {
-    const images = state.get.images.filter(fileNode => !fileNode.isDir);
+    const images = state.current.images.filter(fileNode => !fileNode.isDir);
     container.replaceChildren();
 
     const selectImage = async (file: string, row: HTMLElement): Promise<void> => {

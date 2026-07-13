@@ -1,4 +1,4 @@
-import { state, APP_STATE_EVENTS } from '../state';
+import { state } from '../state';
 import type { Platform } from '../platform/types';
 import type { EditorManager } from './editor-manager';
 import { closeDrawer, toggleDrawer } from './drawer-manager';
@@ -25,9 +25,9 @@ export function initProjectReviewDrawer(platform: Platform, editorManager: Edito
   });
   drawer.querySelector('.drawer-close-button')?.addEventListener('click', () => closeDrawer(drawer));
   refresh.addEventListener('click', () => void runReview());
-  state.on(APP_STATE_EVENTS.projectSnapshotChanged, () => { if (!drawer.classList.contains('hidden')) void runReview(); });
-  state.on(APP_STATE_EVENTS.projectTreeChanged, () => { if (!drawer.classList.contains('hidden')) void runReview(); });
-  state.on(APP_STATE_EVENTS.projectChanged, () => { if (!state.current.projectRef) clear(); });
+  state.onProjectSnapshotChanged(() => { if (!drawer.classList.contains('hidden')) void runReview(); });
+  state.onProjectTreeChanged(() => { if (!drawer.classList.contains('hidden')) void runReview(); });
+  state.onProjectChanged(() => { if (!state.current.projectRef) clear(); });
 
   async function runReview() {
     const currentRun = ++runId;

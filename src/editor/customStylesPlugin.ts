@@ -21,7 +21,7 @@ export const customStylesHighlightPlugin = ViewPlugin.fromClass(class {
 
   buildDecorations(view: EditorView) {
     const builder = new RangeSetBuilder<Decoration>();
-    const customStyles = state.get.customStyles || [];
+    const customStyles = state.current.customStyles || [];
     if (customStyles.length === 0) return builder.finish();
 
     const pairs = customStyles.map(s => ({

@@ -3,12 +3,12 @@ const { after, before, test } = require('node:test');
 const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
 let server;
-let ChangeCommitQueue;
+let DocumentSaveCoordinator;
 let DraftRecoveryStore;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24684 } } });
-  ({ ChangeCommitQueue } = await server.ssrLoadModule('/src/editor/ChangeCommitQueue.ts'));
+  ({ DocumentSaveCoordinator } = await server.ssrLoadModule('/src/editor/DocumentSaveCoordinator.ts'));
   ({ DraftRecoveryStore } = await server.ssrLoadModule('/src/editor/DraftRecoveryStore.ts'));
 });
 
@@ -16,7 +16,7 @@ after(async () => server?.close());
 
 test('flush commits the newest debounced document exactly once before navigation', async () => {
   const commits = [];
-  const queue = new ChangeCommitQueue(async value => commits.push(value), () => undefined, 60_000);
+  const queue = new DocumentSaveCoordinator(async value => commits.push(value), () => undefined, 60_000);
 
   queue.schedule('first draft');
   queue.schedule('final draft');
@@ -28,7 +28,7 @@ test('flush commits the newest debounced document exactly once before navigation
 
 test('flush waits for serialized persistence and reports its failure', async () => {
   const expected = new Error('disk full');
-  const queue = new ChangeCommitQueue(async () => { throw expected; }, () => undefined, 60_000);
+  const queue = new DocumentSaveCoordinator(async () => { throw expected; }, () => undefined, 60_000);
   queue.schedule('valuable text');
 
   await assert.rejects(queue.flush(), expected);
@@ -36,7 +36,7 @@ test('flush waits for serialized persistence and reports its failure', async () 
 
 test('cancel prevents a destroyed editor from committing a stale callback', async () => {
   const commits = [];
-  const queue = new ChangeCommitQueue(async value => commits.push(value), () => undefined, 5);
+  const queue = new DocumentSaveCoordinator(async value => commits.push(value), () => undefined, 5);
   queue.schedule('stale section');
   queue.cancel();
   await new Promise(resolve => setTimeout(resolve, 20));
@@ -48,7 +48,7 @@ test('hasUnsavedChanges stays true while a commit is still in flight', async () 
   const blockedCommit = new Promise(resolve => {
     releaseCommit = resolve;
   });
-  const queue = new ChangeCommitQueue(
+  const queue = new DocumentSaveCoordinator(
     async () => {
       await blockedCommit;
     },
@@ -70,7 +70,7 @@ test('hasUnsavedChanges stays true while a commit is still in flight', async () 
 test('a failed commit restores the dirty state allowing a successful retry', async () => {
   let shouldFail = true;
   const commits = [];
-  const queue = new ChangeCommitQueue(
+  const queue = new DocumentSaveCoordinator(
     async value => {
       if (shouldFail) throw new Error('Network error');
       commits.push(value);

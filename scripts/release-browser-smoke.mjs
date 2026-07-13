@@ -8,9 +8,8 @@ import { createServer } from 'vite';
 
 const root = path.resolve(import.meta.dirname, '..');
 const serverPort = await reservePort();
-const browserDebugPort = await reservePort();
 const browserExecutable = await detectBrowserExecutable();
-const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-release-smoke-'));
+const fixtureTimeoutMs = Number(process.env.CLEAR_WRITER_SMOKE_TIMEOUT_MS ?? 60_000);
 
 const fixtures = [
   {
@@ -59,14 +58,12 @@ const fixtures = [
       expect(result.reopenedProjectName === 'Authoring Smoke', `Expected reopened project name to match, got ${result.reopenedProjectName}.`);
       expect(result.reopenedWorkspaceChip === 'Browser storage', `Expected reopened workspace chip to match, got ${result.reopenedWorkspaceChip}.`);
       expect(Array.isArray(result.alerts) && result.alerts.length === 0, 'Browser authoring smoke triggered unexpected alerts.');
-      expect(result.savedViaShortcut === true, 'Keyboard save did not complete successfully.');
-      expect(result.fullDocSaveNoticeSeen === true, 'Full-document save notice was not shown.');
       expect(result.viewStateRestored === true, 'Editor selection/view state was not restored.');
       expect(result.searchPanelOpened === true, 'Search panel did not open from the toolbar action.');
       expect(result.recoveryConfirmShown === true, 'Draft recovery confirmation was not shown.');
       expect(result.draftRestored === true, 'Draft recovery did not restore the draft content.');
       expect(result.fileDropNoticeSeen === true, 'Unsupported file drop notice was not shown.');
-      expect(result.longTextSaved === true, 'Long-text save flow did not return to Saved state.');
+      expect(result.longTextAutosaved === true, 'Long-text save flow did not return to Saved state.');
       expect(result.longTextPreserved === true, 'Long-text content was not preserved after switching away and back.');
       expect(result.longTextCursorRestored === true, 'Long-text cursor position was not restored.');
       expect(result.pageSetupDraftDiscarded === true, 'Page setup draft values were not discarded on close.');
@@ -189,9 +186,18 @@ const fixtures = [
   }
 ];
 
+const requestedFixture = process.env.CLEAR_WRITER_SMOKE_FIXTURE?.trim();
+const selectedFixtures = requestedFixture
+  ? fixtures.filter(fixture => fixture.name === requestedFixture)
+  : fixtures;
+if (requestedFixture && selectedFixtures.length === 0) {
+  throw new Error(`Unknown browser smoke fixture "${requestedFixture}". Available fixtures: ${fixtures.map(fixture => fixture.name).join(', ')}`);
+}
+
 const viteServer = await createServer({
   root,
   appType: 'spa',
+  optimizeDeps: { include: ['extend', 'debug', 'event-emitter', 'event-emitter/pipe', 'css-tree', 'clear-cut'] },
   logLevel: 'error',
   server: {
     host: '127.0.0.1',
@@ -201,15 +207,20 @@ const viteServer = await createServer({
   }
 });
 
-let browserProcess;
-
 try {
+  process.stdout.write(`Smoke runtime: server=${serverPort}, timeout=${fixtureTimeoutMs}ms\n`);
   await viteServer.listen();
-  browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir);
-  const browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`);
+  process.stdout.write('Smoke runtime: Vite server listening\n');
 
   const results = [];
-  for (const fixture of fixtures) {
+  let browserUserAgent = '';
+  for (const fixture of selectedFixtures) {
+    const browserDebugPort = await reservePort();
+    const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-release-smoke-'));
+    const browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir);
+    const browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`);
+    browserUserAgent = browserVersion.UserAgent ?? browserUserAgent;
+    process.stdout.write(`Smoke runtime: browser ready for ${fixture.name} (${browserVersion.Browser ?? browserVersion.UserAgent})\n`);
     process.stdout.write(`Running browser fixture: ${fixture.name}\n`);
     const target = await createBrowserTarget(browserDebugPort, `http://127.0.0.1:${serverPort}${fixture.path}`);
     const session = await connectToTarget(target.webSocketDebuggerUrl);
@@ -229,6 +240,12 @@ try {
       if (target.id) {
         await closeBrowserTarget(browserDebugPort, target.id).catch(() => undefined);
       }
+      if (!browserProcess.killed) {
+        browserProcess.kill('SIGTERM');
+        await Promise.race([once(browserProcess, 'exit'), delay(1_000)]).catch(() => undefined);
+        if (!browserProcess.killed) browserProcess.kill('SIGKILL');
+      }
+      await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => undefined);
     }
   }
 
@@ -237,17 +254,12 @@ try {
     runtime: process.version,
     browser: {
       executable: browserExecutable,
-      userAgent: browserVersion.UserAgent
+      userAgent: browserUserAgent
     },
     fixtures: results.map(({ name, ok }) => ({ name, ok }))
   }, null, 2)}\n`);
 } finally {
-  if (browserProcess && !browserProcess.killed) {
-    browserProcess.kill('SIGTERM');
-    await once(browserProcess, 'exit').catch(() => undefined);
-  }
   await viteServer.close();
-  await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => undefined);
 }
 
 function launchHeadlessBrowser(executable, debugPort, userDataDir) {
@@ -342,6 +354,7 @@ async function connectToTarget(webSocketUrl) {
   await send('Page.enable');
   await send('Runtime.enable');
   await send('Log.enable');
+  await send('Network.enable');
 
   socket.addEventListener('message', event => {
     const payload = JSON.parse(String(event.data));
@@ -351,6 +364,16 @@ async function connectToTarget(webSocketUrl) {
       console.log(`[Browser Console ${type}]`, args);
     } else if (payload.method === 'Runtime.exceptionThrown') {
       console.log(`[Browser Exception]`, payload.params.exceptionDetails.text);
+    } else if (payload.method === 'Runtime.executionContextCreated') {
+      console.log('[Browser Runtime] execution context created');
+    } else if (payload.method === 'Page.loadEventFired') {
+      console.log('[Browser Page] load event fired');
+    } else if (payload.method === 'Page.domContentEventFired') {
+      console.log('[Browser Page] DOM content loaded');
+    } else if (payload.method === 'Network.loadingFailed') {
+      console.log(`[Browser Network] request failed: ${payload.params.errorText} ${payload.params.url ?? ''}`);
+    } else if (payload.method === 'Network.responseReceived' && payload.params.response.status >= 400) {
+      console.log(`[Browser Network] HTTP ${payload.params.response.status}: ${payload.params.response.url}`);
     }
   });
 
@@ -385,13 +408,22 @@ async function connectToTarget(webSocketUrl) {
 
 async function waitForHarnessResult(session) {
   const started = Date.now();
-  while (Date.now() - started < 60_000) {
+  let lastProgress;
+  let nextProgressLog = started;
+  while (Date.now() - started < fixtureTimeoutMs) {
     const result = await session.evaluate(`window.__HARNESS_RESULT__ ?? null`);
     if (result) return result;
+    const progress = await session.evaluate(`({ progress: window.__HARNESS_PROGRESS__ ?? null, ready: window.__CLEAR_WRITER_READY__ === true, bootError: window.__CLEAR_WRITER_BOOT_ERROR__ ?? null, body: document.body?.innerText?.slice(0, 120) ?? '' })`).catch(() => null);
+    const progressLabel = progress?.progress ?? (progress?.bootError ? `boot-error: ${progress.bootError}` : progress?.ready ? 'app-ready' : 'booting');
+    if (progressLabel !== lastProgress || Date.now() >= nextProgressLog) {
+      process.stdout.write(`Fixture progress: ${progressLabel} (${Date.now() - started}ms)\n`);
+      lastProgress = progressLabel;
+      nextProgressLog = Date.now() + 2_000;
+    }
     await delay(100);
   }
-  const progress = await session.evaluate(`window.__HARNESS_PROGRESS__ ?? null`).catch(() => null);
-  throw new Error(`Browser smoke fixture did not finish within 60 seconds. Last progress: ${progress ?? 'unknown'}.`);
+  const progress = await session.evaluate(`({ progress: window.__HARNESS_PROGRESS__ ?? null, ready: window.__CLEAR_WRITER_READY__ === true, bootError: window.__CLEAR_WRITER_BOOT_ERROR__ ?? null, body: document.body?.innerText?.slice(0, 120) ?? '' })`).catch(() => null);
+  throw new Error(`Browser smoke fixture did not finish within ${fixtureTimeoutMs}ms. Diagnostics: ${JSON.stringify(progress)}.`);
 }
 
 async function reservePort() {

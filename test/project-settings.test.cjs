@@ -4,39 +4,26 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
 let server;
 let normalizeProjectSettings;
-let updateProjectSettings;
+let createDefaultProjectSettings;
+let applyProjectSettingsMutation;
 
 before(async () => {
   server = await createTestServer();
-  ({ normalizeProjectSettings, updateProjectSettings } = await server.ssrLoadModule('/src/services/project-settings.ts'));
+  ({ normalizeProjectSettings, createDefaultProjectSettings } = await server.ssrLoadModule('/src/services/project-settings.ts'));
+  ({ applyProjectSettingsMutation } = await server.ssrLoadModule('/src/services/settings-mutations.ts'));
 });
 
-test('concurrent settings updates are serialized without losing fields', async () => {
-  let stored = JSON.stringify(normalizeProjectSettings({}).settings);
-  const io = {
-    async readFile() {
-      await new Promise(resolve => setTimeout(resolve, 5));
-      return stored;
-    },
-    async writeFile(_path, content) {
-      await new Promise(resolve => setTimeout(resolve, 5));
-      stored = content;
-      return true;
-    }
-  };
+test('shared settings mutations preserve paths and apply typed patches', () => {
+  const settings = createDefaultProjectSettings();
 
-  await Promise.all([
-    updateProjectSettings('D:\\Concurrent Project', settings => {
-      settings.pageBreaks = ['chapter.md'];
-    }, io),
-    updateProjectSettings('D:\\Concurrent Project', settings => {
-      settings.hiddenHeaders = ['appendix.md'];
-    }, io)
-  ]);
+  applyProjectSettingsMutation(settings, { type: 'patch', values: { editorSetup: { ...settings.editorSetup, fontSize: '18pt' } } });
+  applyProjectSettingsMutation(settings, { type: 'append-order', path: 'sections\\intro.md' });
+  applyProjectSettingsMutation(settings, { type: 'set-path-flag', key: 'tocSections', path: 'sections/intro.md', enabled: true });
+  applyProjectSettingsMutation(settings, { type: 'replace-path', oldPath: 'sections', newPath: 'chapters' });
 
-  const saved = JSON.parse(stored);
-  assert.deepEqual(saved.pageBreaks, ['chapter.md']);
-  assert.deepEqual(saved.hiddenHeaders, ['appendix.md']);
+  assert.equal(settings.editorSetup.fontSize, '18pt');
+  assert.deepEqual(settings.order, ['chapters/intro.md']);
+  assert.deepEqual(settings.tocSections, ['chapters/intro.md']);
 });
 
 test('untrusted settings values are clamped before CSS generation', () => {

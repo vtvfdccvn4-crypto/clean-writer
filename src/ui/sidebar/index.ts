@@ -1,11 +1,12 @@
 import { SidebarController } from './SidebarController';
-import type { Platform, WorkspaceSession } from '../../platform/types';
+import type { Platform, WorkspaceSession, WorkspaceRef } from '../../platform/types';
 
 export function initSidebar(
   platform: Platform,
-  onLoadProject: (session: WorkspaceSession) => Promise<void>,
+  onLoadProject: (ref: WorkspaceRef, session: WorkspaceSession) => Promise<void>,
+  onCloseProject: () => void,
   onSaveActiveFile: () => Promise<boolean>,
   onInsertText?: (text: string) => boolean
 ) {
-  new SidebarController(platform, onLoadProject, onSaveActiveFile, onInsertText);
+  new SidebarController(platform, onLoadProject, onCloseProject, onSaveActiveFile, onInsertText);
 }

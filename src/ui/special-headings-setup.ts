@@ -2,7 +2,7 @@ import { state } from '../state';
 import type { PageSetup, SpecialHeadingDefinition } from '../types';
 import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
 import { setFontFamilySelectValue } from '../config/font-families';
-import { onSettingsTabActivated } from './settings-drawer';
+import { bindProjectSettingsPanel } from './project-settings-panel';
 
 export function initSpecialHeadingsDrawer(onSave: (setup: PageSetup) => Promise<void>) {
   const get = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -48,9 +48,9 @@ export function initSpecialHeadingsDrawer(onSave: (setup: PageSetup) => Promise<
       marginBottom: readDrawerNumber('special-heading-margin-bottom', 6, { min: 0, max: 500 })
     };
     const setup = { ...state.current.pageSetup, specialHeadings: [definition, ...(state.current.pageSetup.specialHeadings || []).filter(item => item.id !== 'exercise')] };
-    state.setPageSetup(setup); await onSave(setup);
+    await onSave(setup);
   });
   ['special-heading-break', 'special-heading-toc', 'special-heading-bold', 'special-heading-italic', 'special-heading-all-caps']
     .forEach(id => bindDrawerToggleButton(get<HTMLButtonElement>(id)));
-  onSettingsTabActivated('special-headings', sync); sync();
+  bindProjectSettingsPanel(sync, { tabId: 'special-headings' });
 }

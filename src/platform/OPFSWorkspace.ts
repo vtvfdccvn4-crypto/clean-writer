@@ -10,9 +10,9 @@ import type {
 import { createDefaultProjectSettings, normalizeProjectSettings } from '../services/project-settings';
 import { calculateSectionMove } from './section-order';
 import { OPFSCatalogue } from './OPFSCatalogue';
-import { normalizeExplorerPath } from '../utils/path-utils';
 import { readJson, writeJson, ensureDirectory, getDirectory, getFile, deleteEntry, listEntries, copyEntry } from './fs-helpers';
-import { removeSettingsPath, replaceSettingsPath, resolveImagePath, resolveSectionPath } from './project-paths';
+import { resolveImagePath, resolveSectionPath } from './project-paths';
+import { applyProjectSettingsMutation } from '../services/settings-mutations';
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -37,6 +37,7 @@ export class OPFSWorkspaceSession implements WorkspaceSession {
 
   private readonly projectDir: FileSystemDirectoryHandle;
   private readonly settingsHandle: FileSystemFileHandle;
+  private writeQueue = new Map<string, Promise<unknown>>();
   readonly id: string;
   readonly displayName: string;
 
@@ -66,30 +67,21 @@ export class OPFSWorkspaceSession implements WorkspaceSession {
     return clone(await this.getSettings());
   }
 
+  private serializedWrite(path: string, perform: () => Promise<void>): Promise<void> {
+    const previous = this.writeQueue.get(path) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(perform);
+    this.writeQueue.set(path, next);
+    return next.finally(() => {
+      if (this.writeQueue.get(path) === next) this.writeQueue.delete(path);
+    });
+  }
+
   async mutateSettings(mutation: import('../types').ProjectSettingsMutation): Promise<Record<string, unknown>> {
-    const settings = await this.getSettings();
-    if (mutation.type === 'patch') {
-      Object.assign(settings, mutation.values);
-    } else if (mutation.type === 'append-order') {
-      const normalized = normalizeExplorerPath(mutation.path);
-      if (!settings.order.includes(normalized)) settings.order.push(normalized);
-    } else if (mutation.type === 'set-path-flag') {
-      const normalized = normalizeExplorerPath(mutation.path);
-      const list = (settings as unknown as Record<string, unknown>)[mutation.key] as string[] | undefined;
-      if (list) {
-        const enabled = mutation.enabled ?? !list.includes(normalized);
-        if (enabled && !list.includes(normalized)) list.push(normalized);
-        if (!enabled) {
-          const index = list.indexOf(normalized);
-          if (index !== -1) list.splice(index, 1);
-        }
-      }
-    } else if (mutation.type === 'replace-path') {
-      replaceSettingsPath(settings, normalizeExplorerPath(mutation.oldPath), normalizeExplorerPath(mutation.newPath));
-    } else if (mutation.type === 'remove-path') {
-      removeSettingsPath(settings, normalizeExplorerPath(mutation.path));
-    }
-    await writeJson(this.settingsHandle, settings);
+    await this.serializedWrite('settings.json', async () => {
+      const settings = await this.getSettings();
+      applyProjectSettingsMutation(settings, mutation);
+      await writeJson(this.settingsHandle, settings);
+    });
     return {};
   }
 

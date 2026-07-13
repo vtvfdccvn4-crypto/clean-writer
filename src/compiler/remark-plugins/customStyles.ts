@@ -6,7 +6,7 @@ import { escapeRegExp } from '../../utils/regex';
 
 export const customStylesPlugin: Plugin<[], Root> = () => {
   return (tree: Root) => {
-    const customStyles = state.get.customStyles || [];
+    const customStyles = state.current.customStyles || [];
     if (customStyles.length === 0) return;
 
     const pairs = customStyles.map(s => ({

@@ -8,8 +8,7 @@ import { initProjectMetadataDrawer } from '../ui/project-metadata';
 import { EditorManager } from '../ui/editor-manager';
 import { renderAppShell } from '../ui/components/AppShell';
 import { initializeSymbolPicker } from '../ui/symbolPicker';
-import { ProjectService } from '../services/ProjectService';
-import { SettingsService } from '../services/SettingsService';
+import { projectSession } from '../services/ProjectSessionStore';
 import { initCustomStylesDrawer } from '../ui/custom-styles-setup';
 import { initDocumentOutlineDrawer } from '../ui/document-outline';
 import { initProjectSearchDrawer } from '../ui/project-search';
@@ -17,7 +16,6 @@ import { initProjectReviewDrawer } from '../ui/project-review';
 import { initWritingWorkflow } from '../ui/keyboard-shortcuts';
 import { registerServiceWorker } from '../sw-registration';
 import { setupEditorSettingsDrawer } from '../ui/editor-settings-setup';
-import { APP_STATE_EVENTS } from '../state';
 import { previewMetrics } from '../perf/preview-metrics';
 import { initTablesDrawer } from '../ui/tables-setup';
 import { initTocSetupDrawer } from '../ui/toc-setup';
@@ -27,7 +25,7 @@ import { applyHeadingNumbering } from '../preview/headingNumbering';
 import { applySpecialHeadings } from '../preview/specialHeadings';
 import { applyTableOfContents } from '../preview/tableOfContents';
 import { resolveImageSource } from '../images/imageSources';
-import type { Platform, WorkspaceSession } from '../platform/types';
+import type { Platform } from '../platform/types';
 import { showNotice } from '../ui/components/Notice';
 import { describeWorkspaceError } from '../services/project-runtime-feedback';
 
@@ -97,35 +95,23 @@ export async function bootApp(platform: Platform) {
     });
   }
 
-  initSidebar(platform, async (session) => {
-    await ProjectService.loadProjectSnapshot(session);
-  }, saveActiveFile, (text) => editorManager.insertTextAtCursor(text));
+  initSidebar(
+    platform,
+    (ref, session) => projectSession.activate(ref, session),
+    () => projectSession.close(),
+    saveActiveFile,
+    (text) => editorManager.insertTextAtCursor(text)
+  );
 
-  async function saveSettingsWithNotice(operation: (session: WorkspaceSession) => Promise<void>) {
+  async function saveSettingsWithNotice(patch: import('../types').ProjectSettingsPatch) {
     try {
-      const session = await platform.workspaceRepository.open(state.get.projectRef!);
-      await operation(session);
+      await projectSession.updateSettings(patch);
     } catch (error) {
       console.error('Settings were not saved:', error);
       showNotice(describeWorkspaceError(error, 'settings'), 'error');
       throw error;
     }
   }
-
-  state.on(APP_STATE_EVENTS.editorSetupChanged, () => {
-    if (!state.current.projectRef) return;
-    void saveSettingsWithNotice((session) => SettingsService.saveSettings(
-      session,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      state.current.editorSetup
-    ));
-  });
 
   const btnExportPdf = document.getElementById('btn-export-pdf');
   if (btnExportPdf) {
@@ -163,11 +149,11 @@ export async function bootApp(platform: Platform) {
         const success = await platform.exportService.exportPdf(
           exportDocument.html,
           exportDocument.pageSetup,
-          state.get.typographySetup,
-          state.get.listSetup,
-          state.get.tableSetup,
-          state.get.projectMetadata,
-          state.get.projectRef ? state.get.projectRef.id : null,
+          state.current.typographySetup,
+          state.current.listSetup,
+          state.current.tableSetup,
+          state.current.projectMetadata,
+          state.current.projectRef ? state.current.projectRef.id : null,
           exportWindow
         );
         if (success) {
@@ -226,7 +212,7 @@ export async function bootApp(platform: Platform) {
             // Run preview-time transforms on the parsed DOM structure
             applyHeadingNumbering(doc.body);
             applySpecialHeadings(doc.body);
-            applyTableOfContents(doc.body, state.get.pageSetup.toc?.maxLevel);
+            applyTableOfContents(doc.body, state.current.pageSetup.toc?.maxLevel);
             
             return doc.body;
           },
@@ -252,11 +238,11 @@ export async function bootApp(platform: Platform) {
 
         const docxBuffer = await generateDocx(
           exportHtml,
-          state.get.pageSetup,
-          state.get.typographySetup,
-          state.get.listSetup,
-          state.get.tableSetup,
-          state.get.projectMetadata,
+          state.current.pageSetup,
+          state.current.typographySetup,
+          state.current.listSetup,
+          state.current.tableSetup,
+          state.current.projectMetadata,
           dependencies
         );
 
@@ -304,39 +290,39 @@ export async function bootApp(platform: Platform) {
   initWritingWorkflow(editorManager);
 
   initPageSetupDrawer(async (pageSetup) => {
-    await saveSettingsWithNotice((session) => SettingsService.saveSettings(session, pageSetup));
+    await saveSettingsWithNotice({ pageSetup });
   });
 
   initTocSetupDrawer(async (pageSetup) => {
-    await saveSettingsWithNotice((session) => SettingsService.saveSettings(session, pageSetup));
+    await saveSettingsWithNotice({ pageSetup });
   });
   initSpecialHeadingsDrawer(async (pageSetup) => {
-    await saveSettingsWithNotice((session) => SettingsService.saveSettings(session, pageSetup));
+    await saveSettingsWithNotice({ pageSetup });
   });
   
   initTypographyDrawer(async (typographySetup) => {
-    await saveSettingsWithNotice((session) => SettingsService.saveSettings(session, undefined, typographySetup));
+    await saveSettingsWithNotice({ typographySetup });
   });
 
   initListsDrawer(async (listSetup) => {
-    await saveSettingsWithNotice((session) => SettingsService.saveSettings(session, undefined, undefined, listSetup));
+    await saveSettingsWithNotice({ listSetup });
   });
 
   initTablesDrawer(async (tableSetup) => {
-    await saveSettingsWithNotice((session) => SettingsService.saveSettings(
-      session, undefined, undefined, undefined, undefined, undefined, undefined, tableSetup
-    ));
+    await saveSettingsWithNotice({ tableSetup });
   });
 
   initProjectMetadataDrawer(async (projectMetadata) => {
-    await saveSettingsWithNotice((session) => SettingsService.saveSettings(session, undefined, undefined, undefined, projectMetadata));
+    await saveSettingsWithNotice({ projectMetadata });
   });
 
-  initCustomStylesDrawer(platform, async (customStyles) => {
-    await saveSettingsWithNotice((session) => SettingsService.saveSettings(session, undefined, undefined, undefined, undefined, customStyles));
+  initCustomStylesDrawer(platform, async (customStyles, customBlockStyles) => {
+    await saveSettingsWithNotice({ customStyles, customBlockStyles });
   });
 
-  setupEditorSettingsDrawer();
+  setupEditorSettingsDrawer(async (editorSetup) => {
+    await saveSettingsWithNotice({ editorSetup });
+  });
   initDocumentOutlineDrawer(platform, editorManager);
   initProjectSearchDrawer(platform, editorManager);
   initProjectReviewDrawer(platform, editorManager);
@@ -345,9 +331,6 @@ export async function bootApp(platform: Platform) {
   if (!projectRef && shouldRestoreLastWorkspace() && platform.workspaceRepository.getLastOpenedWorkspace) {
     try {
       projectRef = await platform.workspaceRepository.getLastOpenedWorkspace();
-      if (projectRef) {
-        state.setProjectRef(projectRef);
-      }
     } catch (error) {
       console.warn('Failed to restore last-opened browser project', error);
     }
@@ -355,7 +338,7 @@ export async function bootApp(platform: Platform) {
 
   if (projectRef) {
     const session = await platform.workspaceRepository.open(projectRef);
-    await ProjectService.loadProjectSnapshot(session);
+    await projectSession.activate(projectRef, session);
   } else {
     editorManager.renderEmptyWorkspace();
   }
