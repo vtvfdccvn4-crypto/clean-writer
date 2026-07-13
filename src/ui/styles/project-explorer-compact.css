@@ -355,7 +355,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 10pt;
-  font-weight: 600;
+  font-weight: 300;
+}
+
+.image-list-item .item-title {
+  font-weight: 300;
 }
 
 .item-subtitle {
