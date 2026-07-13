@@ -11,6 +11,7 @@ let ProjectService;
 let InMemoryWorkspaceSession;
 let bindProjectSettingsPanel;
 let DocumentSessionController;
+let projectExplorerTemplate;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24683 } } });
@@ -20,8 +21,15 @@ before(async () => {
   ({ InMemoryWorkspaceSession } = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts'));
   ({ bindProjectSettingsPanel } = await server.ssrLoadModule('/src/ui/project-settings-panel.ts'));
   ({ DocumentSessionController } = await server.ssrLoadModule('/src/ui/DocumentSessionController.ts'));
+  ({ projectExplorerTemplate } = await server.ssrLoadModule('/src/ui/components/ProjectExplorer.ts'));
   ({ escapeRegExp } = await server.ssrLoadModule('/src/utils/regex.ts'));
   ({ readDrawerNumber } = await server.ssrLoadModule('/src/ui/components/drawerControls.ts'));
+});
+
+test('project explorer does not expose a manual Save action', () => {
+  const explorer = projectExplorerTemplate();
+  assert.doesNotMatch(explorer, /id="btn-save"/);
+  assert.doesNotMatch(explorer, /Save project/);
 });
 
 after(async () => server?.close());

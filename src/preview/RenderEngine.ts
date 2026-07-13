@@ -42,10 +42,6 @@ export class RenderEngine {
     );
   }
 
-  public getPreviewer() {
-    return this.pagedJs.getPreviewer();
-  }
-
   /** Prevent an in-flight render from committing pages for superseded HTML. */
   public invalidate() {
     this.renderGeneration += 1;
@@ -90,9 +86,7 @@ export class RenderEngine {
     const tempContainer = document.createElement('div');
     tempContainer.className = this.container.className;
     tempContainer.style.position = 'absolute';
-    tempContainer.style.top = '0';
-    tempContainer.style.left = '0';
-    tempContainer.style.width = '100%';
+    tempContainer.style.inset = '0';
     tempContainer.style.opacity = '0';
     tempContainer.style.pointerEvents = 'none';
     if (this.container.parentElement) {
@@ -127,8 +121,11 @@ export class RenderEngine {
       // replaceChildren performs the commit in one synchronous DOM operation.
       const nextPages = document.createDocumentFragment();
       while (tempContainer.firstChild) nextPages.appendChild(tempContainer.firstChild);
-      oldElements.forEach(el => el.remove());
       this.container.replaceChildren(nextPages);
+      // Remove obsolete Paged.js styles after the page tree has been committed.
+      // Removing them first lets the browser paint a frame with an unstyled
+      // preview during navigation and forced PDF pagination.
+      oldElements.forEach(el => el.remove());
       this.committedPreviewIndex = CommittedPreviewIndex.build(this.container, wrapper, sourceManifest);
 
       if (scrollParent) {
@@ -162,8 +159,8 @@ export class RenderEngine {
         while (tempContainer.firstChild) fallback.appendChild(tempContainer.firstChild);
       }
 
-      oldElements.forEach(el => el.remove());
       this.container.replaceChildren(fallback);
+      oldElements.forEach(el => el.remove());
       this.committedPreviewIndex = CommittedPreviewIndex.build(this.container, wrapper, sourceManifest);
       return {
         status: 'degraded',

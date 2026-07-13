@@ -1,11 +1,19 @@
 .app-layout,
 #app-layout {
   display: grid;
-  grid-template-rows: 56px minmax(0, 1fr);
+  grid-template-rows: 56px minmax(0, 1fr) 28px;
   width: 100vw;
   height: 100vh;
   min-width: 0;
   min-height: 0;
+}
+
+.app-layout.is-welcome {
+  grid-template-rows: 56px minmax(0, 1fr);
+}
+
+.app-layout.is-welcome .workspace-status-bar {
+  display: none;
 }
 
 .app-bar {
@@ -46,15 +54,32 @@
 }
 
 .project-identity {
-  display: grid;
+  display: flex;
+  align-items: baseline;
   min-width: 0;
-  gap: 1px;
+  gap: 7px;
 }
 
 .project-name {
   color: var(--ui-muted);
   font-size: 10pt;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-name-separator {
+  color: var(--ui-border-strong, var(--ui-border));
+  font-size: 10pt;
+  flex-shrink: 0;
+}
+
+.app-name {
+  color: var(--ui-text);
+  font-size: 10pt;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .workspace-shell {
@@ -62,6 +87,63 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.workspace-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding: 0 12px;
+  color: #f8f7f3;
+  background: #5c6b5e;
+  border-top: 1px solid rgba(42, 54, 44, 0.35);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.workspace-status-left,
+.workspace-status-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.workspace-status-bar .status-dot {
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.16);
+}
+
+.workspace-status-bar .preview-diagnostics {
+  padding: 1px 7px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+  font-size: 10px;
+}
+
+.workspace-status-bar .workspace-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0;
+  padding: 1px 7px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.workspace-status-bar .workspace-mode-chip[hidden] {
+  display: none;
+}
+
+.workspace-status-right span + span {
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .project-actions {
@@ -87,16 +169,52 @@
   flex-shrink: 0;
 }
 
+/* Settings is exposed from the activity bar; retain the original control as
+   the single settings-drawer trigger for compatibility and keyboard access. */
+.app-actions { display: none; }
+
 .workspace {
+  --explorer-width: 304px;
   display: grid;
-  grid-template-columns: 304px minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas: "explorer editor preview";
+  grid-template-columns: 52px var(--explorer-width) 6px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "activity explorer resizer editor preview";
   height: 100%;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: var(--ui-surface-strong);
 }
+
+.activity-bar { grid-area: activity; display:flex; flex-direction:column; align-items:center; gap:8px; padding:10px 6px; background:#f4efe7; border-right:1px solid var(--ui-border); }
+.activity-bar-button { display:grid; place-items:center; width:40px; height:40px; padding:0; color:var(--ui-muted); background:transparent; border:0; border-left:2px solid transparent; border-radius:6px; cursor:pointer; }
+.activity-bar-button:hover, .activity-bar-button.is-active { color:var(--ui-accent); background:rgba(255,255,255,.7); }
+.activity-bar-button.is-active { border-left-color:var(--ui-accent); }
+.activity-bar-button svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.activity-bar-button .toolbar-icon { fill:currentColor; stroke:none; width:20px; height:20px; }
+.activity-bar-settings { margin-top:auto; }
+
+.workspace.is-activity-collapsed {
+  grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "activity editor preview";
+}
+
+.workspace.is-activity-collapsed .project-explorer,
+.workspace.is-activity-collapsed .explorer-resizer { display: none; }
+
+.explorer-resizer {
+  grid-area: resizer;
+  z-index: 2;
+  cursor: col-resize;
+  background: var(--ui-border);
+  touch-action: none;
+  will-change: transform;
+}
+
+.explorer-resizer:hover,
+.explorer-resizer.is-dragging,
+.explorer-resizer:focus-visible { background: var(--ui-accent); outline: none; }
+
+body.is-resizing-explorer { user-select: none; cursor: col-resize; }
 
 .project-explorer {
   grid-area: explorer;
@@ -610,7 +728,12 @@
   }
 
   .workspace {
-    grid-template-columns: 288px minmax(0, 1fr) minmax(0, 0.92fr);
+    grid-template-columns: 52px var(--explorer-width) 6px minmax(0, 1fr) minmax(0, 0.92fr);
+    grid-template-areas: "activity explorer resizer editor preview";
+  }
+
+  .workspace.is-activity-collapsed {
+    grid-template-columns: 52px minmax(0, 1fr) minmax(0, 0.92fr);
   }
 
   .cm-content {
@@ -624,12 +747,19 @@
 
 @media (max-width: 1100px) {
   .workspace {
-    grid-template-columns: 272px minmax(0, 1fr);
+    grid-template-columns: 52px minmax(220px, 272px) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(220px, 0.8fr);
     grid-template-areas:
-      "explorer editor"
-      "explorer preview";
+      "activity explorer editor"
+      "activity explorer preview";
   }
+
+  .workspace.is-activity-collapsed {
+    grid-template-columns: 52px minmax(0, 1fr);
+    grid-template-areas: "activity editor" "activity preview";
+  }
+
+  .explorer-resizer { display: none; }
 
   .app-bar {
     min-height: 56px;
@@ -685,10 +815,19 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(180px, 0.52fr) minmax(280px, 1fr) minmax(240px, 0.82fr);
     grid-template-areas:
+      "activity"
       "explorer"
       "editor"
       "preview";
   }
+
+  .workspace.is-activity-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(280px, 1fr) minmax(240px, 0.82fr);
+    grid-template-areas: "editor" "preview";
+  }
+
+  .workspace.is-activity-collapsed .activity-bar { display: flex; }
 
   .app-layout,
   #app-layout {

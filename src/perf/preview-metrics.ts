@@ -45,16 +45,8 @@ class PreviewMetricsTracker {
     this.record(`previewRender:${kind}`, durationMs);
   }
 
-  recordFastLaneUpdate() {
-    this.record('previewFastLaneUpdate');
-  }
-
   recordPdfPrintCssFallback(reason: 'stylesheet-missing' | 'cssom-unreadable' | 'stylesheets-unavailable') {
     this.record(`pdfPrintCssFallback:${reason}`);
-  }
-
-  recordPdfExportCache(hit: boolean) {
-    this.record(`pdfExport:cache:${hit ? 'hit' : 'miss'}`);
   }
 
   recordPdfExportPhase(phase: 'snapshot' | 'pagination' | 'css' | 'resources' | 'orchestration-total' | 'browser-total', durationMs: number) {

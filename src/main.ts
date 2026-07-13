@@ -10,7 +10,14 @@ function reportStartupError(error: unknown) {
     : String(error);
 }
 
-if (params.get('worker') === 'true') {
+if (params.get('export-frame') === 'true') {
+  void import('./boot/export-pagination-frame')
+    .then(({ bootExportPaginationFrame }) => bootExportPaginationFrame())
+    .catch(error => {
+      console.error('Clear Writer export frame failed to boot:', error);
+      reportStartupError(error);
+    });
+} else if (params.get('worker') === 'true') {
   void Promise.all([
     import('./boot/worker'),
     import('./platform')

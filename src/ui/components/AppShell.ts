@@ -4,7 +4,6 @@ import { previewPanelTemplate } from './PreviewPanel';
 import { projectMetadataDrawerTemplate } from './ProjectMetadataDrawer';
 import { symbolPickerDrawerTemplate } from './SymbolPickerDrawer';
 import { settingsDrawerTemplate } from './SettingsDrawer';
-import { documentOutlineDrawerTemplate } from './DocumentOutlineDrawer';
 import { projectSearchDrawerTemplate } from './ProjectSearchDrawer';
 import { projectReviewDrawerTemplate } from './ProjectReviewDrawer';
 
@@ -23,9 +22,9 @@ export const appShellTemplate = (): string => `
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">C</span>
         <div class="project-identity">
-          <span>Clear Writer</span>
+          <span class="app-name">Clear Writer</span>
+          <span class="project-name-separator" aria-hidden="true">—</span>
           <span id="project-name" class="project-name">No project open</span>
-          <span id="workspace-mode-chip" class="workspace-mode-chip" hidden aria-live="polite"></span>
         </div>
       </div>
       <div class="app-actions">
@@ -37,15 +36,41 @@ export const appShellTemplate = (): string => `
     </header>
     <main class="workspace-shell">
       <div class="workspace">
+        <nav class="activity-bar" aria-label="Workspace views">
+          <button class="activity-bar-button" id="btn-activity-explorer" type="button" data-activity-view="explorer" aria-label="Explorer" title="Explorer" aria-controls="sidebar" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h6l1.8 2H20v11H4z"/><path d="M4 7.5h16"/></svg>
+          </button>
+          <button class="activity-bar-button" id="btn-activity-images" type="button" data-activity-view="images" aria-label="Images" title="Images" aria-controls="sidebar" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.5"/><path d="m6 17 4-4 3 3 2-2 3 3"/></svg>
+          </button>
+          <button class="activity-bar-button" id="btn-activity-outline" type="button" data-activity-view="outline" aria-label="Document outline" title="Document outline" aria-controls="sidebar" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/><circle cx="3" cy="6" r=".8"/><circle cx="3" cy="12" r=".8"/><circle cx="3" cy="18" r=".8"/></svg>
+          </button>
+          <button class="activity-bar-button activity-bar-settings" id="btn-activity-settings" type="button" aria-label="Settings" title="Settings" aria-controls="settings-drawer">
+            ${settingsIconMarkup()}
+          </button>
+        </nav>
         ${projectExplorerTemplate()}
+        <div id="explorer-resizer" class="explorer-resizer" role="separator" aria-orientation="vertical" aria-label="Resize explorer panel" tabindex="0"></div>
         ${editorPanelTemplate()}
         ${previewPanelTemplate()}
       </div>
     </main>
+    <footer class="workspace-status-bar" aria-label="Workspace status">
+      <div class="workspace-status-left">
+        <span id="editor-status-dot" class="status-dot"></span>
+        <span id="editor-status">Ready</span>
+        <span id="workspace-diagnostics" class="preview-diagnostics" aria-live="polite">idle</span>
+        <span id="workspace-mode-chip" class="workspace-mode-chip" hidden aria-live="polite"></span>
+      </div>
+      <div class="workspace-status-right">
+        <span id="workspace-word-count">0 words</span>
+        <span id="workspace-line-count">0 lines</span>
+      </div>
+    </footer>
     <div id="drawer-container" class="drawer-container">
       <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
       ${settingsDrawerTemplate()}
-      ${documentOutlineDrawerTemplate()}
       ${projectSearchDrawerTemplate()}
       ${projectReviewDrawerTemplate()}
       ${projectMetadataDrawerTemplate()}

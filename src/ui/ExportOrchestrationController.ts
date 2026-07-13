@@ -3,46 +3,40 @@ import type { PdfExportDocument } from '../platform/types';
 
 export interface ExportOrchestrationDependencies {
   compileSnapshot(): Promise<string>;
-  forceRender(html: string): Promise<{ status: 'rendered' | 'degraded' | 'stale'; error?: Error }>;
-  pagedStage: HTMLElement;
-  getCacheKey(): string;
+  paginateInBackground(html: string): Promise<{ status: 'rendered' | 'degraded' | 'stale'; error?: Error; html: string }>;
   getPageSetup(): PdfExportDocument['pageSetup'];
 }
 
-/** Coordinates durable export snapshots, forced pagination, retries, and caching. */
+/** Coordinates a fresh durable export snapshot and background pagination. */
 export class ExportOrchestrationController {
   private readonly dependencies: ExportOrchestrationDependencies;
-  private cache: { key: string; document: PdfExportDocument } | null = null;
 
   constructor(dependencies: ExportOrchestrationDependencies) {
     this.dependencies = dependencies;
   }
 
-  invalidate(): void {
-    this.cache = null;
-  }
-
   async compilePaginatedSnapshot(): Promise<PdfExportDocument> {
     const exportStarted = performance.now();
-    const cacheKey = this.dependencies.getCacheKey();
-    if (this.cache?.key === cacheKey) {
-      previewMetrics.recordPdfExportCache(true);
-      previewMetrics.recordPdfExportPhase('orchestration-total', performance.now() - exportStarted);
-      return this.cache.document;
-    }
-    previewMetrics.recordPdfExportCache(false);
 
     try {
+      const snapshotStarted = performance.now();
+      let html = await this.dependencies.compileSnapshot();
+      previewMetrics.recordPdfExportPhase('snapshot', performance.now() - snapshotStarted);
+
       let rendered = false;
+      let paginatedHtml = '';
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const snapshotStarted = performance.now();
-        const html = await this.dependencies.compileSnapshot();
-        previewMetrics.recordPdfExportPhase('snapshot', performance.now() - snapshotStarted);
+        if (attempt > 0) {
+          const retrySnapshotStarted = performance.now();
+          html = await this.dependencies.compileSnapshot();
+          previewMetrics.recordPdfExportPhase('snapshot', performance.now() - retrySnapshotStarted);
+        }
         const paginationStarted = performance.now();
-        const renderResult = await this.dependencies.forceRender(html);
+        const renderResult = await this.dependencies.paginateInBackground(html);
         previewMetrics.recordPdfExportPhase('pagination', performance.now() - paginationStarted);
         if (renderResult.status === 'rendered') {
           rendered = true;
+          paginatedHtml = renderResult.html;
           break;
         }
         if (renderResult.status === 'degraded' || attempt === 1) {
@@ -51,15 +45,13 @@ export class ExportOrchestrationController {
         }
       }
       if (!rendered) throw new Error('PDF export pagination did not commit a render.');
-      const pageCount = this.dependencies.pagedStage.querySelectorAll('.pagedjs_page').length;
+      const pageCount = (paginatedHtml.match(/\bpagedjs_page\b/g) ?? []).length;
       if (pageCount === 0) throw new Error('PDF export pagination produced no printable pages.');
-      const document: PdfExportDocument = {
-        html: this.dependencies.pagedStage.innerHTML,
+      return {
+        html: paginatedHtml,
         pageSetup: this.dependencies.getPageSetup(),
         isPaginated: true
       };
-      this.cache = this.dependencies.getCacheKey() === cacheKey ? { key: cacheKey, document } : null;
-      return document;
     } finally {
       previewMetrics.recordPdfExportPhase('orchestration-total', performance.now() - exportStarted);
     }

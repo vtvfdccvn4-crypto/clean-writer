@@ -4,7 +4,7 @@ This page documents how Clear Writer currently exports PDF output through the br
 
 ## Current Behavior
 
-The current PDF feature is a browser print export, not a server-side PDF renderer and not a direct PDF file writer. Clear Writer prepares a durable document snapshot, forces the live preview renderer to produce Paged.js pages, copies that already-paginated page DOM into an isolated print document, injects print-specific CSS, and calls the browser's `print()` API. The browser print dialog is responsible for the final "Save as PDF" or physical print action.
+The current PDF feature is a browser print export, not a server-side PDF renderer and not a direct PDF file writer. Clear Writer prepares a durable document snapshot, paginates that snapshot in a separate hidden same-origin iframe with Paged.js, transfers the resulting page HTML to an isolated print target, injects print-specific CSS, and calls the browser's `print()` API. The browser print dialog is responsible for the final "Save as PDF" or physical print action. The visible live preview is not replaced by the export pagination pass.
 
 The export service prefers a hidden iframe as the print target and only falls back to a blank popup when that iframe cannot be created in the current browser session.
 
@@ -16,10 +16,12 @@ Word export is implemented in `src/services/ExportDocxService.ts`, but the activ
 | --- | --- |
 | `src/ui/components/PreviewPanel.ts` | Declares the `#btn-export-pdf` toolbar button in the preview pane. |
 | `src/boot/app.ts` | Wires the PDF button, prepares the print target early, manages button state, calls the editor manager, and delegates to the platform export service. |
-| `src/ui/editor-manager.ts` | Flushes unsaved editor changes, compiles a durable export snapshot, forces preview pagination, verifies pages exist, and returns paginated HTML. |
+| `src/ui/editor-manager.ts` | Flushes unsaved editor changes, compiles a durable export snapshot, delegates background pagination, verifies pages exist, and returns paginated HTML. |
 | `src/services/ExportSnapshotService.ts` | Builds export HTML from workspace data and current editor content, preloads image assets, and compiles Markdown through the normal compiler. |
 | `src/compiler/index.ts` and compiler plugins | Convert Markdown into sanitized HTML with Clear Writer-specific transforms such as section wrappers, images, lists, custom styles, metadata, and table styling. |
-| `src/preview/PreviewController.ts` | Owns the live preview lanes and exposes `forceRender()` for export-grade pagination. |
+| `src/ui/BackgroundExportPaginator.ts` | Creates the hidden pagination iframe, sends the export snapshot, receives the paginated HTML, and cleans up the frame. |
+| `src/boot/export-pagination-frame.ts` | Boots the minimal iframe document and runs the export-only Paged.js render. |
+| `src/preview/PreviewController.ts` | Owns visible preview rendering and revision-aware navigation. It is not used as the export transport. |
 | `src/preview/RenderEngine.ts` | Runs Paged.js, applies page CSS, heading numbering, TOC, special headings, margin box post-processing, typography, list, and table CSS. |
 | `src/preview/PagedJsAdapter.ts` | Wraps Paged.js `Previewer`, manages render sessions, timeouts, resize listener cleanup, and stale render protection. |
 | `src/preview/CssGenerator.ts` | Generates the Paged.js page, margin, header/footer, TOC, typography, list, and table CSS used by preview pagination. |
@@ -38,7 +40,8 @@ sequenceDiagram
   participant EditorManager
   participant Snapshot as ExportSnapshotService
   participant Compiler as Markdown Compiler
-  participant Preview as PreviewController
+  participant Paginator as BackgroundExportPaginator
+  participant Frame as Hidden export iframe
   participant RenderEngine
   participant Paged as Paged.js
   participant ExportService as BrowserExportService
@@ -56,11 +59,13 @@ sequenceDiagram
   Snapshot->>Compiler: compileMarkdown(...)
   Compiler-->>Snapshot: export HTML
   Snapshot-->>EditorManager: export HTML
-  EditorManager->>Preview: forceRender(export HTML)
-  Preview->>RenderEngine: runRender(...)
+  EditorManager->>Paginator: paginateInBackground(export HTML)
+  Paginator->>Frame: load ?export-frame=true
+  Paginator->>Frame: postMessage(snapshot)
+  Frame->>RenderEngine: run export render
   RenderEngine->>Paged: preview(source, styles, target)
-  Paged-->>RenderEngine: paged .pagedjs_page DOM
-  RenderEngine-->>Preview: committed pages
+  Paged-->>Frame: paged .pagedjs_page DOM
+  Frame-->>Paginator: postMessage(paginated HTML)
   EditorManager-->>Boot: paginated HTML + page setup
   Boot->>ExportService: exportPdf(paginated HTML, settings, print target)
   ExportService->>Browser: write isolated print document
@@ -126,13 +131,13 @@ This is why the PDF path starts from Markdown and settings rather than simply pr
 
 ## Pagination Path
 
-After compiling the export HTML, `EditorManager.compilePaginatedExportSnapshot()` calls:
+After compiling the export HTML, `EditorManager.compilePaginatedExportSnapshot()` calls the background paginator through the export orchestration controller:
 
 ```ts
-await this.previewController.forceRender(html);
+await this.backgroundExportPaginator.paginate({ html, pageSetup, typographySetup, listSetup, tableSetup });
 ```
 
-This is the point where PDF export intentionally reuses the preview pagination system. `forceRender()` in `src/preview/PreviewController.ts` clears any pending exact-lane debounce, records the latest HTML structure, binds image fallbacks, and calls `RenderEngine.runRender(...)`.
+This pagination pass uses the same compiler and rendering primitives as the live preview, but it runs in a separate document. The visible preview remains available and is not used as a mutable staging area for export.
 
 `RenderEngine.runRender(...)` does the heavy layout work:
 
@@ -149,25 +154,23 @@ This is the point where PDF export intentionally reuses the preview pagination s
 11. Retires Paged.js page listeners before moving completed pages.
 12. Post-processes margin boxes for header/footer visibility and Markdown images.
 13. Applies typography, list, and table dynamic CSS.
-14. Commits the completed `.pagedjs_page` DOM into the visible preview container.
+14. Commits the completed `.pagedjs_page` DOM into the active render target; for export, that target belongs to the hidden pagination frame.
 
-Once `forceRender()` completes, `compilePaginatedExportSnapshot()` requires a fully committed Paged.js render and verifies that the preview stage contains at least one `.pagedjs_page`. If pagination is stale, times out, or falls back after a Paged.js error, it throws instead of treating the degraded page as a successful PDF export. If no page exists, it throws `PDF export pagination produced no printable pages.`
+Once background pagination completes, `compilePaginatedExportSnapshot()` requires a fully rendered result and verifies that the returned HTML contains at least one `.pagedjs_page`. If pagination is stale, times out, or degrades after a Paged.js error, the controller retries once with a fresh snapshot and then fails instead of treating the degraded result as a successful PDF export. If no page exists, it throws `PDF export pagination produced no printable pages.`
 
 If the preview renderer reports a stale render while export is compiling, `EditorManager` retries once against the newest state before failing. That protects against races where a live preview update overtakes the export job during compilation.
-
-Before compiling, `EditorManager` checks its paginated export cache. The cache key includes the project revision, preview revision, workspace identity, active file, and full-document mode. Settings changes increment the project revision; editor changes increment the preview revision; switching documents changes the selection fields. Any of those changes causes a fresh durable snapshot and pagination pass. The cache is only populated after pagination produces at least one printable page, and a concurrent revision change prevents the result from being cached.
 
 The returned export document contains:
 
 ```ts
 {
-  html: this.pagedStage.innerHTML,
+  html: paginatedHtml,
   pageSetup: state.current.pageSetup,
   isPaginated: true
 }
 ```
 
-The important detail is that `html` is no longer raw compiled Markdown HTML. It is the already-paginated Paged.js DOM from `#paged-stage`.
+The important detail is that `html` is no longer raw compiled Markdown HTML. It is the already-paginated Paged.js DOM returned by the hidden export frame.
 
 ## Browser Export Service Path
 
@@ -188,9 +191,9 @@ The service then:
 11. Calls `print()` on the target window.
 12. Resolves `true` once the print call has been made.
 
-The print service does not know how to paginate the document itself. Its job is to host and print the pages produced by the preview renderer.
+The print service does not know how to paginate the document itself. Its job is to host and print the pages produced by the export pagination frame.
 
-PDF performance diagnostics are available through `window.clearWriterPerf.snapshot()`. Relevant buckets include `pdfExport:cache:hit`, `pdfExport:cache:miss`, `pdfExport:snapshot`, `pdfExport:pagination`, `pdfExport:css`, `pdfExport:resources`, `pdfExport:orchestration-total`, and `pdfExport:browser-total`. CSS fallback buckets beginning with `pdfPrintCssFallback:` identify when the full linked stylesheet had to be retained.
+PDF performance diagnostics are available through `window.clearWriterPerf.snapshot()`. Relevant buckets include `pdfExport:snapshot`, `pdfExport:pagination`, `pdfExport:css`, `pdfExport:resources`, `pdfExport:orchestration-total`, and `pdfExport:browser-total`. CSS fallback buckets beginning with `pdfPrintCssFallback:` identify when the full linked stylesheet had to be retained.
 
 These counters are intended for maintainers and future profiling work. They make it easier to tell whether a slowdown is coming from reading the workspace, paginating the document, copying CSS, or waiting for the browser to open the print dialog.
 
@@ -265,16 +268,16 @@ npm run test:browser-smoke
 The PDF implementation is intentionally layered:
 
 - UI code owns the user action and button state.
-- `EditorManager` owns data integrity and preview orchestration.
+- `EditorManager` owns data integrity and export orchestration.
 - `ExportSnapshotService` owns durable document assembly.
 - The compiler owns Markdown-to-HTML semantics.
-- The preview renderer owns pagination fidelity.
+- `RenderEngine` owns pagination fidelity for both visible preview and the isolated export frame.
 - The platform export service owns browser-specific popup and print behavior.
 - Print CSS owns the final mapping from Paged.js pages to browser print pages.
 
-This separation keeps the export path close to the live preview while still avoiding stale preview state. It also means that most visual fidelity changes should be made in the preview rendering and CSS generation layers, while popup, print timing, and browser behavior changes belong in `BrowserExportService` and `pdf-print-css.ts`.
+This separation keeps the export path consistent with the live preview while preventing export work from mutating visible preview state. It also means that most visual fidelity changes should be made in the preview rendering and CSS generation layers, while iframe messaging, popup fallback, print timing, and browser behavior changes belong in `BackgroundExportPaginator`, `BrowserExportService`, and `pdf-print-css.ts`.
 
-The current code also keeps the export pipeline observable. `EditorManager` tracks cache hits, snapshot time, pagination time, CSS extraction time, resource waiting time, orchestration time, and the browser-print phase. Those metrics are useful when a future reader needs to answer a very practical question: is the slowdown coming from reading the workspace, paginating the document, copying CSS, or waiting for the browser print dialog?
+The current code also keeps the export pipeline observable. It tracks snapshot time, pagination time, CSS extraction time, resource waiting time, orchestration time, and the browser-print phase. Those metrics are useful when a future reader needs to answer a very practical question: is the slowdown coming from reading the workspace, paginating the document, copying CSS, or waiting for the browser print dialog?
 
 ## Known Current Limits
 
@@ -282,4 +285,4 @@ The current code also keeps the export pipeline observable. `EditorManager` trac
 - A hidden iframe is used as the preferred print target. Popup permission is only needed if the browser cannot create that iframe target and the service falls back to a separate window.
 - Browser print settings can still affect the final PDF, especially built-in headers/footers and user-selected scaling.
 - DOCX export is present in code but the current browser export service marks DOCX as unavailable with `support.docx === false`.
-- Worker-mode pagination exists through `src/main.ts`, `src/boot/worker.ts`, and the `PaginationTransport` interfaces, but the current browser PDF button path uses the main preview renderer and `BrowserExportService`.
+- A worker-mode pagination transport remains available for the platform contract, but the current browser PDF button path uses `BackgroundExportPaginator` and the isolated `?export-frame=true` entry point before calling `BrowserExportService`.

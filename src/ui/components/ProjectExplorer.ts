@@ -93,6 +93,12 @@ export const projectExplorerTemplate = (): string => `
           <!-- Files injected via JS -->
         </ul>
       </details>
+      <section class="sidebar-section project-tree-section outline-section" aria-labelledby="outline-panel-title" hidden>
+        <div class="section-title" id="outline-panel-title">Document Outline</div>
+        <div id="project-statistics-summary" class="project-statistics-summary hidden"></div>
+        <div id="document-outline-content" class="document-outline-content"></div>
+        <div id="document-outline-empty" class="document-outline-empty hidden"><p class="drawer-note">No headings found.</p><p class="drawer-note">Add # headings to a document to see its structure here.</p></div>
+      </section>
 
       <details class="sidebar-section project-tree-section images-section">
         <summary class="section-title">

@@ -114,6 +114,13 @@
   flex: 0 0 auto;
 }
 
+/* Activity-bar navigation owns panel visibility. The native hidden attribute
+   must win over the layout rules above, including when a details element is
+   still marked open from the previous explorer view. */
+.sidebar-content > .project-tree-section[hidden] {
+  display: none !important;
+}
+
 .project-tree-section[open] > .file-list {
   min-height: 0;
   overflow-y: auto;

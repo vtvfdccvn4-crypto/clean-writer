@@ -45,7 +45,6 @@ export const previewPanelTemplate = (): string => `
     </div>
 
     <div class="preview-footer-toolbar panel-bar">
-      <span id="preview-diagnostics" class="preview-diagnostics" aria-live="polite">idle</span>
       <div class="panel-actions preview-export-actions">
         <button id="btn-export-pdf" class="toolbar-icon-button" type="button" aria-label="Export PDF" title="Export to PDF">
           ${previewExportIconMarkup()}

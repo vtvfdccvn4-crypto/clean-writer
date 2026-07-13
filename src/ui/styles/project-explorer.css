@@ -350,13 +350,6 @@
   pointer-events: none;
 }
 
-.save-btn {
-  background: var(--accent-color);
-  color: #fff;
-  align-self: flex-start;
-  margin-right: 6px;
-}
-
 .cancel-btn {
   background: transparent;
   color: var(--text-muted);

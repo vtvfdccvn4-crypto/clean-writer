@@ -30,26 +30,15 @@ export const editorPanelTemplate = (): string => `
   <main class="editor-pane pane" aria-label="Markdown editor">
     <div class="editor-toolbar panel-bar">
       <div class="toolbar-status">
-        <span id="editor-status-dot" class="status-dot"></span>
-        <span id="editor-status">Ready</span>
         <span id="active-section-label" class="active-section-label" hidden></span>
-        <span id="editor-section-stats" class="section-stats-label" hidden></span>
       </div>
       <div class="panel-actions">
-        <button id="btn-open-document-outline" class="toolbar-icon-button" type="button" aria-label="Document Outline" title="Document Outline" aria-controls="document-outline-drawer" aria-expanded="false">
-          <svg class="toolbar-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-            <path d="M2 4h12v1H2zm0 4h12v1H2zm0 4h8v1H2z"/>
-          </svg>
-        </button>
         <button id="btn-open-project-search" class="toolbar-icon-button" type="button" aria-label="Search Project" title="Search Project" aria-controls="project-search-drawer" aria-expanded="false">
           ${editorProjectSearchIconMarkup()}
         </button>
         <button id="btn-open-project-review" class="toolbar-icon-button" type="button" aria-label="Project Review" title="Project Review" aria-controls="project-review-drawer" aria-expanded="false">Review</button>
         <button id="btn-open-search" class="toolbar-icon-button" type="button" aria-label="Find and Replace" title="Find and Replace">
           ${editorSearchIconMarkup()}
-        </button>
-        <button id="open-symbol-picker" class="toolbar-icon-button" type="button" aria-label="Symbols" title="Symbols" aria-controls="symbol-picker" aria-expanded="false">
-          ${editorSymbolsIconMarkup()}
         </button>
       </div>
     </div>
@@ -66,6 +55,9 @@ export const editorPanelTemplate = (): string => `
         <button class="toolbar-text-button" type="button" data-markdown-command="quote" title="Quote">Quote</button>
         <button class="toolbar-text-button" type="button" data-markdown-command="inline-code" title="Inline code">Code</button>
         <button class="toolbar-text-button" type="button" data-markdown-command="code-block" title="Code block">Block</button>
+        <button id="open-symbol-picker" class="markdown-symbol-button" type="button" aria-label="Symbols" title="Symbols" aria-controls="symbol-picker" aria-expanded="false">
+          ${editorSymbolsIconMarkup()}
+        </button>
       </div>
       <div id="editor-container" class="editor-container">
         <!-- CodeMirror injects here -->

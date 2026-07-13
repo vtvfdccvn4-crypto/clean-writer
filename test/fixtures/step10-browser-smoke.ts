@@ -85,7 +85,7 @@ async function run() {
   await waitFor('review navigation', () => state.current.activeFile === 'sections/JumpSection.md' ? true : null);
 
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', ctrlKey: true, shiftKey: true, bubbles: true }));
-  const outlineShortcut = await waitFor('outline shortcut', () => !isHidden(document.getElementById('document-outline-drawer')));
+  const outlineShortcut = await waitFor('outline shortcut', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === false);
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, shiftKey: true, bubbles: true }));
   const searchShortcut = await waitFor('search shortcut', () => !isHidden(document.getElementById('project-search-drawer')));
   window.__HARNESS_RESULT__ = { ok: true, projectKind: state.current.projectRef?.kind, templateCount: 5, toolbarEdited, pdfPrintCalled, reviewCount, reviewKinds, outlineShortcut: Boolean(outlineShortcut), searchShortcut: Boolean(searchShortcut) };

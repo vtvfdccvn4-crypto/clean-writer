@@ -1,5 +1,4 @@
 import { state } from '../state';
-import { closeDrawer, toggleDrawer } from './drawer-manager';
 import type { EditorManager } from './editor-manager';
 import type { Platform } from '../platform/types';
 import { extractMarkdownHeadings } from '../editor/markdown-headings';
@@ -7,56 +6,68 @@ import { extractWritingStatistics, calculateReadingTime } from '../editor/writin
 
 export function initDocumentOutlineDrawer(platform: Platform, editorManager: EditorManager) {
   const PROJECT_STATS_REFRESH_EVENT = 'clear-writer-project-stats-refresh';
-  const btnOutline = document.getElementById('btn-open-document-outline');
-  const drawer = document.getElementById('document-outline-drawer');
+  const drawer = document.querySelector<HTMLElement>('.outline-section');
   const content = document.getElementById('document-outline-content');
   const emptyState = document.getElementById('document-outline-empty');
 
-  if (!btnOutline || !drawer || !content || !emptyState) {
+  if (!drawer || !content || !emptyState) {
     return;
   }
-  btnOutline.addEventListener('click', () => {
-    const isOpening = drawer.classList.contains('hidden');
-    if (isOpening) {
-      void rebuildOutline();
-    }
-    toggleDrawer(drawer);
-  });
+  const outlineDrawer = drawer;
+  let outlineDirty = true;
+  let rebuildInFlight: Promise<void> | null = null;
 
-  const closeBtn = drawer.querySelector('.drawer-close-button');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      closeDrawer(drawer);
-    });
-  }
+  document.addEventListener('clear-writer-activity-view-changed', ((event: CustomEvent<{ view?: string | null }>) => {
+    if (event.detail?.view === 'outline' && outlineDirty) void rebuildOutline();
+  }) as EventListener);
 
   state.onProjectSnapshotChanged(() => {
-    if (!drawer.classList.contains('hidden')) {
+    if (!drawer.hidden) {
+      outlineDirty = true;
       void rebuildOutline();
     }
   });
 
   state.onProjectTreeChanged(() => {
-    if (!drawer.classList.contains('hidden')) {
+    if (!drawer.hidden) {
+      outlineDirty = true;
       void rebuildOutline();
     }
   });
 
   window.addEventListener(PROJECT_STATS_REFRESH_EVENT, () => {
-    if (!drawer.classList.contains('hidden')) {
+    if (!drawer.hidden) {
+      outlineDirty = true;
       void rebuildOutline();
     }
   });
 
   state.onProjectChanged(() => {
+    outlineDirty = true;
     if (!state.current.projectRef) {
       clearOutline();
-    } else if (!drawer.classList.contains('hidden')) {
+    } else if (!drawer.hidden) {
       clearOutline();
     }
   });
 
   async function rebuildOutline() {
+    if (rebuildInFlight) return rebuildInFlight;
+    rebuildInFlight = (async () => {
+      do {
+        outlineDirty = false;
+        await rebuildOutlineImpl();
+      } while (outlineDirty && !outlineDrawer.hidden);
+    })();
+    try {
+      await rebuildInFlight;
+    } finally {
+      rebuildInFlight = null;
+    }
+    return undefined;
+  }
+
+  async function rebuildOutlineImpl() {
     const { projectRef, sections } = state.current;
     if (!projectRef || !sections || !content || !emptyState) {
       clearOutline();
@@ -155,6 +166,7 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
     } catch (e) {
       console.error('Failed to rebuild outline', e);
       clearOutline();
+      outlineDirty = true;
     }
   }
 

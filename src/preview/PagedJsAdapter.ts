@@ -32,10 +32,6 @@ export class PagedJsAdapter {
     this.currentPreviewer = this.constructPreviewer();
   }
 
-  getPreviewer(): PagedPreviewer {
-    return this.currentPreviewer;
-  }
-
   getDebugState() {
     return {
       interceptedListenerCount: this.interceptedListeners.length,

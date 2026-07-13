@@ -344,7 +344,7 @@ Purpose: describe the internal architecture and where changes belong.
 Should cover:
 
 - Boot sequence:
-  - `src/main.ts` selects app boot or worker boot based on `?worker=true`.
+  - `src/main.ts` selects app boot, worker boot, or isolated export-frame boot based on the URL query.
   - `src/boot/app.ts` renders the app layout and wires services.
   - `src/boot/worker.ts` handles worker-mode pagination plumbing.
 - State model:
@@ -697,13 +697,16 @@ Primary source:
 - Image preloading and resolution.
 - Header/footer rendering.
 - TOC, special heading, and heading numbering transforms before DOCX conversion.
-- Export cache, stale-render retry, and performance metrics for PDF.
+- Background iframe pagination, stale-render retry, printable-page validation, and performance metrics for PDF.
 
 Primary source:
 
 - `src/boot/app.ts`
 - `src/services/ExportSnapshotService.ts`
 - `src/services/ExportDocxService.ts`
+- `src/ui/ExportOrchestrationController.ts`
+- `src/ui/BackgroundExportPaginator.ts`
+- `src/boot/export-pagination-frame.ts`
 - `src/platform/BrowserExportService.ts`
 - `src/platform/pdf-print-css.ts`
 

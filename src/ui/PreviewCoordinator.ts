@@ -23,6 +23,7 @@ export class PreviewCoordinator {
 
   beginRevision(): number {
     this.revision += 1;
+    this.controller.invalidatePendingRender();
     return this.revision;
   }
 
@@ -51,6 +52,11 @@ export class PreviewCoordinator {
     this.controller.clear();
   }
 
+  clearVisiblePreview(): void {
+    this.controller.clearVisiblePreview();
+  }
+
+
   async compileDocument(markdown: string, metricKind: 'single-document-edit' | 'single-document-load'): Promise<CompiledPreview> {
     const imagePaths = scanMarkdownForImages(markdown);
     await this.assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()]);
@@ -68,8 +74,7 @@ export class PreviewCoordinator {
   }
 
   publish(compiled: CompiledPreview, revision: number): void {
-    this.controller.updateFastLane(compiled.html, compiled.manifest, revision);
-    void this.controller.updateExactLane(compiled.html, compiled.manifest, revision);
+    this.controller.scheduleRender(compiled.html, compiled.manifest, revision);
   }
 
   forceRender(html: string, manifest: readonly import('../compiler/rehype-plugins').PreviewSourceManifestEntry[] = [], revision: number | null = null) {

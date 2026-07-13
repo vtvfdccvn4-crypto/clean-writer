@@ -114,6 +114,32 @@
   background: var(--surface-hover, rgba(0, 0, 0, 0.05));
 }
 
+.markdown-symbol-button {
+  display: grid;
+  width: 44px;
+  min-width: 0;
+  height: 30px;
+  place-items: center;
+  padding: 0 4px;
+  color: var(--ui-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.markdown-symbol-button:hover,
+.markdown-symbol-button:focus-visible {
+  color: var(--text-primary);
+  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
+  border-color: var(--ui-border);
+}
+
+.markdown-symbol-button .toolbar-icon {
+  width: 17px;
+  height: 17px;
+}
+
 .editor-stage {
   display: flex;
   align-items: flex-start;
@@ -148,6 +174,14 @@
 .cm-scroller {
   font-family: var(--font-mono);
   border-radius: inherit;
+  /* Keep the right scrollbar space stable without shifting the text origin. */
+  scrollbar-gutter: stable;
+  scrollbar-color: transparent transparent;
+}
+
+.cm-editor:hover .cm-scroller,
+.cm-editor:focus-within .cm-scroller {
+  scrollbar-color: rgba(95, 79, 56, 0.35) transparent;
 }
 
 .cm-content {
@@ -155,7 +189,7 @@
 }
 
 .cm-line {
-  padding: 0 4px !important;
+  padding: 0 !important;
   line-height: 1.6;
 }
 

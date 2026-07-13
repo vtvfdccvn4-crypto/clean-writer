@@ -242,7 +242,12 @@ button {
 }
 
 .workspace.is-welcome .project-explorer,
-.workspace.is-welcome .preview-pane {
+.workspace.is-welcome .preview-pane,
+.workspace.is-welcome .explorer-resizer {
+  display: none;
+}
+
+.workspace.is-welcome .activity-bar {
   display: none;
 }
 

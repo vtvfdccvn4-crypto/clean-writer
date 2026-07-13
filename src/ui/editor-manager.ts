@@ -17,6 +17,7 @@ import { EditorSaveCoordinator } from './EditorSaveCoordinator';
 import { DocumentActivationCoordinator } from './DocumentActivationCoordinator';
 import { WelcomeController } from './WelcomeController';
 import { ExportOrchestrationController } from './ExportOrchestrationController';
+import { BackgroundExportPaginator } from './BackgroundExportPaginator';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -29,6 +30,7 @@ export class EditorManager {
   private readonly welcome: WelcomeController;
   private platform: Platform;
   private readonly exportOrchestration: ExportOrchestrationController;
+  private readonly backgroundExportPaginator: BackgroundExportPaginator;
   private readonly statusController = new EditorStatusController();
   private readonly saveCoordinator: EditorSaveCoordinator;
 
@@ -38,15 +40,26 @@ export class EditorManager {
     this.pagedStage = document.getElementById('paged-stage')!;
     this.previewPane = document.querySelector('.preview-pane')!;
     this.preview = new PreviewCoordinator(this.pagedStage, this.platform.assetResolver);
+    this.backgroundExportPaginator = new BackgroundExportPaginator();
     this.welcome = new WelcomeController({
       editorContainer: this.editorContainer,
       workspaceRepository: this.platform.workspaceRepository
     });
     this.exportOrchestration = new ExportOrchestrationController({
       compileSnapshot: () => this.compileExportSnapshot(),
-      forceRender: html => this.preview.forceRender(html),
-      pagedStage: this.pagedStage,
-      getCacheKey: () => this.getPaginatedExportCacheKey(),
+      paginateInBackground: async html => {
+        const paginated = await this.backgroundExportPaginator.paginate({
+          html,
+          pageSetup: state.current.pageSetup,
+          typographySetup: state.current.typographySetup,
+          listSetup: state.current.listSetup,
+          tableSetup: state.current.tableSetup
+        });
+        return {
+          ...paginated,
+          error: paginated.error ? new Error(paginated.error) : undefined
+        };
+      },
       getPageSetup: () => state.current.pageSetup
     });
     this.activation = new DocumentActivationCoordinator({
@@ -196,6 +209,7 @@ export class EditorManager {
 
   private async renderFullDocument(isLatest: () => boolean) {
     const revision = this.preview.beginRevision();
+    this.preview.clearVisiblePreview();
     const { projectRef } = state.current;
     if (!projectRef) throw new Error('No project is open.');
     
@@ -233,6 +247,7 @@ export class EditorManager {
 
   private async renderSingleDocument(filename: string, isLatest: () => boolean) {
     const initialRevision = this.preview.beginRevision();
+    this.preview.clearVisiblePreview();
     const { projectRef } = state.current;
     if (!projectRef) throw new Error('No project is open.');
     
@@ -439,18 +454,6 @@ export class EditorManager {
     return this.exportOrchestration.compilePaginatedSnapshot();
   }
 
-  private getPaginatedExportCacheKey(): string {
-    const current = state.current;
-    return JSON.stringify([
-      current.projectRevision,
-      this.preview.currentRevision,
-      current.projectRef?.kind ?? null,
-      current.projectRef?.id ?? null,
-      current.activeFile,
-      current.isFullDocMode
-    ]);
-  }
-
   private updateActiveSectionLabel(filename: string | null, customLabel?: string) {
     const labelEl = document.getElementById('active-section-label');
     if (!labelEl) return;
@@ -468,18 +471,19 @@ export class EditorManager {
   }
 
   private updateSectionStats(markdown: string | null) {
-    const statsLabel = document.getElementById('editor-section-stats');
-    if (!statsLabel) return;
+    const wordCount = document.getElementById('workspace-word-count');
+    const lineCount = document.getElementById('workspace-line-count');
+    if (!wordCount || !lineCount) return;
     
     if (markdown === null) {
-      statsLabel.hidden = true;
-      statsLabel.textContent = '';
+      wordCount.textContent = '0 words';
+      lineCount.textContent = '0 lines';
       return;
     }
 
     const stats = extractWritingStatistics(markdown);
-    statsLabel.textContent = `${stats.words.toLocaleString()} words • ~${stats.estimatedReadingTimeMinutes}m read`;
-    statsLabel.hidden = false;
+    wordCount.textContent = `${stats.words.toLocaleString()} words`;
+    lineCount.textContent = `${markdown ? markdown.split(/\r?\n/).length : 0} lines`;
   }
 
   private updateSaveStatus(status: EditorSaveStatus) {

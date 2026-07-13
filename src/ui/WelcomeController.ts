@@ -18,6 +18,7 @@ export class WelcomeController {
   setVisible(visible: boolean): void {
     this.editorContainer.closest('.editor-pane')?.classList.toggle('is-welcome', visible);
     this.editorContainer.closest('.workspace')?.classList.toggle('is-welcome', visible);
+    this.editorContainer.closest('.app-layout')?.classList.toggle('is-welcome', visible);
   }
 
   render(): void {

@@ -48,7 +48,9 @@ export class PreviewViewport {
   }
 
   public scrollToTop() {
-    this.container.parentElement?.scrollTo({ top: 0, behavior: 'smooth' });
+    // Document activation is a viewport reset, not user navigation. Smooth
+    // scrolling leaves the previous document visibly moving during a render.
+    this.container.parentElement?.scrollTo({ top: 0, behavior: 'auto' });
   }
 
   public scrollElementToTop(target: HTMLElement) {

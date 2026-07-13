@@ -21,7 +21,7 @@ export const customTheme = EditorView.theme({
   },
   ".cm-scroller": {
     fontFamily: 'var(--font-mono)',
-    lineHeight: "1.75",
-    letterSpacing: "-0.01em"
+    lineHeight: "1.6",
+    letterSpacing: "normal"
   }
 }, { dark: false });

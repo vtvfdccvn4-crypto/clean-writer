@@ -5,12 +5,11 @@ import { previewMetrics } from '../perf/preview-metrics';
 
 import type { AssetResolver } from '../platform/types';
 import type { PreviewSourceManifestEntry } from '../compiler/rehype-plugins';
-import type { CommittedPreviewIndex } from './navigation/CommittedPreviewIndex';
 import { PreviewNavigationCoordinator } from './navigation/PreviewNavigationCoordinator';
 
 export class PreviewController {
   private container: HTMLElement;
-  private exactLaneTimeout: any = null;
+  private scheduledRenderTimeout: number | null = null;
   private assetResolver: AssetResolver;
   
   private renderEngine: RenderEngine;
@@ -67,58 +66,51 @@ export class PreviewController {
     this.renderEngine.applyTableSetup(setup);
   }
 
-  public getPageSetup(): PageSetup {
-    return this.currentPageSetup;
-  }
-
-  public getLastCompiledHtml(): string {
-    return this.lastCompiledHtml;
-  }
-
   public clear() {
-    this.renderEngine.invalidate();
-    if (this.exactLaneTimeout) {
-      clearTimeout(this.exactLaneTimeout);
-      this.exactLaneTimeout = null;
-    }
+    this.invalidatePendingRender();
     this.lastCompiledHtml = '';
     this.lastSourceManifest = [];
     this.lastSourceRevision = null;
     this.renderEngine.clearCommittedPreviewIndex();
-    this.navigation.clear();
     this.container.replaceChildren();
   }
 
-  public updateFastLane(
+  /** Cancels superseded work without changing the cached document. */
+  public invalidatePendingRender() {
+    this.renderEngine.invalidate();
+    if (this.scheduledRenderTimeout !== null) {
+      window.clearTimeout(this.scheduledRenderTimeout);
+      this.scheduledRenderTimeout = null;
+    }
+    this.navigation.clear();
+  }
+
+  /** Clears the visible stage before an independently prepared replacement. */
+  public clearVisiblePreview() {
+    this.invalidatePendingRender();
+    this.renderEngine.clearCommittedPreviewIndex();
+    this.container.replaceChildren();
+    this.container.parentElement?.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  /** Schedules the one authoritative preview render for newly compiled HTML. */
+  public scheduleRender(
     html: string,
     sourceManifest: readonly PreviewSourceManifestEntry[] = [],
     sourceRevision: number | null = null
-  ) {
-    previewMetrics.recordFastLaneUpdate();
-    // Any edit supersedes a Paged.js render that may still be running. Without
-    // this guard, an older render can briefly replace newer fast-lane content.
+  ): void {
+    // Any edit supersedes a Paged.js render that may still be running.
     this.renderEngine.invalidate();
     this.lastCompiledHtml = html;
     this.lastSourceManifest = sourceManifest;
     this.lastSourceRevision = sourceRevision;
-
-    // Exact pagination is the sole preview-update path while source-to-preview
-    // navigation is redesigned. Do not mutate Paged.js fragments in place.
-  }
-
-  public async updateExactLane(
-    html: string,
-    sourceManifest: readonly PreviewSourceManifestEntry[] = [],
-    sourceRevision: number | null = null
-  ) {
-    this.lastCompiledHtml = html;
-    this.lastSourceManifest = sourceManifest;
-    this.lastSourceRevision = sourceRevision;
     if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
-    if (this.exactLaneTimeout) clearTimeout(this.exactLaneTimeout);
+    if (this.scheduledRenderTimeout !== null) window.clearTimeout(this.scheduledRenderTimeout);
     const delay = 800;
-    this.exactLaneTimeout = setTimeout(async () => {
+    this.scheduledRenderTimeout = window.setTimeout(async () => {
+      this.scheduledRenderTimeout = null;
       const started = performance.now();
+      this.viewport.updateZoomScale();
       const result = await this.renderEngine.runRender(html, this.currentPageSetup, this.assetResolver, this.currentTypographySetup, this.currentListSetup, this.currentTableSetup, sourceManifest).catch((e: any) => {
         console.error(e);
         return null;
@@ -139,15 +131,16 @@ export class PreviewController {
     this.lastCompiledHtml = html;
     this.lastSourceManifest = sourceManifest;
     this.lastSourceRevision = sourceRevision;
-    if (this.exactLaneTimeout) {
-      clearTimeout(this.exactLaneTimeout);
-      this.exactLaneTimeout = null;
+    if (this.scheduledRenderTimeout !== null) {
+      window.clearTimeout(this.scheduledRenderTimeout);
+      this.scheduledRenderTimeout = null;
     }
     if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
     else this.navigation.clear();
 
     const started = performance.now();
     try {
+      this.viewport.updateZoomScale();
       const result = await this.renderEngine.runRender(html, this.currentPageSetup, this.assetResolver, this.currentTypographySetup, this.currentListSetup, this.currentTableSetup, sourceManifest);
       if (sourceRevision !== null && result.status === 'rendered') {
         const index = this.renderEngine.getCommittedPreviewIndex();
@@ -168,10 +161,6 @@ export class PreviewController {
 
   public scrollToTop() {
     this.viewport.scrollToTop();
-  }
-
-  public getCommittedPreviewIndex(): CommittedPreviewIndex | null {
-    return this.renderEngine.getCommittedPreviewIndex();
   }
 
   public navigateToSourceLine(line: number, sourceRevision: number) {

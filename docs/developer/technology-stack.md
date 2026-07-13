@@ -13,7 +13,7 @@ This page describes the technologies, frameworks, plugins, and runtime boundarie
 
 Clear Writer is a browser/PWA application. It does not use Electron, a desktop shell, IPC, or a preload bridge.
 
-- `src/main.ts` selects the normal application boot or the `?worker=true` pagination boot.
+- `src/main.ts` selects normal application boot or the `?export-frame=true` isolated PDF-pagination frame; the legacy worker entry remains available for the browser transport contract.
 - `src/boot/app.ts` creates the application shell and connects platform, editor, preview, settings, storage, export, and lifecycle services.
 - `public/manifest.webmanifest` defines the installable PWA metadata.
 - `public/sw.js` provides the production service worker and prunes obsolete hashed assets while preserving the current shell and referenced resources.
@@ -73,8 +73,8 @@ element appearing during an intermediate render.
 
 Preview CSS is organized by responsibility under `src/preview/css/`: page
 layout, typography, lists, and tables each have a focused generator. The
-legacy `CssGenerator.ts` path remains a small re-export facade for stable
-imports. Editor save-status rendering is isolated in
+`CssGenerator.ts` remains a small compatibility re-export facade for stable
+imports, while new CSS implementations live under `src/preview/css/`. Editor save-status rendering is isolated in
 `src/ui/EditorStatusController.ts` while `EditorManager` continues to provide
 the application-facing facade.
 
@@ -94,9 +94,15 @@ owns welcome markup, recent workspace lookup, and the New/Open action bridges;
 `EditorManager` retains only session cleanup and preview reset around it.
 
 PDF export orchestration is isolated in `src/ui/ExportOrchestrationController.ts`.
-It coordinates durable snapshot compilation, forced pagination, stale-render
-retry, printable-page validation, telemetry, and cache reuse. The editor manager
+It coordinates durable snapshot compilation, background iframe pagination,
+stale-render retry, printable-page validation, and telemetry. The editor manager
 continues to expose the existing `compilePaginatedExportSnapshot()` facade.
+
+PDF pagination is intentionally isolated from the visible preview. The
+`BackgroundExportPaginator` creates a hidden same-origin iframe, loads the
+minimal export frame, sends it the compiled snapshot, and receives paginated
+HTML over `postMessage`. This prevents an export render from replacing or
+disturbing the document the user is currently viewing.
 - `project-paths.ts` centralizes section/image path resolution and settings-path migration shared by all workspace adapters. Glyph paths are handled separately by the custom block glyph helpers.
 - `BlobUrlAssetResolver` resolves project images for preview and export. Glyph lookup uses the custom block glyph resolver helpers.
 

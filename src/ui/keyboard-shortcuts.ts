@@ -36,7 +36,7 @@ export function initWritingWorkflow(editorManager: EditorManager): () => void {
       document.getElementById('btn-open-project-search')?.click();
     } else if (modifier && event.shiftKey && key === 'o') {
       event.preventDefault();
-      document.getElementById('btn-open-document-outline')?.click();
+      document.getElementById('btn-activity-outline')?.click();
     } else if (modifier && event.shiftKey && key === 'r') {
       event.preventDefault();
       document.getElementById('btn-open-project-review')?.click();

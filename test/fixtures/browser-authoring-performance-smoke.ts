@@ -71,14 +71,9 @@ async function run() {
   // 1. Measure Outline Opening Performance
   const t0 = performance.now();
   console.log('[PERF] Clicking outline button');
-  const outlineBtn = document.getElementById('btn-open-document-outline');
-  await click('#btn-open-document-outline');
-  console.log('[PERF] Click executed, waiting for drawer');
-  await waitFor('outline drawer open', () => {
-    const hidden = isHidden(document.getElementById('document-outline-drawer'));
-    console.log('[PERF] outline hidden state:', hidden);
-    return !hidden ? true : null;
-  });
+  await click('#btn-activity-outline');
+  console.log('[PERF] Click executed, waiting for panel');
+  await waitFor('outline panel open', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === false ? true : null);
   
   await waitFor('outline built', () => {
     const headings = document.querySelectorAll('#document-outline-content .document-outline-heading');
@@ -89,9 +84,9 @@ async function run() {
   const outlineRenderMs = t1 - t0;
   (window as any).__HARNESS_PROGRESS__ = 'outline opened and measured';
   
-  // Close Outline Drawer
-  await click('#document-outline-drawer .drawer-close-button');
-  await waitFor('outline drawer closed', () => isHidden(document.getElementById('document-outline-drawer')) ? true : null);
+  // Close the outline panel by clicking its active activity button.
+  await click('#btn-activity-outline');
+  await waitFor('outline panel closed', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === true ? true : null);
 
   // 2. Measure Search Execution Performance
   const t2 = performance.now();
@@ -127,10 +122,10 @@ async function run() {
   // 4. Repeated Interactions Check
   // Open and close outline 5 times rapidly
   for (let i = 0; i < 5; i++) {
-    await click('#btn-open-document-outline');
-    await waitFor('outline open loop', () => !isHidden(document.getElementById('document-outline-drawer')) ? true : null);
-    await click('#document-outline-drawer .drawer-close-button');
-    await waitFor('outline close loop', () => isHidden(document.getElementById('document-outline-drawer')) ? true : null);
+    await click('#btn-activity-outline');
+    await waitFor('outline open loop', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === false ? true : null);
+    await click('#btn-activity-outline');
+    await waitFor('outline close loop', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === true ? true : null);
   }
   (window as any).__HARNESS_PROGRESS__ = 'repeated interaction 1 measured';
   

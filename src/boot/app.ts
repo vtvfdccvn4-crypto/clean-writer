@@ -28,7 +28,7 @@ type StartupWindow = Window & {
 };
 
 function setupPreviewDiagnosticsChip() {
-  const diagnostics = document.getElementById('preview-diagnostics');
+  const diagnostics = document.getElementById('workspace-diagnostics');
   if (!diagnostics) return;
 
   const render = () => {

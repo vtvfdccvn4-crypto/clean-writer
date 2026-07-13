@@ -612,9 +612,9 @@ async function run() {
   await editorManager.flushCurrentDocument();
   await waitFor('Outline2 saved', () => document.getElementById('editor-status')?.textContent === 'Saved' ? true : null);
 
-  // Open outline drawer
-  await click('#btn-open-document-outline');
-  await waitFor('outline drawer open', () => !document.getElementById('document-outline-drawer')?.classList.contains('hidden') ? true : null);
+  // Open the outline activity panel.
+  await click('#btn-activity-outline');
+  await waitFor('outline panel open', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === false ? true : null);
   await waitFor('outline built', () => {
     const headings = document.querySelectorAll('#document-outline-content .document-outline-heading');
     if (headings.length >= 4) return true;
@@ -698,9 +698,6 @@ async function run() {
   await waitFor('outline cleared after close', () => document.getElementById('document-outline-empty')?.classList.contains('hidden') === false ? true : null);
   const outlineClearedAfterClose = document.getElementById('document-outline-empty')?.classList.contains('hidden') === false
     && document.getElementById('document-outline-content')?.classList.contains('hidden') === true;
-
-  // Close outline
-  await click('#document-outline-drawer .drawer-close-button');
 
   const exportPdfButton = document.getElementById('btn-export-pdf');
   const exportDocxButton = document.getElementById('btn-export-docx');
