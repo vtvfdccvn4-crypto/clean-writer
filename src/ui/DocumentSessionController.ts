@@ -1,5 +1,6 @@
 import type { WorkspaceRef } from '../types';
 import type { MarkdownEditor } from '../editor';
+import { EditorView } from '@codemirror/view';
 
 type ViewState = { selectionFrom: number; selectionTo: number; scrollTop: number };
 
@@ -69,7 +70,10 @@ export class DocumentSessionController {
       return;
     }
     const documentLine = this.editor.view.state.doc.line(Math.min(Math.max(1, line), this.editor.view.state.doc.lines));
-    this.editor.setSelection(documentLine.from);
+    this.editor.view.dispatch({
+      selection: { anchor: documentLine.from },
+      effects: EditorView.scrollIntoView(documentLine.from, { y: 'start' })
+    });
     this.editor.focus();
   }
 
