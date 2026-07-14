@@ -105,6 +105,7 @@ export class EditorManager {
     });
     state.onPageSetupChanged(() => {
       this.preview.applyPageSetup(state.current.pageSetup);
+      this.applyDocumentContentWidth();
     });
     state.onTypographySetupChanged(() => {
       this.preview.applyTypographySetup(state.current.typographySetup);
@@ -121,6 +122,7 @@ export class EditorManager {
 
     // Apply initial defaults
     this.preview.applyPageSetup(state.current.pageSetup);
+    this.applyDocumentContentWidth();
     this.preview.applyTypographySetup(state.current.typographySetup);
     this.preview.applyListSetup(state.current.listSetup);
     this.preview.applyTableSetup(state.current.tableSetup);
@@ -142,6 +144,14 @@ export class EditorManager {
     this.preview.applyListSetup(state.current.listSetup);
     this.preview.applyTableSetup(state.current.tableSetup);
     this.editorContainer.style.setProperty('--editor-font-size', state.current.editorSetup.fontSize);
+    this.applyDocumentContentWidth();
+  }
+
+  /** Keep inline editor images within the final document's printable width. */
+  private applyDocumentContentWidth(): void {
+    const { paperWidth, marginLeft, marginRight } = state.current.pageSetup;
+    const width = Math.max(0, paperWidth - marginLeft - marginRight);
+    this.editorContainer.style.setProperty('--document-content-width', `${width}mm`);
   }
 
   private reportWorkflowError(message: string, error: unknown) {

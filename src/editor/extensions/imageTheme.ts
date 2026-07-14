@@ -2,14 +2,15 @@ import { EditorView } from '@codemirror/view';
 
 export const imageTheme = EditorView.baseTheme({
   '.cm-markdown-image': {
-    display: 'inline-block',
+    display: 'block',
     maxWidth: '100%',
     position: 'relative',
-    verticalAlign: 'middle'
+    width: '100%'
   },
   '.cm-markdown-image img': {
     display: 'block',
-    maxWidth: '100%',
+    marginInline: 'auto',
+    maxWidth: 'min(100%, var(--document-content-width, 100%))',
     minHeight: '32px',
     objectFit: 'contain'
   },
