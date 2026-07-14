@@ -83,10 +83,16 @@ test('editor image parsing keeps attribute ranges separate and resize updates on
   assert.equal(image.source, 'images/logo.png');
   assert.equal(image.attributes, '{width=240px align=center margin="6mm 0"}');
   assert.equal(image.end, source.length);
+  assert.equal(image.isBlock, true);
   assert.equal(
     updateImageAttributes(image, { width: '320px' }),
     '{width=320px align=center margin="6mm 0"}'
   );
+});
+
+test('images that share a Markdown line with prose remain inline widgets', () => {
+  const [image] = parseEditorMarkdownImages('Before ![Logo](images/logo.png) after');
+  assert.equal(image.isBlock, false);
 });
 
 test('image source resolution normalizes Windows separators and encodes URL delimiters', () => {

@@ -55,7 +55,7 @@ function buildDecorations(view: EditorView, actions: ImageEditorActions) {
   const builder = new RangeSetBuilder<Decoration>();
   const widgetActions = makeActions(view, actions);
   for (const image of parseEditorMarkdownImages(view.state.doc.toString())) {
-    builder.add(image.start, image.end, Decoration.replace({ widget: new ImageWidget(image, widgetActions), block: false }));
+    builder.add(image.start, image.end, Decoration.replace({ widget: new ImageWidget(image, widgetActions), block: image.isBlock }));
   }
   return builder.finish();
 }
