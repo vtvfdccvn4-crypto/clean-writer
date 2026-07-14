@@ -2,6 +2,7 @@ import { SectionList } from './SectionList';
 import { ImageList } from './ImageList';
 import { state } from '../../state';
 import { ProjectService } from '../../services/ProjectService';
+import { importProjectImage } from '../../images/importProjectImage';
 import { projectSession } from '../../services/ProjectSessionStore';
 import type { ProjectHealthReport } from '../../types';
 import type { Platform, WorkspaceSession } from '../../platform/types';
@@ -35,6 +36,13 @@ export class SidebarController {
   private onInsertText?: (text: string) => boolean;
   private platform: Platform;
   private btnInsertImage: HTMLButtonElement | null;
+
+  private async uploadImageFiles(files: Iterable<File>): Promise<void> {
+    const session = projectSession.requireSession();
+    for (const file of files) {
+      await importProjectImage(session, file, this.platform.assetResolver);
+    }
+  }
 
   constructor(
     platform: Platform,
@@ -202,10 +210,7 @@ export class SidebarController {
           if (!files || files.length === 0) return;
           
           try {
-            for (const file of Array.from(files)) {
-              const buffer = new Uint8Array(await file.arrayBuffer());
-              await projectSession.uploadImage(file.name, buffer);
-            }
+            await this.uploadImageFiles(Array.from(files));
           } catch (err) {
             console.error('Failed to upload image:', err);
             showNotice('Could not upload one or more images.', 'error');
@@ -237,10 +242,7 @@ export class SidebarController {
         
         ev.preventDefault();
         try {
-          for (const file of imageFiles) {
-            const buffer = new Uint8Array(await file.arrayBuffer());
-            await projectSession.uploadImage(file.name, buffer);
-          }
+          await this.uploadImageFiles(imageFiles);
         } catch (err) {
           console.error('Failed to drop upload image:', err);
           showNotice('Could not upload dropped images.', 'error');

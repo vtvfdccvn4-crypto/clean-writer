@@ -30,7 +30,6 @@ import { tags } from '@lezer/highlight';
 import { customTheme } from './theme';
 import { pairingBindings, backspaceBinding } from './bindings/pairing';
 import { tabBinding } from './bindings/tabBinding';
-import { dragDropHandlers } from './dragDrop';
 import { imageDecorationPlugin, type ImageEditorActions } from './extensions/imageDecorationPlugin';
 import { imageDropExtension } from './extensions/imageDropExtension';
 import { imagePasteExtension } from './extensions/imagePasteExtension';
@@ -198,7 +197,6 @@ export function createEditor(
         imagePasteExtension(callbacks.imageActions),
         imageDropExtension(callbacks.imageActions)
       ] : []),
-      dragDropHandlers,
       getCustomStylesExtension(),
       getCustomBlockStylesExtension()
     ]

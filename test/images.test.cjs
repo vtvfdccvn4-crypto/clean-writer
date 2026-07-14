@@ -19,7 +19,7 @@ before(async () => {
 
   ({ compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts'));
   ({ generatePageCss } = await server.ssrLoadModule('/src/preview/CssGenerator.ts'));
-  ({ buildProjectImageMarkdown } = await server.ssrLoadModule('/src/editor/dragDrop.ts'));
+  ({ buildProjectImageMarkdown } = await server.ssrLoadModule('/src/images/imageMarkdown.ts'));
   ({ parseMarkdownImages } = await server.ssrLoadModule('/src/images/markdownImages.ts'));
   ({ parseEditorMarkdownImages } = await server.ssrLoadModule('/src/editor/markdown/parseMarkdownImage.ts'));
   ({ updateImageAttributes } = await server.ssrLoadModule('/src/editor/markdown/updateImageAttributes.ts'));
