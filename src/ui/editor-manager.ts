@@ -18,6 +18,8 @@ import { DocumentActivationCoordinator } from './DocumentActivationCoordinator';
 import { WelcomeController } from './WelcomeController';
 import { ExportOrchestrationController } from './ExportOrchestrationController';
 import { BackgroundExportPaginator } from './BackgroundExportPaginator';
+import { buildProjectImageMarkdown } from '../editor/dragDrop';
+import { ProjectService } from '../services/ProjectService';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -347,6 +349,27 @@ export class EditorManager {
       },
       onSelectionChange: (line: number) => {
         this.preview.navigateToSourceLine(line);
+      },
+      imageActions: {
+        onImageFile: async (file: File) => {
+          try {
+            const path = await ProjectService.uploadImageWithPath(session, file.name, new Uint8Array(await file.arrayBuffer()));
+            if (!path) {
+              showNotice('The image could not be saved to this project.', 'error');
+              return null;
+            }
+            await this.platform.assetResolver.preloadImages([path]);
+            return buildProjectImageMarkdown(path);
+          } catch (error) {
+            console.error('[EditorManager] Failed to import editor image.', error);
+            showNotice('The image could not be imported.', 'error');
+            return null;
+          }
+        },
+        resolveImageSource: async (source: string) => {
+          await this.platform.assetResolver.preloadImages([source]);
+          return this.platform.assetResolver.resolveSync(source);
+        }
       }
     };
 

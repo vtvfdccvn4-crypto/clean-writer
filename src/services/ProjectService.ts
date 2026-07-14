@@ -244,6 +244,11 @@ export const ProjectService = {
   },
 
   async uploadImage(session: WorkspaceSession, filename: string, data: Uint8Array): Promise<boolean> {
+    return Boolean(await this.uploadImageWithPath(session, filename, data));
+  },
+
+  /** Store an image and return its collision-safe, portable project path. */
+  async uploadImageWithPath(session: WorkspaceSession, filename: string, data: Uint8Array): Promise<string | null> {
     try {
       const existingImages = await session.listImages();
       let finalName = filename;
@@ -252,7 +257,7 @@ export const ProjectService = {
       const ext = match && match[2] ? match[2] : '';
       
       let counter = 1;
-      while (existingImages.some(img => img.path === finalName)) {
+      while (existingImages.some(img => img.path === finalName || img.path === `images/${finalName}`)) {
         finalName = `${base}-${counter}${ext}`;
         counter++;
       }
@@ -260,12 +265,12 @@ export const ProjectService = {
       const success = await session.writeImage(finalName, data);
       if (success) {
         await this.refreshProjectTree(session);
-        return true;
+        return finalName.startsWith('images/') ? finalName : `images/${finalName}`;
       }
-      return false;
+      return null;
     } catch (error) {
       console.error('[ProjectService] Failed to upload image:', error);
-      return false;
+      return null;
     }
   }
 };

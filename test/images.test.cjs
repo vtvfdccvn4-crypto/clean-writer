@@ -8,6 +8,8 @@ let compileMarkdown;
 let generatePageCss;
 let buildProjectImageMarkdown;
 let parseMarkdownImages;
+let parseEditorMarkdownImages;
+let updateImageAttributes;
 let getProjectImageLookupPaths;
 let resolveImageSource;
 let state;
@@ -19,6 +21,8 @@ before(async () => {
   ({ generatePageCss } = await server.ssrLoadModule('/src/preview/CssGenerator.ts'));
   ({ buildProjectImageMarkdown } = await server.ssrLoadModule('/src/editor/dragDrop.ts'));
   ({ parseMarkdownImages } = await server.ssrLoadModule('/src/images/markdownImages.ts'));
+  ({ parseEditorMarkdownImages } = await server.ssrLoadModule('/src/editor/markdown/parseMarkdownImage.ts'));
+  ({ updateImageAttributes } = await server.ssrLoadModule('/src/editor/markdown/updateImageAttributes.ts'));
   ({ getProjectImageLookupPaths, resolveImageSource } = await server.ssrLoadModule('/src/images/imageSources.ts'));
   ({ state } = await server.ssrLoadModule('/src/state.ts'));
 });
@@ -70,6 +74,19 @@ test('header and footer image parsing uses CommonMark image rules', () => {
   assert.deepEqual(matches.map(({ alt, source, title }) => ({ alt, source, title })), [
     { alt: 'Logo', source: 'images/logo_(final).png', title: 'Product logo' }
   ]);
+});
+
+test('editor image parsing keeps attribute ranges separate and resize updates only managed attributes', () => {
+  const source = '![Logo](<images/logo.png> "Product logo"){width=240px align=center margin="6mm 0"}';
+  const [image] = parseEditorMarkdownImages(source);
+
+  assert.equal(image.source, 'images/logo.png');
+  assert.equal(image.attributes, '{width=240px align=center margin="6mm 0"}');
+  assert.equal(image.end, source.length);
+  assert.equal(
+    updateImageAttributes(image, { width: '320px' }),
+    '{width=320px align=center margin="6mm 0"}'
+  );
 });
 
 test('image source resolution normalizes Windows separators and encodes URL delimiters', () => {

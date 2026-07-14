@@ -31,6 +31,10 @@ import { customTheme } from './theme';
 import { pairingBindings, backspaceBinding } from './bindings/pairing';
 import { tabBinding } from './bindings/tabBinding';
 import { dragDropHandlers } from './dragDrop';
+import { imageDecorationPlugin, type ImageEditorActions } from './extensions/imageDecorationPlugin';
+import { imageDropExtension } from './extensions/imageDropExtension';
+import { imagePasteExtension } from './extensions/imagePasteExtension';
+import { imageTheme } from './extensions/imageTheme';
 import { getCustomStylesExtension, updateCustomStyles } from './customStylesPlugin';
 import { getCustomBlockStylesExtension, updateCustomBlockStyles } from './customBlockStylesPlugin';
 import { state as appState } from '../state';
@@ -63,6 +67,7 @@ export interface EditorCallbacks {
   onError?: (error: unknown) => void;
   onSelectionChange?: (line: number) => void;
   onDirty?: (doc: string) => void;
+  imageActions?: ImageEditorActions;
 }
 
 export function createEditor(
@@ -187,6 +192,12 @@ export function createEditor(
       compartments.rectangularSelection.of(optional(editorSetup.rectangularSelection, [rectangularSelection(), crosshairCursor()])),
       compartments.selectionMatches.of(optional(editorSetup.highlightSelectionMatches, highlightSelectionMatches())),
       updateListener,
+      ...(callbacks.imageActions ? [
+        imageTheme,
+        imageDecorationPlugin(callbacks.imageActions),
+        imagePasteExtension(callbacks.imageActions),
+        imageDropExtension(callbacks.imageActions)
+      ] : []),
       dragDropHandlers,
       getCustomStylesExtension(),
       getCustomBlockStylesExtension()
