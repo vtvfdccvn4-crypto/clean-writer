@@ -3,12 +3,15 @@ import { EditorView } from '@codemirror/view';
 export const imageTheme = EditorView.baseTheme({
   '.cm-markdown-image': {
     display: 'block',
+    lineHeight: '0',
+    marginBlock: '0',
     maxWidth: '100%',
     position: 'relative',
     width: '100%'
   },
   '.cm-markdown-image img': {
     display: 'block',
+    marginBlock: '0',
     marginInline: 'auto',
     maxWidth: 'min(100%, var(--document-content-width, 100%))',
     minHeight: '32px',
