@@ -75,6 +75,8 @@ const fixtures = [
       expect(Array.isArray(result.outlineSections) && result.outlineSections.length >= 2, 'Document outline did not render section headers.');
       expect(Array.isArray(result.outlineHeadings) && result.outlineHeadings.includes('Sub 1') && result.outlineHeadings.includes('Sub 2'), 'Document outline did not render expected markdown headings.');
       expect(result.outlineNavigationSuccessful === true, 'Document outline heading click did not navigate to the correct section.');
+      expect(result.outlineCrossDocumentFocusAtTop === true, 'Cross-document outline navigation did not position the heading at the editor top.');
+      expect(result.outlineSameDocumentNavigationAvoidedReload === true, 'Same-document outline navigation reloaded the editor.');
       expect(result.outlineRenamedSectionPresent === true, 'Document outline was not rebuilt correctly after a section rename.');
       expect(result.outlineProjectStatsRefreshedAfterSave === true, 'Document outline project totals did not refresh after a save.');
       expect(typeof result.outlineSectionStats === 'string' && result.outlineSectionStats.includes('words'), `Expected section stats readout, got: ${result.outlineSectionStats}`);

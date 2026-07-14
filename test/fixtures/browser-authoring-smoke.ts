@@ -597,7 +597,8 @@ async function run() {
   await waitFor('Outline1 editor loaded', () => {
     return (window as any).__CLEAR_WRITER_EDITOR_MANAGER__?.currentFilePath === 'sections/Outline1.md' ? true : null;
   });
-  editorManager.getEditorView().setValue('# Head 1\n## Sub 1', true);
+  const outlineFiller = Array.from({ length: 100 }, (_, index) => `Paragraph ${index + 1}.`).join('\n');
+  editorManager.getEditorView().setValue(`# Head 1\n${outlineFiller}\n## Sub 1`, true);
   await editorManager.flushCurrentDocument();
   await waitFor('Outline1 saved', () => document.getElementById('editor-status')?.textContent === 'Saved' ? true : null);
 
@@ -634,6 +635,29 @@ async function run() {
   await waitFor('active file switched to Outline1', () => state.current.activeFile === 'sections/Outline1.md' ? true : null);
   await waitFor('Outline1 loaded again', () => document.querySelector('.cm-content') && editorManager.getEditorView().getValue().includes('Sub 1') ? true : null);
   const outlineNavigationSuccessful = state.current.activeFile === 'sections/Outline1.md';
+  const crossDocumentTargetLine = editorManager.getEditorView().view.state.doc.lineAt(editorManager.getEditorView().getSelection().from).number;
+  const outlineCrossDocumentFocusAtTop = await waitFor('outline heading positioned at editor top', () => {
+    const editor = editorManager.getEditorView();
+    if (!editor || editor.view.state.doc.lineAt(editor.getSelection().from).number !== crossDocumentTargetLine) return null;
+    const targetTop = editor.view.coordsAtPos(editor.getSelection().from)?.top;
+    const viewportTop = editor.view.scrollDOM.getBoundingClientRect().top;
+    return crossDocumentTargetLine > 1
+      && editor.view.scrollDOM.scrollTop > 0
+      && targetTop !== undefined
+      && Math.abs(targetTop - viewportTop) <= 6
+      ? true
+      : null;
+  });
+
+  const outlineEditorView = editorManager.getEditorView().view;
+  sub1Heading.click();
+  const outlineSameDocumentNavigationAvoidedReload = await waitFor('same-document outline navigation', () => {
+    const editor = editorManager.getEditorView();
+    return editor?.view === outlineEditorView
+      && editor.view.state.doc.lineAt(editor.getSelection().from).number === crossDocumentTargetLine
+      ? true
+      : null;
+  });
 
   // Rename a section and verify outline update
   await click('.tree-row[data-path="sections/Outline2.md"] .btn-rename');
@@ -646,7 +670,7 @@ async function run() {
 
   // Check stats
   const outlineProjectStatsBeforeSave = document.getElementById('project-statistics-summary')?.textContent || '';
-  const outlineSectionStats = document.getElementById('editor-section-stats')?.textContent || '';
+  const outlineSectionStats = document.getElementById('workspace-word-count')?.textContent || '';
   editorManager.getEditorView().insertText(' extra');
   await editorManager.flushCurrentDocument();
   await waitFor('outline project stats refreshed after save', () => {
@@ -758,6 +782,8 @@ async function run() {
     outlineSections,
     outlineHeadings,
     outlineNavigationSuccessful,
+    outlineCrossDocumentFocusAtTop,
+    outlineSameDocumentNavigationAvoidedReload,
     outlineRenamedSectionPresent,
     outlineProjectStatsRefreshedAfterSave,
     outlineClearedAfterClose,

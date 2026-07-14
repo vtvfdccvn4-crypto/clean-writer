@@ -26,7 +26,6 @@ export function bindSectionListRowActions({
   const pageBreakButton = row.querySelector<HTMLButtonElement>('.btn-page-break-toggle');
   if (pageBreakButton) {
     pageBreakButton.addEventListener('click', async (event) => {
-      console.log('[SectionList] page break toggle clicked for:', node.path);
       event.stopPropagation();
       pageBreakButton.disabled = true;
       try {

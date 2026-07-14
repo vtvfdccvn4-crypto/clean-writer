@@ -361,6 +361,7 @@
 .item-info {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   min-width: 0;
 }
 
@@ -370,6 +371,7 @@
   white-space: nowrap;
   font-size: 10pt;
   font-weight: 300;
+  line-height: 1;
 }
 
 .image-list-item .item-title {
