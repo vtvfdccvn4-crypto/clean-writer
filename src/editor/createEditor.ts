@@ -15,6 +15,8 @@ import { markdownAppearanceExtension } from './extensions/markdownAppearance';
 import { markdownLanguageExtension } from './extensions/markdown';
 import { state as appState } from '../state';
 import type { EditorSetup } from '../types';
+import { imageWidthAttribute, parseEditorMarkdownImages, withImageWidthAttribute } from './markdown/parseMarkdownImage';
+import { showImageWidthDialog } from '../ui/image-width-dialog';
 
 export interface EditorSelectionRange {
   from: number;
@@ -75,6 +77,25 @@ export function createEditor(
   const editorSetup = appState.current.editorSetup;
   let markdownSetup = editorSetup;
   const behavior = createEditorBehavior(editorSetup);
+  const editImageWidth = (image: ReturnType<typeof parseEditorMarkdownImages>[number]) => {
+    void showImageWidthDialog(imageWidthAttribute(image.attributes)).then(width => {
+      if (width === null) return;
+      const currentImage = parseEditorMarkdownImages(view.state.doc.toString()).find(candidate =>
+        candidate.source === image.source
+        && candidate.alt === image.alt
+        && candidate.attributes === image.attributes
+      );
+      if (!currentImage) return;
+      const current = view.state.doc.sliceString(currentImage.start, currentImage.end);
+      const replacement = `${current.slice(0, current.length - currentImage.attributes.length)}${withImageWidthAttribute(currentImage.attributes, width)}`;
+      view.dispatch({
+        changes: { from: currentImage.start, to: currentImage.end, insert: replacement },
+        selection: { anchor: currentImage.start + replacement.length },
+        scrollIntoView: true
+      });
+      view.focus();
+    });
+  };
 
   const state = EditorState.create({
     doc: initialContent,
@@ -96,7 +117,7 @@ export function createEditor(
       )),
       ...behavior.extensions,
       imagePreviews.of(callbacks.resolveImageSource
-        ? imagePreviewExtension(callbacks.resolveImageSource, appState.current.imageSetup.alignment)
+        ? imagePreviewExtension(callbacks.resolveImageSource, appState.current.imageSetup.alignment, editImageWidth)
         : []),
       ...(callbacks.onImageFile ? [imagePasteExtension(callbacks.onImageFile)] : []),
       updateListener
@@ -154,7 +175,8 @@ export function createEditor(
     view.dispatch({
       effects: imagePreviews.reconfigure(imagePreviewExtension(
         callbacks.resolveImageSource,
-        appState.current.imageSetup.alignment as EditorImageAlignment
+        appState.current.imageSetup.alignment as EditorImageAlignment,
+        editImageWidth
       ))
     });
   };

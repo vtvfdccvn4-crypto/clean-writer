@@ -10,6 +10,23 @@ export interface EditorMarkdownImage {
   title: string | null;
 }
 
+/** Returns the current width attribute from an image attribute block, if present. */
+export function imageWidthAttribute(attributes: string): string {
+  return attributes.match(/(?:^|\s)width=(?:"([^"]*)"|([^\s}]*))/)?.[1]
+    ?? attributes.match(/(?:^|\s)width=(?:"([^"]*)"|([^\s}]*))/)?.[2]
+    ?? '';
+}
+
+/** Replaces only an image's width attribute, retaining its other presentation attributes. */
+export function withImageWidthAttribute(attributes: string, width: string): string {
+  const content = attributes.startsWith('{') && attributes.endsWith('}')
+    ? attributes.slice(1, -1).trim()
+    : '';
+  const withoutWidth = content.replace(/(?:^|\s+)width=(?:"[^"]*"|[^\s}]*)/g, ' ').trim();
+  const next = [withoutWidth, width ? `width=${width}` : ''].filter(Boolean).join(' ').trim();
+  return next ? `{${next}}` : '';
+}
+
 /** Finds Markdown images and the optional attribute block immediately following each image. */
 export function parseEditorMarkdownImages(document: string): EditorMarkdownImage[] {
   return parseMarkdownImages(document).map(image => {
