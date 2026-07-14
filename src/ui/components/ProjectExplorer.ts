@@ -56,7 +56,7 @@ function closeIconMarkup(): string {
 
 export const projectExplorerTemplate = (): string => `
   <aside id="sidebar" class="project-explorer pane" aria-label="Project files">
-    <header class="project-explorer-bar">
+    <header class="project-explorer-bar panel-header">
       <div class="project-explorer-heading">
         <span class="project-explorer-eyebrow">Project</span>
         <span class="project-explorer-title">Explorer</span>
@@ -76,7 +76,7 @@ export const projectExplorerTemplate = (): string => `
         </button>
       </div>
     </header>
-    <div id="sidebar-content" class="sidebar-content">
+    <div id="sidebar-content" class="sidebar-content panel-content">
       <section id="activity-panel-explorer" class="sidebar-section project-tree-section activity-panel sections-section" data-activity-panel="explorer" aria-labelledby="sections-panel-title">
         <div class="section-title" id="sections-panel-title">
           <span>Sections</span>

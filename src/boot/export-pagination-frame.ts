@@ -12,6 +12,7 @@ type ExportRequest = {
     typographySetup: TypographySetup;
     listSetup: ListSetup;
     tableSetup: TableSetup;
+    resolvedMarginImageSources?: Record<string, string>;
   };
 };
 
@@ -22,14 +23,30 @@ const passthroughAssets: AssetResolver = {
   releaseAll: () => undefined
 };
 
+/** Resolves header and footer image sources passed from the main document. */
+export function resolveExportMarginImageSource(
+  path: string,
+  resolvedMarginImageSources: Readonly<Record<string, string>>
+): string {
+  return resolvedMarginImageSources[path.trim()] || passthroughAssets.resolveSync(path);
+}
+
 export function bootExportPaginationFrame(): void {
   document.body.innerHTML = '<div id="paged-stage" class="paged-stage" style="width:100%;min-height:100%;padding:0"></div>';
   const stage = document.getElementById('paged-stage')!;
-  const preview = new PreviewController(stage, passthroughAssets, { unthrottledPagination: true });
+  let resolvedMarginImageSources: Record<string, string> = {};
+  const exportAssets: AssetResolver = {
+    preloadImages: async () => undefined,
+    resolveSync: path => resolveExportMarginImageSource(path, resolvedMarginImageSources),
+    release: passthroughAssets.release,
+    releaseAll: passthroughAssets.releaseAll
+  };
+  const preview = new PreviewController(stage, exportAssets, { unthrottledPagination: true });
 
   window.addEventListener('message', async (event: MessageEvent<ExportRequest>) => {
     if (event.origin !== window.location.origin || event.data?.type !== 'clear-writer-export-request') return;
     const { requestId, input } = event.data;
+    resolvedMarginImageSources = input.resolvedMarginImageSources || {};
     preview.applyTypographySetup(input.typographySetup);
     preview.applyListSetup(input.listSetup);
     preview.applyTableSetup(input.tableSetup);

@@ -13,7 +13,6 @@ export const editorSettingsDrawerContentTemplate = (): string => `
           <span>Markdown appearance</span>
         </div>
         ${renderDrawerControl('Bold headings', renderDrawerSwitchControl('editor-heading-bold', 'Bold headings'))}
-        ${renderDrawerControl('Heading colors', renderDrawerSwitchControl('editor-heading-colors', 'Heading colors'))}
         ${renderDrawerControl('Bold **text**', renderDrawerSwitchControl('editor-strong-bold', 'Bold **text**'))}
         ${renderDrawerControl('Italic *text*', renderDrawerSwitchControl('editor-emphasis-italic', 'Italic *text*'))}
         ${renderDrawerControl('Underline links', renderDrawerSwitchControl('editor-link-underline', 'Underline links'))}

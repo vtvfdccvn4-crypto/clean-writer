@@ -1,0 +1,24 @@
+.editor-container {
+  --cm-surface-background: Canvas;
+  --cm-surface-border: var(--ui-border);
+  --cm-surface-focus: color-mix(in srgb, var(--color-app-chrome) 45%, transparent);
+  --cm-surface-radius: 8px;
+}
+
+/* CodeMirror shell only. Text layout and content styles stay at CodeMirror defaults. */
+.cm-editor {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  font-size: var(--editor-font-size, 10pt);
+  overflow: hidden;
+  background-color: var(--cm-surface-background);
+  border: 1px solid var(--cm-surface-border);
+  border-radius: var(--cm-surface-radius);
+}
+
+.cm-editor:focus-within {
+  outline: 2px solid var(--cm-surface-focus);
+  outline-offset: -2px;
+}

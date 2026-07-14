@@ -1,3 +1,6 @@
+@import './ui/styles/tokens.css';
+@import './editor/styles/surface.css';
+@import './editor/styles/imagePreviews.css';
 @import '@fontsource/inter-tight/400.css';
 @import '@fontsource/inter-tight/500.css';
 @import '@fontsource/inter-tight/600.css';
@@ -9,46 +12,16 @@
 @import '@fontsource/inter/700.css';
 
 @import './ui/styles/workspace.css';
+@import './ui/styles/activity-bar.css';
+@import './ui/styles/shared-panels.css';
 @import './ui/styles/project-explorer-compact.css';
 @import './ui/styles/editor.css';
 @import './ui/styles/preview.css';
+@import './ui/styles/overlays.css';
 @import './ui/styles/drawers.css';
 @import './ui/styles/drawers-symbol-picker.css';
-
-:root {
-  color-scheme: light;
+ :root {
   font-size: 10pt;
-  --font-ui: "Inter", "Segoe UI", Calibri, Arial, sans-serif;
-  --font-ui-tight: "Inter Tight", "Inter", "Segoe UI", Calibri, Arial, sans-serif;
-  --font-mono: Consolas, "Courier New", monospace;
-  --ui-surface: rgba(251, 249, 245, 0.94);
-  --ui-surface-strong: #fbf9f5;
-  --ui-surface-muted: #f5f0e6;
-  --ui-border: rgba(64, 90, 120, 0.12);
-  --ui-border-strong: rgba(64, 90, 120, 0.22);
-  --ui-text: #2c2927;
-  --ui-muted: #706a62;
-  --ui-accent: #405a78;
-  --ui-accent-soft: rgba(64, 90, 120, 0.12);
-  --ui-shadow: 0 8px 24px rgba(64, 90, 120, 0.04);
-  --ui-shadow-strong: 0 12px 36px rgba(64, 90, 120, 0.06);
-  --bg-sidebar: #fbf9f5;
-  --bg-editor: #faf4eb;
-  --bg-preview: #fbf9f5;
-  --bg-panel-paper: #faf4eb;
-  --bg-panel-paper-strong: #f5f0e6;
-  --text-main: var(--ui-text);
-  --text-muted: var(--ui-muted);
-  --text-active: #2c2927;
-  --accent-color: var(--ui-accent);
-  --accent-glow: var(--ui-accent-soft);
-  --border-color: var(--ui-border);
-  --paper-width: 210mm;
-  --paper-height: 297mm;
-  --paper-bg: #ffffff;
-  --paper-color: #2c2927;
-  color: var(--ui-text);
-  background: #fbf9f5;
   font-family: var(--font-ui);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -68,8 +41,6 @@ body,
 body {
   margin: 0;
   overflow: hidden;
-  color: var(--ui-text);
-  background: #fbf9f5;
   font-family: var(--font-ui);
 }
 
@@ -78,10 +49,6 @@ textarea,
 select,
 input {
   font: inherit;
-}
-
-button {
-  color: inherit;
 }
 
 .text-button,
@@ -97,32 +64,13 @@ button {
   justify-content: center;
   min-height: 32px;
   padding: 0 12px;
-  color: var(--text-main);
-  background: var(--ui-surface-strong);
   border: 1px solid var(--ui-border);
   border-radius: 8px;
   font-size: 10pt;
   font-weight: 650;
   letter-spacing: 0.01em;
   transition:
-    border-color 140ms ease,
-    background-color 140ms ease,
-    color 140ms ease,
     transform 140ms ease;
-}
-
-.text-button:hover {
-  color: var(--text-active);
-  background: var(--ui-surface-muted);
-    border-color: rgba(64, 90, 120, 0.3);
-}
-
-.text-button:focus-visible {
-  color: var(--text-active);
-  background: var(--ui-surface-muted);
-  border-color: rgba(64, 90, 120, 0.3);
-  outline: 2px solid rgba(92, 107, 94, 0.24);
-  outline-offset: 2px;
 }
 
 .icon-button {
@@ -130,29 +78,12 @@ button {
   width: 32px;
   height: 32px;
   place-items: center;
-  color: var(--text-muted);
-  background: var(--ui-surface-strong);
   border: 1px solid var(--ui-border);
   border-radius: 8px;
   font-size: 10pt;
   line-height: 1;
   transition:
-    border-color 140ms ease,
-    background-color 140ms ease,
-    color 140ms ease,
     transform 140ms ease;
-}
-
-.icon-button:hover {
-  background: var(--ui-surface-muted);
-  border-color: rgba(64, 90, 120, 0.3);
-}
-
-.icon-button:focus-visible {
-  background: var(--ui-surface-muted);
-  border-color: rgba(92, 107, 94, 0.3);
-  outline: 2px solid rgba(64, 90, 120, 0.24);
-  outline-offset: 2px;
 }
 
 .icon-text-button {
@@ -162,8 +93,6 @@ button {
   gap: 8px;
   min-height: 34px;
   padding: 0 14px 0 12px;
-  color: var(--text-main);
-  background: var(--ui-surface-strong);
   border: 1px solid var(--ui-border);
   border-radius: 10px;
   font-size: 10pt;
@@ -171,22 +100,7 @@ button {
   letter-spacing: 0.01em;
   cursor: pointer;
   transition:
-    border-color 140ms ease,
-    background-color 140ms ease,
-    color 140ms ease,
     transform 140ms ease;
-}
-
-.icon-text-button:hover,
-.icon-text-button:focus-visible {
-  color: var(--text-active);
-  background: var(--ui-surface-muted);
-  border-color: rgba(64, 90, 120, 0.3);
-}
-
-.icon-text-button:focus-visible {
-  outline: 2px solid rgba(92, 107, 94, 0.24);
-  outline-offset: 2px;
 }
 
 .icon-text-button .toolbar-icon {
@@ -197,26 +111,11 @@ button {
   width: 100%;
   min-height: 36px;
   padding: 0 10px;
-  color: var(--text-main);
-  background: var(--ui-surface-strong);
   border: 1px solid var(--ui-border);
   border-radius: 8px;
   font-size: 10pt;
   font-weight: 650;
   transition:
-    border-color 140ms ease,
-    background-color 140ms ease,
-    color 140ms ease;
-}
-
-.secondary-button:hover {
-  background: var(--ui-surface-muted);
-  border-color: rgba(64, 90, 120, 0.3);
-}
-
-.secondary-button:focus-visible {
-  outline: 2px solid rgba(64, 90, 120, 0.24);
-  outline-offset: 2px;
 }
 
 .empty-canvas {
@@ -226,37 +125,12 @@ button {
   width: 100%;
   min-height: 100%;
   padding: clamp(44px, 10vh, 112px) clamp(32px, 11vw, 160px);
-  color: var(--text-muted);
   text-align: left;
 }
 
-.editor-pane.is-welcome {
-  grid-template-rows: minmax(0, 1fr);
-  border-right: 0;
-}
-
-.workspace.is-welcome {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "editor";
-}
-
-.workspace.is-welcome .project-explorer,
-.workspace.is-welcome .preview-pane,
-.workspace.is-welcome .explorer-resizer {
-  display: none;
-}
-
-.workspace.is-welcome .activity-bar {
-  display: none;
-}
-
-.editor-pane.is-welcome .editor-toolbar,
-.editor-pane.is-welcome .markdown-toolbar {
-  display: none;
-}
-
-.editor-pane.is-welcome .editor-stage {
-  padding: 0;
+.welcome-screen-root {
+  min-height: 0;
+  overflow: auto;
 }
 
 .welcome-content {
@@ -268,7 +142,6 @@ button {
   align-items: center;
   gap: 15px;
   margin-bottom: 48px;
-  color: var(--ui-text);
 }
 
 .welcome-brand h1 {
@@ -285,8 +158,6 @@ button {
   width: 48px;
   height: 48px;
   place-items: center;
-  color: #fff;
-  background: var(--ui-accent);
   border-radius: 12px;
   font-size: 24px;
   font-weight: 800;
@@ -298,7 +169,6 @@ button {
 
 .welcome-section h2 {
   margin: 0 0 13px;
-  color: var(--ui-muted);
   font-family: var(--font-ui-tight);
   font-size: 20px;
   font-weight: 500;
@@ -320,8 +190,6 @@ button {
   max-width: 100%;
   min-height: 34px;
   padding: 4px 8px 4px 4px;
-  color: var(--ui-accent);
-  background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
   font: 500 12pt var(--font-ui);
@@ -329,21 +197,11 @@ button {
   cursor: pointer;
 }
 
-.welcome-action:hover,
-.welcome-action:focus-visible,
-.welcome-recent-item:hover,
-.welcome-recent-item:focus-visible {
-  background: var(--ui-accent-soft);
-  border-color: rgba(64, 90, 120, 0.18);
-  outline: none;
-}
-
 .welcome-action-icon {
   display: grid;
   width: 24px;
   height: 24px;
   place-items: center;
-  color: var(--ui-accent);
   border: 1.6px solid currentColor;
   border-radius: 5px;
   font-size: 20px;
@@ -375,7 +233,6 @@ button {
   grid-template-columns: minmax(0, auto) auto;
   width: 100%;
   padding-left: 8px;
-  color: var(--ui-accent);
   font-size: 11pt;
 }
 
@@ -386,7 +243,6 @@ button {
 }
 
 .welcome-recent-kind {
-  color: var(--ui-muted);
   font-size: 10pt;
 }
 
@@ -413,8 +269,6 @@ body.is-worker .preview-pane {
   width: auto !important;
   height: auto !important;
   overflow: visible !important;
-  background: transparent !important;
-  box-shadow: none !important;
   margin: 0 !important;
   padding: 0 !important;
 }
@@ -431,7 +285,46 @@ body.is-worker .preview-pane {
   }
 }
 
-.workspace-mode-chip { font-size: 11px; color: var(--text-secondary); background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
-.workspace-mode-chip[data-kind="opfs"] { color: #285b76; background: #e4f1f8; }
-.workspace-mode-chip[data-kind="directory"] { color: #76551f; background: #f7edd6; }
+.workspace-mode-chip[data-kind="opfs"],
 .workspace-mode-chip[hidden] { display: none; }
+
+/* Subtle app-wide scrollbar tint. Keep the 9px rail stable, but make the
+   thumb visually lighter so it feels less heavy against the paper-like UI. */
+body,
+body * {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ui-border-strong) 8%, transparent) transparent;
+}
+
+body:hover,
+body:focus-within,
+body *:hover,
+body *:focus-within {
+  scrollbar-color: color-mix(in srgb, var(--ui-border-strong) 18%, transparent) transparent;
+}
+
+body::-webkit-scrollbar,
+body *::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+body::-webkit-scrollbar-track,
+body *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body::-webkit-scrollbar-thumb,
+body *::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--ui-border-strong) 8%, transparent);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+body:hover::-webkit-scrollbar-thumb,
+body:focus-within::-webkit-scrollbar-thumb,
+body *:hover::-webkit-scrollbar-thumb,
+body *:focus-within::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--ui-border-strong) 18%, transparent);
+}

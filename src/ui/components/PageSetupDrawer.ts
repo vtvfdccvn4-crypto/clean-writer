@@ -19,7 +19,7 @@ const renderCellConfig = (type: 'header' | 'footer') => {
       boldId: `${prefix}-bold`,
       italicId: `${prefix}-italic`,
       sizeValue: 9,
-      colorValue: '#666666'
+      colorValue: '#000000'
     })}
     <label class="drawer-control">
       <span>Alignment</span>

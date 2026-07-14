@@ -1,143 +1,54 @@
 .editor-pane {
+  grid-area: editor;
   position: relative;
-  background: var(--bg-editor);
-  border-right: 1px solid var(--border-color);
-}
-
-/* CodeMirror search panel */
-.cm-panel.cm-search {
-  width: calc(100% - 12px);
-  min-width: 0;
-  max-width: none;
-  padding: 6px 8px;
-  gap: 6px;
-  border: 1px solid var(--ui-border);
-  border-radius: 10px;
-  background: var(--ui-surface-strong);
-  box-shadow: var(--ui-shadow-strong);
-  font-family: var(--font-ui);
-  font-size: 10.5pt;
-}
-
-.cm-panel.cm-search form {
-  width: 100%;
-}
-
-.cm-panel.cm-search label {
-  color: var(--ui-muted);
-  font-size: 9pt;
-  font-weight: 300;
-}
-
-.cm-panel.cm-search input {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 28px;
-  padding: 0 8px;
-  color: var(--ui-text);
-  background: #fff;
-  border: 1px solid var(--ui-border);
-  border-radius: 8px;
-  font-family: var(--font-ui);
-  font-size: 10pt;
-  font-weight: 300;
-}
-
-.cm-panel.cm-search input::placeholder {
-  color: rgba(112, 106, 98, 0.7);
-}
-
-.cm-panel.cm-search button {
-  flex: 0 0 auto;
-  min-height: 28px;
-  padding: 0 8px;
-  color: var(--ui-text);
-  background: var(--ui-surface-muted);
-  border: 1px solid var(--ui-border);
-  border-radius: 8px;
-  font-family: var(--font-ui);
-  font-size: 9pt;
-  font-weight: 300;
-}
-
-.cm-panel.cm-search button:hover,
-.cm-panel.cm-search button:focus-visible {
-  background: #ede6d8;
-  border-color: rgba(64, 90, 120, 0.24);
-}
-
-.cm-panel.cm-search input:focus-visible,
-.cm-panel.cm-search button:focus-visible {
-  outline: 2px solid rgba(64, 90, 120, 0.22);
-  outline-offset: 2px;
-}
-
-.editor-toolbar {
-  min-height: 50px;
 }
 
 .editor-toolbar .panel-actions {
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 .markdown-toolbar {
   display: flex;
-  flex: 0 0 48px;
+  flex: 0 0 40px;
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   max-height: 100%;
-  padding: 2px;
+  padding: 1px;
   overflow-y: auto;
 }
 
 .toolbar-text-button {
-  width: 44px;
+  width: 38px;
   min-width: 0;
-  height: 30px;
-  padding: 0 4px;
+  height: 26px;
+  padding: 0 3px;
   border: 1px solid transparent;
   border-radius: 5px;
-  color: var(--ui-muted);
-  background: transparent;
-  font: 600 11px var(--font-sans);
+  font: 600 10px var(--font-sans);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .toolbar-text-button:hover,
-.toolbar-text-button:focus-visible {
-  border-color: var(--ui-border);
-  color: var(--text-primary);
-  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
-}
-
 .markdown-symbol-button {
   display: grid;
-  width: 44px;
+  width: 38px;
   min-width: 0;
-  height: 30px;
+  height: 26px;
   place-items: center;
-  padding: 0 4px;
-  color: var(--ui-muted);
-  background: transparent;
+  padding: 0 3px;
   border: 1px solid transparent;
   border-radius: 5px;
   cursor: pointer;
 }
 
 .markdown-symbol-button:hover,
-.markdown-symbol-button:focus-visible {
-  color: var(--text-primary);
-  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
-  border-color: var(--ui-border);
-}
-
 .markdown-symbol-button .toolbar-icon {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
 }
 
 .editor-stage {
@@ -146,8 +57,9 @@
   gap: 4px;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 2.5pt;
+  padding: 2pt;
   overflow: hidden;
+  background-color: var(--color-surface);
 }
 
 .editor-container {
@@ -159,55 +71,10 @@
   overflow: hidden;
 }
 
-.cm-editor {
-  height: 100%;
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  font-family: var(--font-mono);
-  font-size: var(--editor-font-size, 12pt);
-  background-color: var(--bg-editor) !important;
-  border: 1px solid var(--ui-border);
-  border-radius: 8px 0 0 8px;
-}
-
-.cm-scroller {
-  font-family: var(--font-mono);
-  border-radius: inherit;
-  /* Keep the right scrollbar space stable without shifting the text origin. */
-  scrollbar-gutter: stable;
-  scrollbar-color: transparent transparent;
-}
-
-.cm-editor:hover .cm-scroller,
-.cm-editor:focus-within .cm-scroller {
-  scrollbar-color: rgba(95, 79, 56, 0.35) transparent;
-}
-
-.cm-content {
-  padding: 42px 48px !important;
-}
-
-.cm-line {
-  padding: 0 !important;
-  line-height: 1.6;
-}
-
-.cm-gutters {
-  background-color: var(--bg-editor) !important;
-  border-right: 1px solid var(--ui-border) !important;
-  color: var(--ui-muted) !important;
-}
-
 .section-save-indicator {
   width: 7px;
   height: 7px;
   flex: 0 0 7px;
   margin-left: 5px;
   border-radius: 50%;
-  background: transparent;
 }
-
-.section-save-indicator[data-state="dirty"] { background: var(--accent-color); }
-.section-save-indicator[data-state="saving"] { background: var(--warning-color, #b7791f); }
-.section-save-indicator[data-state="error"] { background: var(--danger-color, #c53030); }

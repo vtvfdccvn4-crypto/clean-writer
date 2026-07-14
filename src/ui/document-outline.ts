@@ -98,7 +98,6 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#039;");
 
         const sectionName = section.path.split('/').pop() || section.path;
 

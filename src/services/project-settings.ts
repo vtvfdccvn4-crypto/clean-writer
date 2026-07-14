@@ -1,9 +1,9 @@
-import { DEFAULT_EDITOR_SETUP, DEFAULT_LIST_SETUP, DEFAULT_PAGE_SETUP, DEFAULT_PROJECT_METADATA, DEFAULT_TABLE_SETUP, DEFAULT_TYPOGRAPHY_SETUP } from '../config/defaults';
-import type { CustomBlockStyle, CustomStyle, ListSetup, ProjectMetadata, ProjectSettingsData, TableSetup, TypographySetup } from '../types';
+import { DEFAULT_EDITOR_SETUP, DEFAULT_IMAGE_SETUP, DEFAULT_LIST_SETUP, DEFAULT_PAGE_SETUP, DEFAULT_PROJECT_METADATA, DEFAULT_TABLE_SETUP, DEFAULT_TYPOGRAPHY_SETUP } from '../config/defaults';
+import type { CustomBlockStyle, CustomStyle, ListSetup, ProjectMetadata, ProjectSettingsData, SpecialHeadingDefinition, TableSetup, TypographySetup } from '../types';
 import { normalizeExplorerPath } from '../utils/path-utils';
 import { resolveFontFamily } from '../config/font-families';
 
-export const PROJECT_SETTINGS_SCHEMA_VERSION = 4;
+export const PROJECT_SETTINGS_SCHEMA_VERSION = 5;
 
 export type ProjectSettingsInput = Partial<ProjectSettingsData> & Record<string, unknown>;
 
@@ -19,6 +19,7 @@ const KNOWN_SETTING_KEYS = new Set([
   'typographySetup',
   'listSetup',
   'tableSetup',
+  'imageSetup',
   'projectMetadata',
   'customStyles',
   'customBlockStyles',
@@ -133,8 +134,40 @@ function safeBoolAlias(value: unknown, primary: string, alias: string): boolean 
   return safeBool(record[primary]) || safeBool(record[alias]);
 }
 
-function safeColor(value: unknown, fallback: string): string {
-  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+function safeColor(value: unknown, fallback: string | undefined): string | undefined {
+  if (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) return value;
+  return fallback;
+}
+
+function normalizeSpecialHeadings(value: unknown): SpecialHeadingDefinition[] {
+  const fallback = DEFAULT_PAGE_SETUP.specialHeadings?.[0];
+  if (!fallback || !Array.isArray(value)) return cloneValue(DEFAULT_PAGE_SETUP.specialHeadings ?? []);
+
+  return value.filter(isPlainObject).slice(0, 50).map((item, index) => {
+    const source = item as Record<string, unknown>;
+    const id = safeText(source.id, '', 100);
+    return {
+      ...fallback,
+      id: /^[a-z0-9][a-z0-9_-]*$/i.test(id) ? id : `${fallback.id}-${index + 1}`,
+      name: safeText(source.name, fallback.name, 200),
+      directive: safeText(source.directive, fallback.directive, 100),
+      headingLevel: Math.trunc(safeNumber(source.headingLevel, fallback.headingLevel, 1, 6)),
+      counterStart: Math.trunc(safeNumber(source.counterStart, fallback.counterStart, 1, 9_999)),
+      counterPrefix: safeText(source.counterPrefix, fallback.counterPrefix, 200),
+      counterSuffix: safeText(source.counterSuffix, fallback.counterSuffix, 200),
+      breakBefore: safeBool(source.breakBefore),
+      includeInToc: safeBool(source.includeInToc),
+      fontFamily: resolveFontFamily(safeText(source.fontFamily, fallback.fontFamily, 200), fallback.fontFamily),
+      fontSize: safeNumber(source.fontSize, fallback.fontSize, 1, 200),
+      color: safeColor(source.color, fallback.color),
+      isBold: safeBoolAlias(source, 'isBold', 'bold'),
+      isItalic: safeBoolAlias(source, 'isItalic', 'italic'),
+      isAllCaps: safeBoolAlias(source, 'isAllCaps', 'allCaps'),
+      lineHeight: safeNumber(source.lineHeight, fallback.lineHeight, 0.5, 5),
+      marginTop: safeNumber(source.marginTop, fallback.marginTop, 0, 500),
+      marginBottom: safeNumber(source.marginBottom, fallback.marginBottom, 0, 500)
+    };
+  });
 }
 
 function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsData {
@@ -155,7 +188,7 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
       const cell = row[cellKey];
       const fallback = defaultRow[cellKey];
       cell.content = safeText(cell.content, '', 10_000);
-      cell.fontFamily = resolveFontFamily(cell.fontFamily, fallback.fontFamily);
+      cell.fontFamily = resolveFontFamily(cell.fontFamily ?? '', fallback.fontFamily ?? '');
       cell.fontSize = safeNumber(cell.fontSize, fallback.fontSize, 1, 200);
       cell.color = safeColor(cell.color, fallback.color);
       cell.isBold = safeBoolAlias(cell, 'isBold', 'bold');
@@ -169,7 +202,7 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
   for (const level of ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const) {
     const style = toc[level];
     const fallback = defaultToc[level];
-    style.fontFamily = resolveFontFamily(style.fontFamily, fallback.fontFamily);
+    style.fontFamily = resolveFontFamily(style.fontFamily ?? '', fallback.fontFamily ?? '');
     style.fontSize = safeNumber(style.fontSize, fallback.fontSize, 1, 200);
     style.color = safeColor(style.color, fallback.color);
     style.isBold = safeBoolAlias(style, 'isBold', 'bold');
@@ -180,7 +213,7 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
   for (const key of Object.keys(settings.typographySetup) as Array<keyof TypographySetup>) {
     const style = settings.typographySetup[key];
     const fallback = DEFAULT_TYPOGRAPHY_SETUP[key];
-    style.fontFamily = resolveFontFamily(style.fontFamily, fallback.fontFamily);
+    style.fontFamily = resolveFontFamily(style.fontFamily ?? '', fallback.fontFamily ?? '');
     style.fontSize = safeNumber(style.fontSize, fallback.fontSize, 1, 200);
     style.color = safeColor(style.color, fallback.color);
     style.isBold = safeBoolAlias(style, 'isBold', 'bold');
@@ -193,7 +226,7 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
   for (const key of Object.keys(settings.listSetup) as Array<keyof ListSetup>) {
     const style = settings.listSetup[key];
     const fallback = DEFAULT_LIST_SETUP[key];
-    style.fontFamily = resolveFontFamily(style.fontFamily, fallback.fontFamily);
+    style.fontFamily = resolveFontFamily(style.fontFamily ?? '', fallback.fontFamily ?? '');
     style.fontSize = safeNumber(style.fontSize, fallback.fontSize, 1, 200);
     style.color = safeColor(style.color, fallback.color);
     style.isBold = safeBoolAlias(style, 'isBold', 'bold');
@@ -208,7 +241,7 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
   for (const key of Object.keys(settings.tableSetup) as Array<keyof TableSetup>) {
     const style = settings.tableSetup[key];
     const fallback = DEFAULT_TABLE_SETUP[key];
-    style.fontFamily = resolveFontFamily(style.fontFamily, fallback.fontFamily);
+    style.fontFamily = resolveFontFamily(style.fontFamily ?? '', fallback.fontFamily ?? '');
     style.fontSize = safeNumber(style.fontSize, fallback.fontSize, 1, 200);
     style.headerTextColor = safeColor(style.headerTextColor, fallback.headerTextColor);
     style.headerBackground = safeColor(style.headerBackground, fallback.headerBackground);
@@ -223,6 +256,14 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
     style.marginBottom = safeNumber(style.marginBottom, fallback.marginBottom, 0, 200);
   }
 
+  page.specialHeadings = normalizeSpecialHeadings(page.specialHeadings);
+
+  settings.imageSetup.alignment = ['left', 'center', 'right'].includes(settings.imageSetup.alignment)
+    ? settings.imageSetup.alignment
+    : DEFAULT_IMAGE_SETUP.alignment;
+  settings.imageSetup.marginTop = safeNumber(settings.imageSetup.marginTop, DEFAULT_IMAGE_SETUP.marginTop, 0, 200);
+  settings.imageSetup.marginBottom = safeNumber(settings.imageSetup.marginBottom, DEFAULT_IMAGE_SETUP.marginBottom, 0, 200);
+
   settings.customStyles = settings.customStyles.map(style => ({
     ...style,
     id: safeText(style.id, '', 100),
@@ -231,7 +272,7 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
     closingPair: safeText(style.closingPair, '', 100),
     fontFamily: resolveFontFamily(style.fontFamily, ''),
     fontSize: safeNumber(style.fontSize, 0, 0, 200),
-    color: safeColor(style.color, '#000000'),
+    color: safeColor(style.color, undefined),
     isBold: safeBoolAlias(style, 'isBold', 'bold'),
     isItalic: safeBoolAlias(style, 'isItalic', 'italic')
   }));
@@ -243,7 +284,7 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
     icon: safeText(style.icon, '', 500),
     fontFamily: resolveFontFamily(style.fontFamily, ''),
     fontSize: safeNumber(style.fontSize, 0, 0, 200),
-    color: safeColor(style.color, '#000000'),
+    color: safeColor(style.color, undefined),
     isBold: safeBoolAlias(style, 'isBold', 'bold'),
     isItalic: safeBoolAlias(style, 'isItalic', 'italic'),
     lineHeight: safeNumber(style.lineHeight, settings.typographySetup.paragraph.lineHeight, 0.5, 5),
@@ -270,6 +311,7 @@ export function createDefaultProjectSettings(): ProjectSettingsData {
     typographySetup: cloneValue(DEFAULT_TYPOGRAPHY_SETUP),
     listSetup: cloneValue(DEFAULT_LIST_SETUP),
     tableSetup: cloneValue(DEFAULT_TABLE_SETUP),
+    imageSetup: cloneValue(DEFAULT_IMAGE_SETUP),
     projectMetadata: cloneValue(DEFAULT_PROJECT_METADATA),
     customStyles: [],
     customBlockStyles: [],
@@ -295,6 +337,7 @@ export function normalizeProjectSettings(raw: unknown): { settings: ProjectSetti
     typographySetup: mergeWithDefaults(DEFAULT_TYPOGRAPHY_SETUP, firstPresent(input, ['typographySetup', 'typography', 'textStyles'])),
     listSetup: mergeWithDefaults(DEFAULT_LIST_SETUP, firstPresent(input, ['listSetup', 'lists', 'listStyles'])),
     tableSetup: mergeWithDefaults(DEFAULT_TABLE_SETUP, firstPresent(input, ['tableSetup', 'tables', 'tableStyles'])),
+    imageSetup: mergeWithDefaults(DEFAULT_IMAGE_SETUP, firstPresent(input, ['imageSetup', 'images', 'imageSettings'])),
     projectMetadata: mergeWithDefaults(DEFAULT_PROJECT_METADATA, firstPresent(input, ['projectMetadata', 'metadata', 'documentMetadata'])),
     customStyles: normalizeStyleList<CustomStyle>(firstPresent(input, ['customStyles', 'styles', 'inlineStyles'])),
     customBlockStyles: normalizeStyleList<CustomBlockStyle>(firstPresent(input, ['customBlockStyles', 'blockStyles', 'customBlocks'])),

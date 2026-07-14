@@ -1,0 +1,192 @@
+/* Project-flow dialogs and transient notices. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.modal-dialog {
+  display: flex;
+  width: 400px;
+  max-width: 90vw;
+  max-height: min(680px, calc(100vh - 24px));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+}
+
+.modal-title {
+  margin: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 14pt;
+  font-weight: 600;
+}
+
+.modal-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.modal-body p {
+  margin: 0;
+  font-size: 10.5pt;
+}
+
+.modal-options,
+.modal-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-option-group {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+}
+
+.modal-option-group .btn,
+.recent-item-btn {
+  width: 100%;
+}
+
+.modal-option-group .btn {
+  justify-content: flex-start;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--ui-border);
+}
+
+.modal-dialog .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 10pt;
+  font-weight: 600;
+}
+
+.recent-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.recent-item-name {
+  flex-grow: 1;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-item-kind {
+  font-size: 9pt;
+}
+
+.modal-divider {
+  height: 1px;
+  margin: 8px 0;
+}
+
+.notice-container {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.notice {
+  max-width: 300px;
+  padding: 12px 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: auto;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.notice.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.notice.removing {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.notice-error {
+  border-left: 4px solid var(--ui-accent);
+}
+
+.notice-warning,
+.notice-info {
+  border-left: 4px solid var(--ui-text);
+}
+
+@media (max-width: 900px) {
+  .modal-dialog {
+    width: min(560px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .modal-actions {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .modal-actions .btn {
+    flex: 1 1 140px;
+  }
+
+  .recent-item-btn {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .recent-item-name {
+    width: 100%;
+  }
+
+  .notice-container {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+  }
+
+  .notice {
+    max-width: none;
+  }
+}

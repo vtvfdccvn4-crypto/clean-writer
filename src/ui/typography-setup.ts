@@ -70,7 +70,7 @@ function syncInputs() {
   const fallbackFont = currentElementKey === 'paragraph' ? DEFAULT_BODY_FONT_FAMILY : DEFAULT_HEADING_FONT_FAMILY;
   setFontFamilySelectValue(fontFamilySelect, currentStyle.fontFamily, fallbackFont);
   fontSizeInput.value = String(currentStyle.fontSize ?? 11);
-  fontColorInput.value = currentStyle.color;
+  fontColorInput.value = currentStyle.color || '#000000';
   setDrawerToggleButtonState(fontBoldCheck, currentStyle.isBold);
   setDrawerToggleButtonState(fontItalicCheck, currentStyle.isItalic);
   lineHeightInput.value = String(currentStyle.lineHeight ?? 1.5);

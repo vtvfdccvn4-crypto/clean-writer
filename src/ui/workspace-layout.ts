@@ -3,6 +3,8 @@ type ActivityView = string | null;
 const DEFAULT_EXPLORER_WIDTH = 304;
 const MIN_EXPLORER_WIDTH = 220;
 const MAX_EXPLORER_WIDTH = 520;
+let setActiveViewImpl: ((requestedView: string) => void) | null = null;
+let applyWidthImpl: ((width: number) => void) | null = null;
 
 function clampWidth(width: number): number {
   return Math.max(MIN_EXPLORER_WIDTH, Math.min(MAX_EXPLORER_WIDTH, width));
@@ -29,12 +31,13 @@ export function initWorkspaceLayout(): void {
     workspace.style.setProperty('--explorer-width', `${explorerWidth}px`);
     resizer.setAttribute('aria-valuenow', String(explorerWidth));
   };
+  applyWidthImpl = applyWidth;
 
   resizer.setAttribute('aria-valuemin', String(MIN_EXPLORER_WIDTH));
   resizer.setAttribute('aria-valuemax', String(MAX_EXPLORER_WIDTH));
 
-  const setActiveView = (requestedView: string) => {
-    activeView = activeView === requestedView ? null : requestedView;
+  const updateActiveView = (nextView: ActivityView) => {
+    activeView = nextView;
     workspace.classList.toggle('is-activity-collapsed', activeView === null);
     panels.forEach((panel, view) => { panel.hidden = view !== activeView; });
     buttons.forEach((button) => {
@@ -45,10 +48,18 @@ export function initWorkspaceLayout(): void {
     document.dispatchEvent(new CustomEvent<{ view: ActivityView }>('clear-writer-activity-view-changed', { detail: { view: activeView } }));
   };
 
+  const toggleActiveView = (requestedView: string) => {
+    updateActiveView(activeView === requestedView ? null : requestedView);
+  };
+
+  setActiveViewImpl = (requestedView: string) => {
+    updateActiveView(requestedView);
+  };
+
   buttons.forEach((button) => {
     button.addEventListener('click', () => {
       const view = button.dataset.activityView;
-      if (view && panels.has(view)) setActiveView(view);
+      if (view && panels.has(view)) toggleActiveView(view);
     });
   });
   document.getElementById('btn-activity-settings')?.addEventListener('click', () => document.getElementById('btn-settings')?.click());
@@ -113,5 +124,13 @@ export function initWorkspaceLayout(): void {
   });
 
   applyWidth(explorerWidth);
-  setActiveView('explorer');
+  updateActiveView('explorer');
+}
+
+export function setWorkspaceActivityView(view: 'explorer' | 'images' | 'outline'): void {
+  setActiveViewImpl?.(view);
+}
+
+export function resetWorkspaceExplorerWidth(): void {
+  applyWidthImpl?.(DEFAULT_EXPLORER_WIDTH);
 }

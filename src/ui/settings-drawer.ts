@@ -1,5 +1,4 @@
 import { closeAllDrawers, closeDrawer, openDrawer } from './drawer-manager';
-import { initializeDrawerColorControls } from './components/drawerControls';
 
 export const SETTINGS_TAB_ACTIVATED_EVENT = 'clear-writer-settings-tab-activated';
 
@@ -8,6 +7,7 @@ export type SettingsTabId =
   | 'typography'
   | 'lists'
   | 'tables'
+  | 'images'
   | 'toc'
   | 'special-headings'
   | 'editor'
@@ -83,5 +83,4 @@ export function initSettingsDrawer(): void {
     });
   });
 
-  initializeDrawerColorControls(drawer);
 }

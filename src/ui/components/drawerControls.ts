@@ -238,6 +238,8 @@ export function initializeDrawerColorControls(root: ParentNode = document): void
       if (!normalized) return;
       colorInput.value = normalized;
       codeField.value = normalized;
+      // Let the owning drawer persist a colour entered through the hex field.
+      colorInput.dispatchEvent(new Event('input', { bubbles: true }));
     };
 
     sync();

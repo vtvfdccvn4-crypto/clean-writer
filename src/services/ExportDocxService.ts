@@ -20,6 +20,7 @@ import {
 } from 'docx';
 import type { PageSetup, TypographySetup, ListSetup, TableSetup, ProjectMetadata, TableStyle } from '../types';
 import { parseMarkdownImages } from '../images/markdownImages';
+import { resolveHeaderFooterCell, resolveListStyle, resolveTypographyStyle } from '../styles/resolved-document-styles';
 
 export interface ExportDocxDependencies {
   parseHtml(html: string): ParentNode;
@@ -39,23 +40,6 @@ interface ConvertContext {
 // 1 mm = 1440 / 25.4 = 56.6929 twips (1/20th of a point)
 function mmToTwip(mm: number): number {
   return Math.round(mm * 56.6929);
-}
-
-function normalizeDocxColor(value?: string): string | undefined {
-  if (!value) return undefined;
-  const color = value.trim();
-  const hex = color.match(/^#?([0-9a-f]{6})$/i);
-  if (hex) return hex[1].toUpperCase();
-  const shortHex = color.match(/^#?([0-9a-f]{3})$/i);
-  if (shortHex) {
-    return shortHex[1].split('').map(character => character.repeat(2)).join('').toUpperCase();
-  }
-  const rgb = color.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)(?:\s*,[^)]*)?\)$/i);
-  if (!rgb) return undefined;
-  return rgb.slice(1, 4)
-    .map(component => Math.max(0, Math.min(255, Math.round(Number(component)))).toString(16).padStart(2, '0'))
-    .join('')
-    .toUpperCase();
 }
 
 /**
@@ -161,7 +145,6 @@ function parseInlineChildren(
           text,
           bold: currentStyles.bold || undefined,
           italics: currentStyles.italic || undefined,
-          color: normalizeDocxColor(currentStyles.color),
           font: currentStyles.fontFamily || undefined,
           size: currentStyles.fontSize ? currentStyles.fontSize * 2 : undefined, // half-points
           underline: currentStyles.underline ? {} : undefined
@@ -179,7 +162,6 @@ function parseInlineChildren(
         const href = el.getAttribute('href') || '';
         const linkRuns = parseInlineChildren(el, {
           ...currentStyles,
-          color: '0563C1', // blue link
           underline: true
         }, dependencies, imageCache, maxBodyWidthPx) as TextRun[];
 
@@ -227,14 +209,7 @@ function parseInlineChildren(
         if (tagName === 'u') newStyles.underline = true;
 
         if (tagName === 'span') {
-          // Narrow Element to HTMLElement to access style property
-          const htmlEl = el as HTMLElement;
-          const colorAttr = el.getAttribute('color');
-          const styleColor = htmlEl.style ? htmlEl.style.color : undefined;
-          const color = colorAttr || styleColor;
-          if (color) {
-            newStyles.color = normalizeDocxColor(color);
-          }
+          // Span styling is intentionally stripped back to bare text.
         }
 
         children.push(...parseInlineChildren(el, newStyles, dependencies, imageCache, maxBodyWidthPx));
@@ -259,7 +234,7 @@ function convertBlockNodeToDocx(
   context: ConvertContext
 ): any {
   const tagName = el.tagName.toLowerCase();
-  const pStyle = typographySetup.paragraph;
+  const pStyle = resolveTypographyStyle(typographySetup.paragraph);
   const maxBodyWidthPx = Math.max(
     1,
     (pageSetup.paperWidth - pageSetup.marginLeft - pageSetup.marginRight) * (96 / 25.4)
@@ -270,7 +245,7 @@ function convertBlockNodeToDocx(
       const runs = parseInlineChildren(el, {
         fontFamily: pStyle.fontFamily,
         fontSize: pStyle.fontSize,
-        color: pStyle.color.startsWith('#') ? pStyle.color.substring(1) : pStyle.color
+        color: pStyle.color,
       }, dependencies, imageCache, maxBodyWidthPx);
 
       if (context) {
@@ -296,12 +271,12 @@ function convertBlockNodeToDocx(
     case 'h6': {
       const levelNum = Number(tagName.substring(1));
       const headingKey = `h${levelNum}` as keyof TypographySetup;
-      const hStyle = typographySetup[headingKey] || pStyle;
+      const hStyle = resolveTypographyStyle(typographySetup[headingKey] || pStyle);
 
       const runs = parseInlineChildren(el, {
         fontFamily: hStyle.fontFamily,
         fontSize: hStyle.fontSize,
-        color: hStyle.color.startsWith('#') ? hStyle.color.substring(1) : hStyle.color,
+        color: hStyle.color,
         bold: hStyle.isBold,
         italic: hStyle.isItalic
       }, dependencies, imageCache, maxBodyWidthPx);
@@ -347,30 +322,15 @@ function convertBlockNodeToDocx(
       const currentLevel = context ? context.listLevel : 0;
 
       const marker = el.getAttribute('data-marker') || 'asterisk';
-      let listStyle = listSetup?.ulAsterisk;
-      if (marker === 'dash') listStyle = listSetup?.ulDash;
-      if (marker === 'plus') listStyle = listSetup?.ulPlus;
-      if (!listStyle) {
-        listStyle = {
-          fontFamily: pStyle.fontFamily,
-          fontSize: pStyle.fontSize,
-          color: pStyle.color,
-          isBold: false,
-          isItalic: false,
-          lineHeight: pStyle.lineHeight,
-          bulletIcon: '•',
-          bulletColor: pStyle.color,
-          marginLeft: 18,
-          paddingLeft: 18
-        };
-      }
+      let listStyle = marker === 'dash' ? listSetup?.ulDash : marker === 'plus' ? listSetup?.ulPlus : listSetup?.ulAsterisk;
+      listStyle = resolveListStyle(listStyle, pStyle.fontFamily);
 
       Array.from(el.children).forEach((li) => {
         if (li.tagName.toLowerCase() !== 'li') return;
         const runs = parseInlineChildren(li, {
           fontFamily: listStyle.fontFamily || pStyle.fontFamily,
           fontSize: listStyle.fontSize || pStyle.fontSize,
-          color: (listStyle.color || pStyle.color).startsWith('#') ? (listStyle.color || pStyle.color).substring(1) : (listStyle.color || pStyle.color),
+          color: listStyle.color,
           bold: listStyle.isBold,
           italic: listStyle.isItalic
         }, dependencies, imageCache, maxBodyWidthPx);
@@ -382,7 +342,7 @@ function convertBlockNodeToDocx(
           text: `${listStyle.bulletIcon || '•'} `,
           font: listStyle.fontFamily || pStyle.fontFamily,
           size: (listStyle.fontSize || pStyle.fontSize) * 2,
-          color: (listStyle.bulletColor || listStyle.color || pStyle.color).replace(/^#/, '')
+          color: listStyle.bulletColor || listStyle.color,
         });
         paragraphs.push(new Paragraph({
           children: [markerRun, ...runs],
@@ -424,21 +384,7 @@ function convertBlockNodeToDocx(
       const currentLevel = context ? context.listLevel : 0;
 
       const marker = el.getAttribute('data-marker') || 'period';
-      let listStyle = marker === 'paren' ? listSetup?.olParen : listSetup?.ol;
-      if (!listStyle) {
-        listStyle = {
-          fontFamily: pStyle.fontFamily,
-          fontSize: pStyle.fontSize,
-          color: pStyle.color,
-          isBold: false,
-          isItalic: false,
-          lineHeight: pStyle.lineHeight,
-          bulletIcon: '1.',
-          bulletColor: pStyle.color,
-          marginLeft: 18,
-          paddingLeft: 18
-        };
-      }
+      let listStyle = resolveListStyle(marker === 'paren' ? listSetup?.olParen : listSetup?.ol, pStyle.fontFamily);
 
       Array.from(el.children).forEach((li, idx) => {
         if (li.tagName.toLowerCase() !== 'li') return;
@@ -449,13 +395,13 @@ function convertBlockNodeToDocx(
           font: listStyle.fontFamily || pStyle.fontFamily,
           size: (listStyle.fontSize || pStyle.fontSize) * 2,
           bold: true,
-          color: (listStyle.color || pStyle.color).startsWith('#') ? (listStyle.color || pStyle.color).substring(1) : (listStyle.color || pStyle.color)
+          color: listStyle.color,
         });
 
         const runs = parseInlineChildren(li, {
           fontFamily: listStyle.fontFamily || pStyle.fontFamily,
           fontSize: listStyle.fontSize || pStyle.fontSize,
-          color: (listStyle.color || pStyle.color).startsWith('#') ? (listStyle.color || pStyle.color).substring(1) : (listStyle.color || pStyle.color),
+          color: listStyle.color,
           bold: listStyle.isBold,
           italic: listStyle.isItalic
         }, dependencies, imageCache, maxBodyWidthPx);
@@ -533,13 +479,7 @@ function convertBlockNodeToDocx(
       const defaultTableStyle: TableStyle = {
         fontFamily: 'Calibri',
         fontSize: 10,
-        headerTextColor: '#000000',
-        headerBackground: '#F2F2F2',
         headerBold: true,
-        bodyTextColor: '#333333',
-        bodyBackground: '#FFFFFF',
-        alternateRowColor: '#F9F9F9',
-        borderColor: '#D3D3D3',
         borderWidth: 1,
         cellPadding: 6,
         marginTop: 0,
@@ -551,28 +491,23 @@ function convertBlockNodeToDocx(
       const tStyle = (tableSetup && tableSetup[tableStyleKey]) || defaultTableStyle;
 
       const rows: TableRow[] = [];
-      let bodyRowIndex = 0;
       const trElements = Array.from(el.querySelectorAll('tr'));
 
       trElements.forEach((tr) => {
         const cells: TableCell[] = [];
         const tdElements = Array.from(tr.children);
         const isHeader = tdElements.some(cell => cell.tagName.toLowerCase() === 'th');
-        const currentBodyRowIndex = isHeader ? -1 : bodyRowIndex++;
-
         tdElements.forEach((td) => {
           const cellBlocks: Paragraph[] = [];
           
           const cellFontFamily = tStyle.fontFamily || pStyle.fontFamily;
           const cellFontSize = tStyle.fontSize || pStyle.fontSize;
-          const cellColor = isHeader ? (tStyle.headerTextColor || '#000000') : (tStyle.bodyTextColor || '#333333');
           const cellBold = isHeader ? tStyle.headerBold : undefined;
 
           if (td.children.length === 0) {
             const runs = parseInlineChildren(td, {
               fontFamily: cellFontFamily,
               fontSize: cellFontSize,
-              color: cellColor.startsWith('#') ? cellColor.substring(1) : cellColor,
               bold: cellBold
             }, dependencies, imageCache, maxBodyWidthPx);
             cellBlocks.push(new Paragraph({ children: runs }));
@@ -591,27 +526,14 @@ function convertBlockNodeToDocx(
             });
           }
 
-          let shadingFill = tStyle.bodyBackground || '#FFFFFF';
-          if (isHeader) {
-            shadingFill = tStyle.headerBackground || '#F2F2F2';
-          } else if (currentBodyRowIndex % 2 === 1 && tStyle.alternateRowColor) {
-            shadingFill = tStyle.alternateRowColor;
-          }
-          
-          if (shadingFill && shadingFill.startsWith('#')) {
-            shadingFill = shadingFill.substring(1);
-          }
-
           const paddingTwips = mmToTwip((tStyle.cellPadding || 6) / 3.78);
           const borderStyle = {
             style: 'single',
             size: (tStyle.borderWidth || 1) * 8, // 1/8th of a pt
-            color: (tStyle.borderColor || '#D3D3D3').startsWith('#') ? (tStyle.borderColor || '#D3D3D3').substring(1) : (tStyle.borderColor || '#D3D3D3')
           };
 
           cells.push(new TableCell({
             children: cellBlocks,
-            shading: shadingFill ? { fill: shadingFill } : undefined,
             margins: {
               top: paddingTwips,
               bottom: paddingTwips,
@@ -679,7 +601,6 @@ function convertBlockNodeToDocx(
                 text: labelText,
                 font: pStyle.fontFamily,
                 size: pStyle.fontSize * 2,
-                color: '0563C1', // standard hyperlink blue
                 underline: {}
               })
             ];
@@ -713,15 +634,12 @@ function convertBlockNodeToDocx(
         const fontFamily = inlineStyles['font-family']?.replace(/['"]/g, '') || pStyle.fontFamily;
         const fontSizeStr = inlineStyles['font-size'];
         const fontSize = fontSizeStr ? parseFloat(fontSizeStr) : pStyle.fontSize;
-        const colorStr = inlineStyles['color'];
-        const color = colorStr ? (colorStr.startsWith('#') ? colorStr.substring(1) : colorStr) : pStyle.color;
         const bold = inlineStyles['font-weight'] === 'bold';
         const italic = inlineStyles['font-style'] === 'italic';
 
         const runs = parseInlineChildren(el, {
           fontFamily,
           fontSize,
-          color: color.startsWith('#') ? color.substring(1) : color,
           bold,
           italic
         }, dependencies, imageCache, maxBodyWidthPx);
@@ -786,12 +704,13 @@ function createHeaderFooter(
     if (!text) return [];
     const runs: any[] = [];
 
+    const resolvedCell = resolveHeaderFooterCell(cell, fontFamily);
     const textStyle = {
-      font: cell.fontFamily || fontFamily,
-      size: (cell.fontSize || fontSize) * 2,
-      bold: cell.isBold,
-      italics: cell.isItalic,
-      color: cell.color ? (cell.color.startsWith('#') ? cell.color.substring(1) : cell.color) : undefined
+      font: resolvedCell.fontFamily || fontFamily,
+      size: (resolvedCell.fontSize || fontSize) * 2,
+      color: resolvedCell.color,
+      bold: resolvedCell.isBold,
+      italics: resolvedCell.isItalic,
     };
 
     const appendText = (value: string) => {
@@ -847,10 +766,6 @@ function createHeaderFooter(
               })
             ],
             borders: {
-              top: { style: 'none', size: 0, color: 'auto' },
-              bottom: { style: 'none', size: 0, color: 'auto' },
-              left: { style: 'none', size: 0, color: 'auto' },
-              right: { style: 'none', size: 0, color: 'auto' }
             }
           }),
           new TableCell({
@@ -861,10 +776,6 @@ function createHeaderFooter(
               })
             ],
             borders: {
-              top: { style: 'none', size: 0, color: 'auto' },
-              bottom: { style: 'none', size: 0, color: 'auto' },
-              left: { style: 'none', size: 0, color: 'auto' },
-              right: { style: 'none', size: 0, color: 'auto' }
             }
           }),
           new TableCell({
@@ -875,10 +786,6 @@ function createHeaderFooter(
               })
             ],
             borders: {
-              top: { style: 'none', size: 0, color: 'auto' },
-              bottom: { style: 'none', size: 0, color: 'auto' },
-              left: { style: 'none', size: 0, color: 'auto' },
-              right: { style: 'none', size: 0, color: 'auto' }
             }
           })
         ]

@@ -3,6 +3,7 @@ import { ImageList } from './ImageList';
 import { state } from '../../state';
 import { ProjectService } from '../../services/ProjectService';
 import { importProjectImage } from '../../images/importProjectImage';
+import { buildProjectImageMarkdown } from '../../images/imageMarkdown';
 import { projectSession } from '../../services/ProjectSessionStore';
 import type { ProjectHealthReport } from '../../types';
 import type { Platform, WorkspaceSession } from '../../platform/types';
@@ -11,6 +12,7 @@ import { showNotice } from '../components/Notice';
 import { showConfirmDialog } from '../confirm-dialog';
 import type { WorkspaceRef } from '../../platform/types';
 import { closeAllDrawers } from '../drawer-manager';
+import { resetWorkspaceExplorerWidth, setWorkspaceActivityView } from '../workspace-layout';
 import {
   buildProjectHealthFailureMessage,
   buildRecoveryPromptMessage,
@@ -119,6 +121,7 @@ export class SidebarController {
           const session = await this.platform.workspaceRepository.open(ref);
           this.updateWorkspaceChip(session);
           await this.onLoadProject(ref, session);
+          setWorkspaceActivityView('explorer');
         }
       } catch (error) {
         console.error('Failed to create new project:', error);
@@ -158,6 +161,7 @@ export class SidebarController {
         try {
           await this.onSaveActiveFile();
           this.prepareForProjectTransition();
+          resetWorkspaceExplorerWidth();
           this.onCloseProject();
         } catch (error) {
           console.error('Failed to close project:', error);
@@ -262,7 +266,7 @@ export class SidebarController {
           return;
         }
 
-        const markdown = `![${altText}](<${imagePath}>)`;
+        const markdown = `\n${buildProjectImageMarkdown(imagePath, state.current.imageSetup).replace(/^!\[[^\]]*\]/, `![${altText}]`)}\n`;
         if (this.onInsertText) {
           const success = this.onInsertText(markdown);
           if (!success) {
@@ -319,6 +323,7 @@ export class SidebarController {
 
   private prepareForProjectTransition() {
     closeAllDrawers();
+    resetWorkspaceExplorerWidth();
     const modalHost = document.getElementById('project-flow-modal');
     if (modalHost) modalHost.innerHTML = '';
   }

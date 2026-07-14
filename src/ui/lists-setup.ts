@@ -12,12 +12,10 @@ type OrderedListKey = typeof orderedListKeys[number];
 const cloneListStyle = (style: ListStyle): ListStyle => ({
   fontFamily: style.fontFamily || DEFAULT_LIST_FONT_FAMILY,
   fontSize: style.fontSize ?? 11,
-  color: style.color || '#000000',
   isBold: !!style.isBold,
   isItalic: !!style.isItalic,
   lineHeight: style.lineHeight ?? 1.6,
   bulletIcon: style.bulletIcon || '',
-  bulletColor: style.bulletColor || '#000000',
   marginLeft: style.marginLeft ?? 20,
   paddingLeft: style.paddingLeft ?? 8
 });

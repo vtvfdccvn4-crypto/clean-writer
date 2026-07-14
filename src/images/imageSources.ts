@@ -45,8 +45,6 @@ export function resolveImageSource(source: string, assetResolver?: AssetResolver
 export function applyImageFallback(img: HTMLImageElement, originalSource: string): void {
   img.onerror = null;
   img.src = IMAGE_FALLBACK_SRC;
-  img.style.outline = '2px dashed #ef4444';
-  img.style.backgroundColor = '#fef2f2';
   img.title = `Broken Image Reference: ${originalSource}`;
 }
 

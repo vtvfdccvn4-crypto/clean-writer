@@ -81,6 +81,7 @@ export class ProjectSessionStore {
     if (patch.typographySetup) state.setTypographySetup(patch.typographySetup);
     if (patch.listSetup) state.setListSetup(patch.listSetup);
     if (patch.tableSetup) state.setTableSetup(patch.tableSetup);
+    if (patch.imageSetup) state.setImageSetup(patch.imageSetup);
     if (patch.projectMetadata) state.setProjectMetadata(patch.projectMetadata);
     if (patch.customStyles) state.setCustomStyles(patch.customStyles);
     if (patch.customBlockStyles) state.setCustomBlockStyles(patch.customBlockStyles);

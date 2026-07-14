@@ -1,44 +1,20 @@
 import { EditorView } from 'codemirror';
-import { EditorState, Compartment } from '@codemirror/state';
-import type { Extension } from '@codemirror/state';
-import {
-  crosshairCursor,
-  drawSelection,
-  dropCursor,
-  highlightActiveLine,
-  highlightActiveLineGutter,
-  highlightSpecialChars,
-  keymap,
-  lineNumbers,
-  rectangularSelection
-} from '@codemirror/view';
-import { markdown } from '@codemirror/lang-markdown';
-import {
-  bracketMatching,
-  defaultHighlightStyle,
-  foldGutter,
-  foldKeymap,
-  HighlightStyle,
-  indentOnInput,
-  syntaxHighlighting
-} from '@codemirror/language';
-import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap } from '@codemirror/autocomplete';
+import { Compartment, EditorState } from '@codemirror/state';
+import { keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { highlightSelectionMatches, searchKeymap, openSearchPanel } from '@codemirror/search';
-import { tags } from '@lezer/highlight';
+import { searchKeymap, openSearchPanel } from '@codemirror/search';
 
-import { customTheme } from './theme';
-import { pairingBindings, backspaceBinding } from './bindings/pairing';
-import { tabBinding } from './bindings/tabBinding';
-import { imageDecorationPlugin, type ImageEditorActions } from './extensions/imageDecorationPlugin';
-import { imageDropExtension } from './extensions/imageDropExtension';
-import { imagePasteExtension } from './extensions/imagePasteExtension';
-import { imageTheme } from './extensions/imageTheme';
-import { getCustomStylesExtension, updateCustomStyles } from './customStylesPlugin';
-import { getCustomBlockStylesExtension, updateCustomBlockStyles } from './customBlockStylesPlugin';
-import { state as appState } from '../state';
-import type { EditorSetup, TypographySetup } from '../types';
 import { DocumentSaveCoordinator } from './DocumentSaveCoordinator';
+import { createEditorBehavior } from './extensions/editorBehavior';
+import { customStyleHighlightingExtension } from './extensions/customStyleHighlighting';
+import { editorSpacingExtension } from './extensions/editorSpacing';
+import { imagePreviewExtension, type EditorImageAlignment, type EditorImageSourceResolver } from './extensions/imagePreviews';
+import { imagePasteExtension } from './extensions/imagePasteExtension';
+import type { PastedImageResult } from './extensions/imagePasteExtension';
+import { markdownAppearanceExtension } from './extensions/markdownAppearance';
+import { markdownLanguageExtension } from './extensions/markdown';
+import { state as appState } from '../state';
+import type { EditorSetup } from '../types';
 
 export interface EditorSelectionRange {
   from: number;
@@ -56,7 +32,6 @@ export interface MarkdownEditor {
   flush(): Promise<void>;
   hasUnsavedChanges(): boolean;
   destroy(): void;
-  updateCustomStyles(): void;
   openSearchPanel(): void;
   readonly view: EditorView;
 }
@@ -66,7 +41,8 @@ export interface EditorCallbacks {
   onError?: (error: unknown) => void;
   onSelectionChange?: (line: number) => void;
   onDirty?: (doc: string) => void;
-  imageActions?: ImageEditorActions;
+  resolveImageSource?: EditorImageSourceResolver;
+  onImageFile?: (file: File) => Promise<PastedImageResult | null>;
 }
 
 export function createEditor(
@@ -81,24 +57,6 @@ export function createEditor(
   };
   const changeQueue = new DocumentSaveCoordinator(callbacks.onChange, reportBackgroundSaveError);
 
-  const styleSearchPanelButtons = () => {
-    const panel = view?.dom?.querySelector('.cm-panel.cm-search');
-    if (!panel) return;
-    const buttons = Array.from(panel.querySelectorAll<HTMLButtonElement>('button'));
-    for (const button of buttons) {
-      const label = button.textContent?.trim().toLowerCase();
-      if (label === 'next') {
-        button.textContent = '→';
-        button.setAttribute('aria-label', 'Next match');
-        button.title = 'Next match';
-      } else if (label === 'previous') {
-        button.textContent = '←';
-        button.setAttribute('aria-label', 'Previous match');
-        button.title = 'Previous match';
-      }
-    }
-  };
-
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.selectionSet && !update.docChanged) {
       callbacks.onSelectionChange?.(update.state.doc.lineAt(update.state.selection.main.head).number);
@@ -111,94 +69,37 @@ export function createEditor(
     }
   });
 
-  const compartments = {
-    lineWrapping: new Compartment(),
-    markdownAppearance: new Compartment(),
-    lineNumbers: new Compartment(),
-    foldGutter: new Compartment(),
-    activeLine: new Compartment(),
-    specialCharacters: new Compartment(),
-    bracketMatching: new Compartment(),
-    closeBrackets: new Compartment(),
-    autocompletion: new Compartment(),
-    indentOnInput: new Compartment(),
-    multipleSelections: new Compartment(),
-    rectangularSelection: new Compartment(),
-    selectionMatches: new Compartment()
-  };
-
-  const optional = (enabled: boolean, extension: Extension): Extension =>
-    enabled ? extension : [];
-
-  const foldingControls = (setup: EditorSetup): Extension => {
-    const glyphs: Record<EditorSetup['foldGutterGlyph'], { openText: string; closedText: string }> = {
-      chevrons: { openText: '⌄', closedText: '›' },
-      triangles: { openText: '▾', closedText: '▸' },
-      arrows: { openText: '↓', closedText: '→' },
-      'plus-minus': { openText: '−', closedText: '+' }
-    };
-    const glyph = glyphs[setup.foldGutterGlyph] ?? glyphs.chevrons;
-    return foldGutter(glyph);
-  };
-
-  const markdownAppearance = (setup: EditorSetup, typography: TypographySetup) => {
-    const headings = [tags.heading1, tags.heading2, tags.heading3, tags.heading4, tags.heading5, tags.heading6];
-    const headingStyles = headings.map((tag, index) => ({
-      tag,
-      ...(setup.headingBold ? { fontWeight: '700' } : { fontWeight: 'normal' }),
-      ...(setup.headingColors ? { color: typography[`h${index + 1}` as keyof TypographySetup].color } : {})
-    }));
-
-    return syntaxHighlighting(HighlightStyle.define([
-      ...headingStyles,
-      { tag: tags.strong, fontWeight: setup.strongBold ? '700' : 'normal' },
-      { tag: tags.emphasis, fontStyle: setup.emphasisItalic ? 'italic' : 'normal' },
-      { tag: [tags.link, tags.url], textDecoration: setup.linkUnderline ? 'underline' : 'none' }
-    ]));
-  };
-
+  const markdownAppearance = new Compartment();
+  const customStyleHighlighting = new Compartment();
+  const imagePreviews = new Compartment();
   const editorSetup = appState.current.editorSetup;
+  let markdownSetup = editorSetup;
+  const behavior = createEditorBehavior(editorSetup);
 
   const state = EditorState.create({
     doc: initialContent,
     extensions: [
-      keymap.of([...pairingBindings, backspaceBinding, tabBinding]),
       history(),
-      drawSelection(),
-      dropCursor(),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       keymap.of([
-        ...closeBracketsKeymap,
-        ...defaultKeymap,
-        ...searchKeymap,
-        ...historyKeymap,
-        ...foldKeymap,
-        ...completionKeymap
+      ...defaultKeymap,
+      ...searchKeymap,
+      ...historyKeymap
       ]),
-      markdown(),
-      customTheme,
-      compartments.lineWrapping.of(optional(editorSetup.lineWrapping, EditorView.lineWrapping)),
-      compartments.markdownAppearance.of(markdownAppearance(editorSetup, appState.current.typographySetup)),
-      compartments.lineNumbers.of(optional(editorSetup.lineNumbers, lineNumbers())),
-      compartments.foldGutter.of(optional(editorSetup.foldGutter, foldingControls(editorSetup))),
-      compartments.activeLine.of(optional(editorSetup.highlightActiveLine, [highlightActiveLine(), highlightActiveLineGutter()])),
-      compartments.specialCharacters.of(optional(editorSetup.highlightSpecialCharacters, highlightSpecialChars())),
-      compartments.bracketMatching.of(optional(editorSetup.bracketMatching, bracketMatching())),
-      compartments.closeBrackets.of(optional(editorSetup.closeBrackets, closeBrackets())),
-      compartments.autocompletion.of(optional(editorSetup.autocompletion, autocompletion())),
-      compartments.indentOnInput.of(optional(editorSetup.indentOnInput, indentOnInput())),
-      compartments.multipleSelections.of(EditorState.allowMultipleSelections.of(editorSetup.multipleSelections)),
-      compartments.rectangularSelection.of(optional(editorSetup.rectangularSelection, [rectangularSelection(), crosshairCursor()])),
-      compartments.selectionMatches.of(optional(editorSetup.highlightSelectionMatches, highlightSelectionMatches())),
-      updateListener,
-      ...(callbacks.imageActions ? [
-        imageTheme,
-        imageDecorationPlugin(callbacks.imageActions),
-        imagePasteExtension(callbacks.imageActions),
-        imageDropExtension(callbacks.imageActions)
-      ] : []),
-      getCustomStylesExtension(),
-      getCustomBlockStylesExtension()
+      markdownLanguageExtension(),
+      editorSpacingExtension(),
+      markdownAppearance.of(markdownAppearanceExtension(editorSetup, appState.current.typographySetup)),
+      customStyleHighlighting.of(customStyleHighlightingExtension(
+        appState.current.customStyles,
+        appState.current.customBlockStyles,
+        appState.current.pageSetup.specialHeadings || [],
+        editorSetup
+      )),
+      ...behavior.extensions,
+      imagePreviews.of(callbacks.resolveImageSource
+        ? imagePreviewExtension(callbacks.resolveImageSource, appState.current.imageSetup.alignment)
+        : []),
+      ...(callbacks.onImageFile ? [imagePasteExtension(callbacks.onImageFile)] : []),
+      updateListener
     ]
   });
 
@@ -207,44 +108,57 @@ export function createEditor(
     parent
   });
 
-  const onCustomStylesChanged = () => updateCustomStyles(view);
-  const onCustomBlockStylesChanged = () => updateCustomBlockStyles(view);
   const onEditorSetupChanged = () => {
-    const setup = appState.current.editorSetup;
-    view.dispatch({
-      effects: [
-        compartments.lineWrapping.reconfigure(optional(setup.lineWrapping, EditorView.lineWrapping)),
-        compartments.markdownAppearance.reconfigure(markdownAppearance(setup, appState.current.typographySetup)),
-        compartments.lineNumbers.reconfigure(optional(setup.lineNumbers, lineNumbers())),
-        compartments.foldGutter.reconfigure(optional(setup.foldGutter, foldingControls(setup))),
-        compartments.activeLine.reconfigure(optional(setup.highlightActiveLine, [highlightActiveLine(), highlightActiveLineGutter()])),
-        compartments.specialCharacters.reconfigure(optional(setup.highlightSpecialCharacters, highlightSpecialChars())),
-        compartments.bracketMatching.reconfigure(optional(setup.bracketMatching, bracketMatching())),
-        compartments.closeBrackets.reconfigure(optional(setup.closeBrackets, closeBrackets())),
-        compartments.autocompletion.reconfigure(optional(setup.autocompletion, autocompletion())),
-        compartments.indentOnInput.reconfigure(optional(setup.indentOnInput, indentOnInput())),
-        compartments.multipleSelections.reconfigure(EditorState.allowMultipleSelections.of(setup.multipleSelections)),
-        compartments.rectangularSelection.reconfigure(optional(setup.rectangularSelection, [rectangularSelection(), crosshairCursor()])),
-        compartments.selectionMatches.reconfigure(optional(setup.highlightSelectionMatches, highlightSelectionMatches()))
-      ]
-    });
+    const setup: EditorSetup = appState.current.editorSetup;
+    behavior.reconfigure(view, setup);
+    if (markdownSetup.headingBold !== setup.headingBold
+      || markdownSetup.strongBold !== setup.strongBold
+      || markdownSetup.emphasisItalic !== setup.emphasisItalic
+      || markdownSetup.linkUnderline !== setup.linkUnderline) {
+      view.dispatch({
+        effects: [
+          markdownAppearance.reconfigure(markdownAppearanceExtension(setup, appState.current.typographySetup)),
+          customStyleHighlighting.reconfigure(customStyleHighlightingExtension(
+            appState.current.customStyles,
+            appState.current.customBlockStyles,
+            appState.current.pageSetup.specialHeadings || [],
+            setup
+          ))
+        ]
+      });
+    }
+    markdownSetup = setup;
   };
+  appState.addEventListener('editor-setup-changed', onEditorSetupChanged);
   const onTypographySetupChanged = () => {
     view.dispatch({
-      effects: compartments.markdownAppearance.reconfigure(
-        markdownAppearance(appState.current.editorSetup, appState.current.typographySetup)
-      )
+      effects: markdownAppearance.reconfigure(markdownAppearanceExtension(appState.current.editorSetup, appState.current.typographySetup))
     });
   };
-  const searchPanelObserver = new MutationObserver(() => {
-    styleSearchPanelButtons();
-  });
-  searchPanelObserver.observe(view.dom, { childList: true, subtree: true });
-  
-  appState.addEventListener('custom-styles-changed', onCustomStylesChanged);
-  appState.addEventListener('custom-block-styles-changed', onCustomBlockStylesChanged);
-  appState.addEventListener('editor-setup-changed', onEditorSetupChanged);
+  const onCustomStylesChanged = () => {
+    view.dispatch({
+      effects: customStyleHighlighting.reconfigure(customStyleHighlightingExtension(
+        appState.current.customStyles,
+        appState.current.customBlockStyles,
+        appState.current.pageSetup.specialHeadings || [],
+        appState.current.editorSetup
+      ))
+    });
+  };
   appState.addEventListener('typography-setup-changed', onTypographySetupChanged);
+  appState.addEventListener('page-setup-changed', onCustomStylesChanged);
+  appState.addEventListener('custom-styles-changed', onCustomStylesChanged);
+  appState.addEventListener('custom-block-styles-changed', onCustomStylesChanged);
+  const onImageSetupChanged = () => {
+    if (!callbacks.resolveImageSource) return;
+    view.dispatch({
+      effects: imagePreviews.reconfigure(imagePreviewExtension(
+        callbacks.resolveImageSource,
+        appState.current.imageSetup.alignment as EditorImageAlignment
+      ))
+    });
+  };
+  appState.addEventListener('image-setup-changed', onImageSetupChanged);
 
   return {
     getValue: () => view.state.doc.toString(),
@@ -294,19 +208,15 @@ export function createEditor(
     hasUnsavedChanges: () => changeQueue.hasUnsavedChanges(),
     destroy: () => {
       changeQueue.cancel();
-      searchPanelObserver.disconnect();
-      appState.removeEventListener('custom-styles-changed', onCustomStylesChanged);
-      appState.removeEventListener('custom-block-styles-changed', onCustomBlockStylesChanged);
       appState.removeEventListener('editor-setup-changed', onEditorSetupChanged);
       appState.removeEventListener('typography-setup-changed', onTypographySetupChanged);
+      appState.removeEventListener('page-setup-changed', onCustomStylesChanged);
+      appState.removeEventListener('custom-styles-changed', onCustomStylesChanged);
+      appState.removeEventListener('custom-block-styles-changed', onCustomStylesChanged);
+      appState.removeEventListener('image-setup-changed', onImageSetupChanged);
       view.destroy();
     },
-    updateCustomStyles: () => updateCustomStyles(view),
-    openSearchPanel: () => {
-      openSearchPanel(view);
-      requestAnimationFrame(styleSearchPanelButtons);
-      setTimeout(styleSearchPanelButtons, 0);
-    },
+    openSearchPanel: () => openSearchPanel(view),
     get view() { return view; }
   };
 }

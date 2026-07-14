@@ -19,7 +19,7 @@ function previewExportIconMarkup(): string {
 
 function previewWordIconMarkup(): string {
   return `
-    <svg class="toolbar-icon toolbar-icon--docx" viewBox="0 0 16 16" aria-hidden="true" focusable="false" style="color: #2b579a;">
+    <svg class="toolbar-icon toolbar-icon--docx" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
       <path d="M4 3h5.1L12 5.9v6.35A.75.75 0 0 1 11.25 13h-7.5A.75.75 0 0 1 3 12.25V4a1 1 0 0 1 1-1Z" />
       <text x="7.5" y="10.2" font-family="system-ui, sans-serif" font-size="5" font-weight="bold" fill="currentColor" text-anchor="middle">W</text>
     </svg>
@@ -28,7 +28,7 @@ function previewWordIconMarkup(): string {
 
 export const previewPanelTemplate = (): string => `
   <aside class="preview-pane pane is-project-closed" aria-label="Preview" aria-hidden="true">
-    <div class="preview-toolbar panel-bar">
+    <div class="preview-toolbar panel-bar panel-header">
       <div class="toolbar-status">
         <span class="status-dot"></span>
         <button id="btn-full-doc" class="toolbar-icon-button toolbar-text-button is-active" type="button" aria-pressed="true" title="Merged preview" aria-label="Merged preview">
@@ -38,13 +38,13 @@ export const previewPanelTemplate = (): string => `
       </div>
     </div>
 
-    <div class="preview-scroll-container">
+    <div class="preview-scroll-container panel-content">
       <div id="paged-stage" class="paged-stage">
         <!-- Paged.js injects pages here -->
       </div>
     </div>
 
-    <div class="preview-footer-toolbar panel-bar">
+    <div class="preview-footer-toolbar panel-bar panel-footer">
       <div class="panel-actions preview-export-actions">
         <button id="btn-export-pdf" class="toolbar-icon-button" type="button" aria-label="Export PDF" title="Export to PDF">
           ${previewExportIconMarkup()}

@@ -2,23 +2,15 @@
   display: grid;
   gap: 6px;
   font-size: inherit;
-  color: inherit;
-}
-
-.symbol-search-field span {
-  color: var(--drawer-field-label-color);
 }
 
 .symbol-search-field input {
   width: 100%;
   min-height: 30px;
   padding: 5px 8px;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.1);
+  border: 1px solid var(--ui-border-soft);
   border-radius: 4px;
-  outline: 0;
   font-size: var(--drawer-font-size);
-  color: var(--drawer-control-text-color);
 }
 
 .symbol-picker-section {
@@ -38,14 +30,12 @@
 .symbol-group-title {
   font-size: var(--drawer-card-header-size);
   font-weight: var(--drawer-card-header-weight);
-  color: var(--drawer-card-header-color);
   margin: 0;
 }
 
 .symbol-picker-section-head > :last-child:not(:first-child) {
   font-size: var(--drawer-font-size);
   font-weight: 400;
-  color: var(--drawer-field-label-color);
 }
 
 .symbol-picker-categories {
@@ -60,7 +50,6 @@
 
 .symbol-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
   gap: 6px;
 }
 
@@ -70,35 +59,17 @@
   min-height: 32px;
   place-items: center;
   padding: 0;
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--ui-border-subtle);
   border-radius: 4px;
   cursor: pointer;
   transition:
-    border-color 120ms ease,
-    background-color 120ms ease,
     transform 120ms ease;
-  color: var(--drawer-control-text-color);
 }
 
 .symbol-tile:hover,
-.symbol-tile:focus-visible {
-  background: rgba(224, 234, 228, 0.9);
-  border-color: rgba(64, 90, 120, 0.2);
-}
-
-.symbol-tile:focus-visible {
-  outline: 2px solid rgba(64, 90, 120, 0.22);
-  outline-offset: 2px;
-}
-
 .symbol-tile-glyph {
   display: block;
   line-height: 1;
-}
-
-.symbol-tile-recent {
-  background: rgba(64, 90, 120, 0.06);
 }
 
 .symbol-picker-empty {

@@ -1,11 +1,13 @@
 import type { TableSetup, TableStyle } from '../../state';
+import { resolveTableStyle } from '../../styles/resolved-document-styles';
 export function generateTableCss(setup: TableSetup): string {
   const number = (value: number, fallback: number, max: number): number => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? Math.max(0, Math.min(max, parsed)) : fallback;
   };
 
-  const buildTableCss = (styleNumber: 1 | 2, config: TableStyle) => {
+  const buildTableCss = (styleNumber: 1 | 2, input: TableStyle) => {
+    const config = resolveTableStyle(input);
     const selector = `table[data-table-style="${styleNumber}"]`;
     return `
       .pagedjs_page_content ${selector} {
@@ -15,8 +17,6 @@ export function generateTableCss(setup: TableSetup): string {
         border-spacing: 0;
         font-family: ${config.fontFamily} !important;
         font-size: ${number(config.fontSize, 10, 200)}pt !important;
-        color: ${config.bodyTextColor};
-        background: ${config.bodyBackground};
         break-inside: auto;
       }
 
@@ -36,9 +36,9 @@ export function generateTableCss(setup: TableSetup): string {
       }
 
       .pagedjs_page_content ${selector} thead th {
+        font-weight: ${config.headerBold ? '700' : '400'};
         color: ${config.headerTextColor};
         background: ${config.headerBackground};
-        font-weight: ${config.headerBold ? '700' : '400'};
       }
 
       .pagedjs_page_content ${selector} tbody td {

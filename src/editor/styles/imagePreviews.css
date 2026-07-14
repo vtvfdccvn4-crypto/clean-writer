@@ -1,0 +1,25 @@
+/* A bounded inline widget avoids CodeMirror's unstable block replacement path. */
+.cm-image-preview-source {
+  display: none;
+}
+
+.cm-image-preview-align-left {
+  text-align: left;
+}
+
+.cm-image-preview-align-center {
+  text-align: center;
+}
+
+.cm-image-preview-align-right {
+  text-align: right;
+}
+
+.cm-image-preview {
+  display: inline-block;
+  max-width: min(18rem, 100%);
+  max-height: 10rem;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+  object-fit: contain;
+}

@@ -16,9 +16,12 @@ import { EditorStatusController, type EditorSaveStatus } from './EditorStatusCon
 import { EditorSaveCoordinator } from './EditorSaveCoordinator';
 import { DocumentActivationCoordinator } from './DocumentActivationCoordinator';
 import { WelcomeController } from './WelcomeController';
+import { AppScreenController } from './AppScreenController';
 import { ExportOrchestrationController } from './ExportOrchestrationController';
 import { BackgroundExportPaginator } from './BackgroundExportPaginator';
-import { importProjectImage } from '../images/importProjectImage';
+import { importPastedImage } from '../images/importPastedImage';
+import { parseMarkdownImages } from '../images/markdownImages';
+import { resolveMarginContent } from '../preview/CssGenerator';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -29,6 +32,7 @@ export class EditorManager {
   private readonly documentSession = new DocumentSessionController();
   private readonly activation: DocumentActivationCoordinator;
   private readonly welcome: WelcomeController;
+  private readonly screens: AppScreenController;
   private platform: Platform;
   private readonly exportOrchestration: ExportOrchestrationController;
   private readonly backgroundExportPaginator: BackgroundExportPaginator;
@@ -42,9 +46,15 @@ export class EditorManager {
     this.previewPane = document.querySelector('.preview-pane')!;
     this.preview = new PreviewCoordinator(this.pagedStage, this.platform.assetResolver);
     this.backgroundExportPaginator = new BackgroundExportPaginator();
+    const welcomeScreen = document.getElementById('welcome-screen-root')!;
     this.welcome = new WelcomeController({
-      editorContainer: this.editorContainer,
+      welcomeContainer: welcomeScreen,
       workspaceRepository: this.platform.workspaceRepository
+    });
+    this.screens = new AppScreenController({
+      welcomeScreen,
+      workspaceScreen: document.querySelector<HTMLElement>('.workspace-shell')!,
+      workspaceStatusBar: document.querySelector<HTMLElement>('.workspace-status-bar')!
     });
     this.exportOrchestration = new ExportOrchestrationController({
       compileSnapshot: () => this.compileExportSnapshot(),
@@ -54,7 +64,11 @@ export class EditorManager {
           pageSetup: state.current.pageSetup,
           typographySetup: state.current.typographySetup,
           listSetup: state.current.listSetup,
-          tableSetup: state.current.tableSetup
+          tableSetup: state.current.tableSetup,
+          resolvedMarginImageSources: collectResolvedMarginImageSources(
+            state.current.pageSetup,
+            this.platform.assetResolver
+          )
         });
         return {
           ...paginated,
@@ -189,7 +203,8 @@ export class EditorManager {
       return;
     }
 
-    this.welcome.setVisible(false);
+    this.welcome.destroy();
+    this.screens.showWorkspace();
     this.setPreviewVisible(true);
 
     if (isFullDocMode) {
@@ -207,7 +222,7 @@ export class EditorManager {
     this.updateActiveSectionLabel(null);
     this.documentSession.clearPendingFocus();
     this.documentSession.destroyActive();
-    this.welcome.setVisible(true);
+    this.screens.showWelcome();
     this.welcome.render();
 
     this.preview.clear();
@@ -229,7 +244,6 @@ export class EditorManager {
     this.updateSaveStatus('idle');
     this.updateActiveSectionLabel('Full Document', 'Full Document Mode');
     this.documentSession.clearPendingFocus();
-    this.editorContainer.innerHTML = '<div style="padding: 40px; color: var(--text-muted); text-align: center;">Editor disabled in Full Document mode. Select a section to edit.</div>';
     
     const { sections } = state.current;
     if (!projectRef) throw new Error('No project is open.');
@@ -326,24 +340,34 @@ export class EditorManager {
         this.updateSaveStatus('saving');
 
         try {
-          const [compiledPreview] = await Promise.all([
-            this.preview.compileDocument(markdownToCompile, 'single-document-edit'),
-            session.writeSection(filename, newDoc)
-          ]);
+          let saved = await session.writeSection(filename, newDoc);
+          if (!saved) {
+            const refreshedSession = await this.platform.workspaceRepository.open(projectRef);
+            saved = await refreshedSession.writeSection(filename, newDoc);
+          }
+          if (!saved) throw new Error(`Workspace rejected writes for ${filename}.`);
 
           // Compilation and session updates are asynchronous. Only the newest edit may
           // update the preview if several callbacks complete out of order.
           if (!this.preview.isCurrent(changeRevision)
             || this.currentFilePath !== filename
             || state.current.activeFile !== filename) return;
-          
+
           DraftRecoveryStore.clearDraft(projectRef.id, filename);
           DraftRecoveryStore.markSaved(projectRef.id, filename);
           this.updateSaveStatus('saved');
           this.notifyProjectStatsChanged();
 
-          // Two-Lane engine
-          this.preview.publish(compiledPreview, changeRevision);
+          try {
+            const compiledPreview = await this.preview.compileDocument(markdownToCompile, 'single-document-edit');
+            if (!this.preview.isCurrent(changeRevision)
+              || this.currentFilePath !== filename
+              || state.current.activeFile !== filename) return;
+            // Two-Lane engine
+            this.preview.publish(compiledPreview, changeRevision);
+          } catch (previewError) {
+            console.warn(`[EditorManager] Preview refresh failed for ${filename}.`, previewError);
+          }
         } catch (error) {
           if (!this.preview.isCurrent(changeRevision)
             || this.currentFilePath !== filename
@@ -359,24 +383,17 @@ export class EditorManager {
       onSelectionChange: (line: number) => {
         this.preview.navigateToSourceLine(line);
       },
-      imageActions: {
-        onImageFile: async (file: File) => {
-          try {
-            const image = await importProjectImage(session, file, this.platform.assetResolver);
-            if (!image) {
-              showNotice('The image could not be saved to this project.', 'error');
-              return null;
-            }
-            return image.markdown;
-          } catch (error) {
-            console.error('[EditorManager] Failed to import editor image.', error);
-            showNotice('The image could not be imported.', 'error');
-            return null;
-          }
-        },
-        resolveImageSource: async (source: string) => {
-          await this.platform.assetResolver.preloadImages([source]);
-          return this.platform.assetResolver.resolveSync(source);
+      resolveImageSource: async (source: string) => {
+        await this.platform.assetResolver.preloadImages([source]);
+        return this.platform.assetResolver.resolveSync(source);
+      },
+      onImageFile: async (file: File) => {
+        try {
+          return await importPastedImage(session, file, filename, this.platform.assetResolver, state.current.imageSetup);
+        } catch (error) {
+          console.error('[EditorManager] Failed to import pasted image.', error);
+          showNotice('The pasted image could not be added to this project.', 'error');
+          return null;
         }
       }
     };
@@ -541,4 +558,30 @@ export class EditorManager {
     this.statusController.setStatus(status);
   }
 
+}
+
+function collectResolvedMarginImageSources(
+  pageSetup: typeof state.current.pageSetup,
+  assetResolver: Platform['assetResolver']
+): Record<string, string> {
+  const resolved: Record<string, string> = {};
+  const cells = [
+    pageSetup.header?.left,
+    pageSetup.header?.center,
+    pageSetup.header?.right,
+    pageSetup.footer?.left,
+    pageSetup.footer?.center,
+    pageSetup.footer?.right
+  ];
+
+  for (const cell of cells) {
+    if (!cell?.content) continue;
+    const content = resolveMarginContent(cell.content, 1);
+    for (const image of parseMarkdownImages(content)) {
+      if (resolved[image.source]) continue;
+      resolved[image.source] = assetResolver.resolveSync(image.source);
+    }
+  }
+
+  return resolved;
 }

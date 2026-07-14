@@ -1,4 +1,5 @@
 import type { PageSetup } from '../../state';
+import { resolveHeaderFooterCell, resolvePageTocStyles, resolveSpecialHeadingStyle } from '../../styles/resolved-document-styles';
 import { state } from '../../state';
 
 export const resolveMarginContent = (content: string, pageNumber?: number) => {
@@ -56,20 +57,23 @@ const formatContent = (content: string) => {
 
 const renderMarginBox = (box: string, cell?: any) => {
   if (!cell || !cell.content) return '';
+  const resolved = resolveHeaderFooterCell(cell);
   return `
     @${box} {
-      content: ${formatContent(cell.content)};
-      font-family: "${cell.fontFamily}", sans-serif;
-      font-size: ${cell.fontSize}pt;
-      color: ${cell.color};
-      font-weight: ${cell.isBold ? 'bold' : 'normal'};
-      font-style: ${cell.isItalic ? 'italic' : 'normal'};
-      text-align: ${cell.horizontalAlign || 'center'};
-      vertical-align: ${cell.verticalAlign || 'middle'};
+      content: ${formatContent(resolved.content)};
+      font-family: "${resolved.fontFamily}", sans-serif;
+      font-size: ${resolved.fontSize}pt;
+      color: ${resolved.color};
+      font-weight: ${resolved.isBold ? 'bold' : 'normal'};
+      font-style: ${resolved.isItalic ? 'italic' : 'normal'};
+      text-align: ${resolved.horizontalAlign || 'center'};
+      vertical-align: ${resolved.verticalAlign || 'middle'};
       white-space: pre-wrap;
     }
   `;
 };
+
+const escapeCssAttributeValue = (value: string): string => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
 export function generatePageCss(s: PageSetup): string {
   const isWorker = window.location.search.includes('worker=true');
@@ -80,36 +84,33 @@ export function generatePageCss(s: PageSetup): string {
 
   const header = shouldShowHeaders ? (s.header || emptyBox) : emptyBox;
   const footer = shouldShowHeaders ? (s.footer || emptyBox) : emptyBox;
-  const defaultTocStyle = {
-    fontFamily: 'Times New Roman',
-    fontSize: 11,
-    color: '#000000',
-    isBold: false,
-    isItalic: false,
-    isAllCaps: false
-  };
   const tocLineHeight = typeof s.toc?.lineHeight === 'number' && Number.isFinite(s.toc.lineHeight)
     ? Math.min(3, Math.max(0.5, s.toc.lineHeight))
     : 1.2;
-  const specialHeadingCss = (s.specialHeadings || []).map(item => `
-    .special-heading[data-special-heading-id="${item.id}"] {
+  const tocStyles = resolvePageTocStyles(s);
+  const specialHeadingCss = (s.specialHeadings || []).map(item => {
+    const style = resolveSpecialHeadingStyle(item);
+    const id = escapeCssAttributeValue(item.id);
+    return `
+    .special-heading[data-special-heading-id="${id}"] {
       break-before: ${item.breakBefore ? 'page' : 'auto'} !important;
       page-break-before: ${item.breakBefore ? 'always' : 'auto'} !important;
     }
-    .pagedjs_page_content .special-heading[data-special-heading-id="${item.id}"] {
-      font-family: "${item.fontFamily}", serif !important;
-      font-size: ${item.fontSize}pt !important;
-      color: ${item.color} !important;
-      font-weight: ${item.isBold ? 'bold' : 'normal'} !important;
-      font-style: ${item.isItalic ? 'italic' : 'normal'} !important;
-      text-transform: ${item.isAllCaps ? 'uppercase' : 'none'} !important;
-      line-height: ${item.lineHeight} !important;
-      margin-top: ${item.marginTop}pt !important;
-      margin-bottom: ${item.marginBottom}pt !important;
+    .pagedjs_page_content .special-heading[data-special-heading-id="${id}"] {
+      font-family: "${style.fontFamily}", serif !important;
+      font-size: ${style.fontSize}pt !important;
+      color: ${style.color} !important;
+      font-weight: ${style.isBold ? 'bold' : 'normal'} !important;
+      font-style: ${style.isItalic ? 'italic' : 'normal'} !important;
+      text-transform: ${style.isAllCaps ? 'uppercase' : 'none'} !important;
+      line-height: ${style.lineHeight} !important;
+      margin-top: ${style.marginTop}pt !important;
+      margin-bottom: ${style.marginBottom}pt !important;
     }
-  `).join('');
+  `;
+  }).join('');
   const renderTocLevelStyle = (level: number) => {
-    const style = s.toc?.[`h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'] || defaultTocStyle;
+    const style = tocStyles[`h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'];
     return `
       .table-of-contents .toc-item.toc-level-${level} {
         font-family: "${style.fontFamily}", serif;
@@ -167,12 +168,10 @@ export function generatePageCss(s: PageSetup): string {
     ${s.showGuidelines && !window.location.search.includes('worker=true') ? `
     /* Preview Guidelines */
     .pagedjs_page_content {
-      outline: 1px dashed rgba(255, 100, 100, 0.4) !important;
       outline-offset: -1px;
     }
     .pagedjs_margin-top-left, .pagedjs_margin-top-center, .pagedjs_margin-top-right,
     .pagedjs_margin-bottom-left, .pagedjs_margin-bottom-center, .pagedjs_margin-bottom-right {
-      outline: 1px dashed rgba(100, 200, 100, 0.5) !important;
       outline-offset: -1px;
     }
     ` : ''}
@@ -196,9 +195,7 @@ export function generatePageCss(s: PageSetup): string {
 
     .heading-number {
       font: inherit;
-      color: inherit;
     }
-    .special-heading-number { font: inherit; color: inherit; }
     ${specialHeadingCss}
 
     .page-no-header {

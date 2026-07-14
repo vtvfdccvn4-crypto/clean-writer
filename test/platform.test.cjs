@@ -24,7 +24,7 @@ describe('Platform Adapter Contract Tests', () => {
     assert.equal(session.kind, 'memory');
     
     const settings = await session.readSettings();
-    assert.equal(settings.schemaVersion, 4);
+    assert.equal(settings.schemaVersion, 5);
 
     // Mutate settings
     await session.mutateSettings({ type: 'append-order', path: 'sections/intro.md' });

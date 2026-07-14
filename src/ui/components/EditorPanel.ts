@@ -28,7 +28,7 @@ function editorProjectSearchIconMarkup(): string {
 
 export const editorPanelTemplate = (): string => `
   <main class="editor-pane pane" aria-label="Markdown editor">
-    <div class="editor-toolbar panel-bar">
+    <div class="editor-toolbar panel-bar panel-header">
       <div class="toolbar-status">
         <span id="active-section-label" class="active-section-label" hidden></span>
       </div>
@@ -42,7 +42,7 @@ export const editorPanelTemplate = (): string => `
         </button>
       </div>
     </div>
-    <div class="editor-stage">
+    <div class="editor-stage panel-content">
       <div class="markdown-toolbar" role="toolbar" aria-label="Markdown formatting" aria-orientation="vertical">
         <button class="toolbar-text-button" type="button" data-markdown-command="heading-1" title="Heading 1">H1</button>
         <button class="toolbar-text-button" type="button" data-markdown-command="heading-2" title="Heading 2">H2</button>
@@ -63,5 +63,6 @@ export const editorPanelTemplate = (): string => `
         <!-- CodeMirror injects here -->
       </div>
     </div>
+    <div class="editor-footer panel-bar panel-footer" aria-hidden="true"></div>
   </main>
 `;

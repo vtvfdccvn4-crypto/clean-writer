@@ -32,6 +32,7 @@ export const ProjectService = {
         typographySetup: settings.typographySetup,
         listSetup: settings.listSetup,
         tableSetup: settings.tableSetup,
+        imageSetup: settings.imageSetup,
         projectMetadata: settings.projectMetadata,
         customStyles: settings.customStyles,
         customBlockStyles: settings.customBlockStyles,
@@ -248,7 +249,12 @@ export const ProjectService = {
   },
 
   /** Store an image and return its collision-safe, portable project path. */
-  async uploadImageWithPath(session: WorkspaceSession, filename: string, data: Uint8Array): Promise<string | null> {
+  async uploadImageWithPath(
+    session: WorkspaceSession,
+    filename: string,
+    data: Uint8Array,
+    options: { refreshTree?: boolean } = {}
+  ): Promise<string | null> {
     try {
       const existingImages = await session.listImages();
       let finalName = filename;
@@ -264,7 +270,7 @@ export const ProjectService = {
 
       const success = await session.writeImage(finalName, data);
       if (success) {
-        await this.refreshProjectTree(session);
+        if (options.refreshTree !== false) await this.refreshProjectTree(session);
         return finalName.startsWith('images/') ? finalName : `images/${finalName}`;
       }
       return null;

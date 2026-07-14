@@ -30,7 +30,7 @@ export const customInlineStylesContentTemplate = (): string => `
             sizeValue: '',
             sizeIncludeDefault: true,
             fontIncludeDefault: true,
-            colorValue: '#000000'
+            colorValue: '#000000',
           })}
           <div class="drawer-grid drawer-grid-2">
             <button type="submit" class="drawer-primary-button" id="cs-submit-btn">Apply</button>
@@ -87,7 +87,7 @@ export const customQuoteStylesContentTemplate = (): string => `
             sizeValue: '',
             sizeIncludeDefault: true,
             fontIncludeDefault: true,
-            colorValue: '#000000'
+            colorValue: '#000000',
           })}
           <section class="block-style-spacing">
             <div class="drawer-card-head">

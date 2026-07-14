@@ -2,6 +2,7 @@ import { pageSetupDrawerContentTemplate } from './PageSetupDrawer';
 import { typographyDrawerContentTemplate } from './TypographyDrawer';
 import { listsDrawerContentTemplate } from './ListsDrawer';
 import { tablesDrawerContentTemplate } from './TablesDrawer';
+import { imageSettingsDrawerContentTemplate } from './ImageSettingsDrawer';
 import { tocSetupDrawerContentTemplate } from './TocSetupDrawer';
 import { editorSettingsDrawerContentTemplate } from './EditorSettingsDrawer';
 import { specialHeadingsDrawerContentTemplate } from './SpecialHeadingsDrawer';
@@ -15,6 +16,7 @@ const settingsTabs = [
   ['typography', 'Typography styles'],
   ['lists', 'Lists'],
   ['tables', 'Tables'],
+  ['images', 'Images'],
   ['toc', 'TOC'],
   ['special-headings', 'Special headings'],
   ['editor', 'Editor settings'],
@@ -62,6 +64,7 @@ export const settingsDrawerTemplate = (): string => `
         ${renderSettingsPanel('typography', typographyDrawerContentTemplate())}
         ${renderSettingsPanel('lists', listsDrawerContentTemplate())}
         ${renderSettingsPanel('tables', tablesDrawerContentTemplate())}
+        ${renderSettingsPanel('images', imageSettingsDrawerContentTemplate())}
         ${renderSettingsPanel('toc', tocSetupDrawerContentTemplate())}
         ${renderSettingsPanel('special-headings', specialHeadingsDrawerContentTemplate())}
         ${renderSettingsPanel('editor', editorSettingsDrawerContentTemplate())}

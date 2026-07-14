@@ -1,4 +1,5 @@
 import type { PageSetup, TypographySetup, ListSetup, TableSetup } from '../state';
+import { DEFAULT_PAGE_SETUP } from '../config/defaults';
 import { RenderEngine, type RenderEngineOptions, type RenderResult } from './RenderEngine';
 import { PreviewViewport } from './PreviewViewport';
 import { previewMetrics } from '../perf/preview-metrics';
@@ -17,11 +18,7 @@ export class PreviewController {
   private navigation: PreviewNavigationCoordinator;
 
   private currentPageSetup: PageSetup = {
-    paperWidth: 210, paperHeight: 297,
-    marginTop: 25, marginBottom: 25,
-    marginLeft: 20, marginRight: 20,
-    header: { centerWidth: '100px', left: {content:'', fontFamily:'', fontSize:9, color:'', isBold:false, isItalic:false}, center: {content:'', fontFamily:'', fontSize:9, color:'', isBold:false, isItalic:false}, right: {content:'', fontFamily:'', fontSize:9, color:'', isBold:false, isItalic:false} },
-    footer: { centerWidth: '100px', left: {content:'', fontFamily:'', fontSize:9, color:'', isBold:false, isItalic:false}, center: {content:'', fontFamily:'', fontSize:9, color:'', isBold:false, isItalic:false}, right: {content:'', fontFamily:'', fontSize:9, color:'', isBold:false, isItalic:false} }
+    ...DEFAULT_PAGE_SETUP
   };
   private currentTypographySetup: TypographySetup | null = null;
   private currentListSetup: ListSetup | null = null;

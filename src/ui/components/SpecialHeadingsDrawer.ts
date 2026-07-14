@@ -15,8 +15,12 @@ export const specialHeadingsDrawerContentTemplate = (): string => `
     <section class="drawer-card">
       <div class="drawer-card-head"><span>Appearance</span></div>
       ${renderDrawerFontStyleStack({
-        fontId: 'special-heading-font', sizeId: 'special-heading-size', colorId: 'special-heading-color',
-        boldId: 'special-heading-bold', italicId: 'special-heading-italic', sizeValue: 11, colorValue: '#000000'
+        fontId: 'special-heading-font',
+        sizeId: 'special-heading-size',
+        colorId: 'special-heading-color',
+        boldId: 'special-heading-bold',
+        italicId: 'special-heading-italic',
+        colorValue: '#000000'
       })}
       ${renderDrawerControl('All caps', renderDrawerSwitchControl('special-heading-all-caps', 'All caps'))}
       ${renderDrawerControl('Line height', '<input id="special-heading-line-height" type="number" min="0.5" max="3" step="0.1" value="1.2">')}

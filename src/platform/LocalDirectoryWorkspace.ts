@@ -22,10 +22,6 @@ function createDefaultSettings(): ProjectSettingsData {
   return createDefaultProjectSettings();
 }
 
-function normalizeSettings(raw: unknown): ProjectSettingsData {
-  return normalizeProjectSettings(raw).settings;
-}
-
 export class LocalDirectoryWorkspaceSession implements WorkspaceSession {
   readonly kind = 'directory';
   readonly capabilities: WorkspaceCapabilities = {
@@ -74,7 +70,7 @@ export class LocalDirectoryWorkspaceSession implements WorkspaceSession {
 
   private async getSettings(): Promise<ProjectSettingsData> {
     if (!this.settingsHandle) return createDefaultSettings();
-    return normalizeSettings(await readJson<ProjectSettingsData>(this.settingsHandle));
+    return normalizeProjectSettings(await readJson<ProjectSettingsData>(this.settingsHandle)).settings;
   }
 
   private async writeSettingsSnapshot(settings: ProjectSettingsData): Promise<void> {

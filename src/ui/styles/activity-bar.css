@@ -1,0 +1,38 @@
+/* Left workspace toolbar */
+.activity-bar {
+  grid-area: activity;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+  height: auto;
+  min-height: 0;
+  padding: 10px 8px;
+  overflow: hidden;
+  background-color: var(--color-surface);
+}
+
+.activity-bar-primary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.activity-bar-button {
+  display: grid;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.activity-bar-button svg {
+  width: 18px;
+  height: 18px;
+}

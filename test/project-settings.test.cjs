@@ -35,7 +35,13 @@ test('untrusted settings values are clamped before CSS generation', () => {
     },
     typographySetup: {
       paragraph: { fontFamily: 'serif; color:red', fontSize: 99999, color: 'expression(alert(1))' }
-    }
+    },
+    customStyles: [{
+      id: 'unsafe-inline', openingPair: '{{', closingPair: '}}', color: 'red; background: url(https://evil.test)'
+    }],
+    customBlockStyles: [{
+      id: 'unsafe-block', prefix: '!!', color: 'expression(alert(1))'
+    }]
   });
 
   assert.equal(settings.pageSetup.paperWidth, 210);
@@ -51,6 +57,8 @@ test('untrusted settings values are clamped before CSS generation', () => {
   assert.equal(settings.typographySetup.paragraph.fontFamily, 'Times New Roman');
   assert.equal(settings.typographySetup.paragraph.fontSize, 200);
   assert.equal(settings.typographySetup.paragraph.color, '#000000');
+  assert.equal(settings.customStyles[0].color, undefined);
+  assert.equal(settings.customBlockStyles[0].color, undefined);
 });
 
 after(async () => {
@@ -81,7 +89,7 @@ test('legacy project settings are migrated to the current schema', () => {
     legacyFlag: true
   });
 
-  assert.equal(settings.schemaVersion, 4);
+  assert.equal(settings.schemaVersion, 5);
   assert.deepEqual(settings.order, ['Folder/Subfolder', 'root.md']);
   assert.deepEqual(settings.pageBreaks, ['Folder/Subfolder/nested.md']);
   assert.deepEqual(settings.hiddenHeaders, ['Folder/Subfolder']);
@@ -94,16 +102,23 @@ test('legacy project settings are migrated to the current schema', () => {
   assert.equal(settings.pageSetup.toc.maxLevel, 6);
   assert.deepEqual(settings.pageSetup.toc.h1, {
     fontFamily: 'Times New Roman',
+    fontSize: 14,
+    color: '#000000',
+    isBold: false,
+    isItalic: false,
+    isAllCaps: false
+  });
+  assert.deepEqual(settings.pageSetup.toc.h6, {
+    fontFamily: 'Times New Roman',
     fontSize: 11,
     color: '#000000',
     isBold: false,
     isItalic: false,
     isAllCaps: false
   });
-  assert.deepEqual(settings.pageSetup.toc.h6, settings.pageSetup.toc.h1);
   assert.equal(settings.projectMetadata.documentTitle, '');
-  assert.equal(settings.listSetup.ol.bulletIcon, 'decimal');
-  assert.equal(settings.listSetup.olParen.bulletIcon, 'decimal');
+  assert.equal(settings.listSetup.ol.bulletIcon, '1.');
+  assert.equal(settings.listSetup.olParen.bulletIcon, '1)');
   assert.equal(settings.tableSetup.table1.headerBackground, '#405a78');
   assert.equal(settings.tableSetup.table2.headerBackground, '#e8ece8');
   assert.equal(settings.customStyles.length, 1);

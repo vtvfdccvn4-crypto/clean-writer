@@ -6,6 +6,7 @@ export interface BackgroundPaginationInput {
   typographySetup: TypographySetup;
   listSetup: ListSetup;
   tableSetup: TableSetup;
+  resolvedMarginImageSources?: Record<string, string>;
 }
 
 type FrameResult = {

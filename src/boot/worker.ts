@@ -4,7 +4,6 @@ import type { PaginationTransport, AssetResolver } from '../platform/types';
 
 export function bootWorker(transport: PaginationTransport, assetResolver: AssetResolver) {
   document.body.classList.add('is-worker');
-  document.body.innerHTML = '<div class="preview-pane" style="background:transparent;"><div id="paged-stage" class="paged-stage" style="background:transparent; padding:0;"></div></div>';
   const printStyles = document.createElement('style');
   printStyles.id = 'pdf-worker-print-styles';
   printStyles.setAttribute('data-clear-writer-print-style', '');
@@ -72,7 +71,6 @@ function applyWorkerPrintStyles(style: HTMLStyleElement, pageSetup: any) {
         height: auto !important;
         min-height: 0 !important;
         max-height: none !important;
-        background: #ffffff !important;
       }
 
       .pagedjs_pages {
@@ -90,7 +88,6 @@ function applyWorkerPrintStyles(style: HTMLStyleElement, pageSetup: any) {
         max-height: none !important;
         margin: 0 !important;
         padding: 0 !important;
-        box-shadow: none !important;
       }
 
       .pagedjs_page {
@@ -101,7 +98,6 @@ function applyWorkerPrintStyles(style: HTMLStyleElement, pageSetup: any) {
       }
 
       .pagedjs_pagebox {
-        box-shadow: none !important;
       }
     }
   `;

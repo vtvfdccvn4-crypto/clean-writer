@@ -1,4 +1,5 @@
 import type { ListSetup, ListStyle } from '../../state';
+import { resolveListStyle } from '../../styles/resolved-document-styles';
 export function generateListCss(setup: ListSetup): string {
   const points = (value: number, fallback: number): number => {
     const numericValue = Number(value);
@@ -19,7 +20,7 @@ export function generateListCss(setup: ListSetup): string {
     .pagedjs_page_content ${selector} > li {
       font-family: ${config.fontFamily} !important;
       font-size: ${points(config.fontSize, 11)}pt !important;
-      color: ${config.color} !important;
+      color: ${config.color || 'inherit'} !important;
       font-weight: ${config.isBold ? 'bold' : 'normal'} !important;
       font-style: ${config.isItalic ? 'italic' : 'normal'} !important;
       line-height: ${Math.min(5, Math.max(0.5, Number(config.lineHeight) || 1.6))} !important;
@@ -33,7 +34,7 @@ export function generateListCss(setup: ListSetup): string {
       list-style: none !important;
     }
 
-    ${listTypography(selector, config)}
+    ${listTypography(selector, resolveListStyle(config))}
 
     .pagedjs_page_content ${selector} > li {
       display: grid;
@@ -46,11 +47,11 @@ export function generateListCss(setup: ListSetup): string {
       grid-column: 1;
       grid-row: 1;
       min-width: 0;
-      color: ${config.bulletColor} !important;
     }
 
     .pagedjs_page_content ${selector} > li > .document-list-marker::before {
       content: ${cssString(config.bulletIcon, '•')};
+      color: ${config.bulletColor || config.color || 'inherit'};
     }
 
     .pagedjs_page_content ${selector} > li > .document-list-content {
@@ -68,7 +69,7 @@ export function generateListCss(setup: ListSetup): string {
       counter-reset: document-ordered-list calc(attr(start type(<integer>), 1) - 1);
     }
 
-    ${listTypography(selector, config)}
+    ${listTypography(selector, resolveListStyle(config))}
 
     .pagedjs_page_content ${selector} > li {
       display: grid;
@@ -82,7 +83,6 @@ export function generateListCss(setup: ListSetup): string {
       grid-column: 1;
       grid-row: 1;
       min-width: 0;
-      color: ${config.bulletColor} !important;
     }
 
     .pagedjs_page_content ${selector} > li > .document-list-marker::before {
@@ -104,4 +104,3 @@ export function generateListCss(setup: ListSetup): string {
     ${buildOrderedListCss('ol[data-marker="paren"]', setup.olParen, ')')}
   `;
 }
-

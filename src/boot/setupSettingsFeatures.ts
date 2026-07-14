@@ -7,8 +7,10 @@ import { initPageSetupDrawer } from '../ui/page-setup';
 import { initProjectMetadataDrawer } from '../ui/project-metadata';
 import { initSpecialHeadingsDrawer } from '../ui/special-headings-setup';
 import { initTablesDrawer } from '../ui/tables-setup';
+import { initImageSettingsDrawer } from '../ui/image-settings-setup';
 import { initTocSetupDrawer } from '../ui/toc-setup';
 import { initTypographyDrawer } from '../ui/typography-setup';
+import { initializeDrawerColorControls } from '../ui/components/drawerControls';
 
 /** Registers settings feature drawers with their shared project-settings writer. */
 export function setupSettingsFeatures(
@@ -21,7 +23,9 @@ export function setupSettingsFeatures(
   initTypographyDrawer(async (typographySetup) => saveSettings({ typographySetup }));
   initListsDrawer(async (listSetup) => saveSettings({ listSetup }));
   initTablesDrawer(async (tableSetup) => saveSettings({ tableSetup }));
+  initImageSettingsDrawer(async (imageSetup) => saveSettings({ imageSetup }));
   initProjectMetadataDrawer(async (projectMetadata) => saveSettings({ projectMetadata }));
   initCustomStylesDrawer(platform, async (customStyles, customBlockStyles) => saveSettings({ customStyles, customBlockStyles }));
   setupEditorSettingsDrawer(async (editorSetup) => saveSettings({ editorSetup }));
+  initializeDrawerColorControls();
 }

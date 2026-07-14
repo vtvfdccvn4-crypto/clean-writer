@@ -1,28 +1,26 @@
 import type { WorkspaceRepository } from '../platform/types';
 
 export interface WelcomeControllerDependencies {
-  editorContainer: HTMLElement;
+  welcomeContainer: HTMLElement;
   workspaceRepository: WorkspaceRepository;
 }
 
-/** Renders the closed-project welcome surface and its recent-workspace actions. */
+/** Owns the standalone welcome screen shown when no project is open. */
 export class WelcomeController {
-  private readonly editorContainer: HTMLElement;
+  private readonly welcomeContainer: HTMLElement;
   private readonly workspaceRepository: WorkspaceRepository;
 
   constructor(dependencies: WelcomeControllerDependencies) {
-    this.editorContainer = dependencies.editorContainer;
+    this.welcomeContainer = dependencies.welcomeContainer;
     this.workspaceRepository = dependencies.workspaceRepository;
   }
 
-  setVisible(visible: boolean): void {
-    this.editorContainer.closest('.editor-pane')?.classList.toggle('is-welcome', visible);
-    this.editorContainer.closest('.workspace')?.classList.toggle('is-welcome', visible);
-    this.editorContainer.closest('.app-layout')?.classList.toggle('is-welcome', visible);
+  destroy(): void {
+    this.welcomeContainer.replaceChildren();
   }
 
   render(): void {
-    this.editorContainer.innerHTML = `
+    this.welcomeContainer.innerHTML = `
       <div class="empty-canvas welcome-screen">
         <div class="welcome-content">
           <header class="welcome-brand">
@@ -50,24 +48,24 @@ export class WelcomeController {
       </div>
     `;
 
-    this.editorContainer.querySelector('#empty-canvas-open-folder')?.addEventListener('click', () => {
+    this.welcomeContainer.querySelector('#empty-canvas-open-folder')?.addEventListener('click', () => {
       document.getElementById('btn-open')?.click();
     });
-    this.editorContainer.querySelector('#empty-canvas-new-project')?.addEventListener('click', () => {
+    this.welcomeContainer.querySelector('#empty-canvas-new-project')?.addEventListener('click', () => {
       document.getElementById('btn-new')?.click();
     });
     void this.populateRecents();
   }
 
   private async populateRecents(): Promise<void> {
-    const recentSection = this.editorContainer.querySelector<HTMLElement>('#welcome-recents');
-    const recentList = this.editorContainer.querySelector<HTMLElement>('#welcome-recent-list');
+    const recentSection = this.welcomeContainer.querySelector<HTMLElement>('#welcome-recents');
+    const recentList = this.welcomeContainer.querySelector<HTMLElement>('#welcome-recent-list');
     const listKnownWorkspaces = this.workspaceRepository.listKnownBrowserWorkspaces;
     if (!recentSection || !recentList || !listKnownWorkspaces) return;
 
     try {
       const recents = await listKnownWorkspaces.call(this.workspaceRepository);
-      if (!this.editorContainer.contains(recentSection) || recents.length === 0) return;
+      if (!this.welcomeContainer.contains(recentSection) || recents.length === 0) return;
 
       for (const entry of recents.slice(0, 8)) {
         const button = document.createElement('button');

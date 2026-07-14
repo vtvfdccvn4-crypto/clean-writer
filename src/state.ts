@@ -3,6 +3,7 @@ import type {
   TypographySetup,
   ListSetup,
   TableSetup,
+  ImageSetup,
   ProjectMetadata,
   AppStateData,
   FileNode,
@@ -27,6 +28,7 @@ const APP_STATE_EVENTS = {
   typographySetupChanged: 'typography-setup-changed',
   listSetupChanged: 'list-setup-changed',
   tableSetupChanged: 'table-setup-changed',
+  imageSetupChanged: 'image-setup-changed',
   projectMetadataChanged: 'project-metadata-changed',
   customStylesChanged: 'custom-styles-changed',
   customBlockStylesChanged: 'custom-block-styles-changed',
@@ -66,6 +68,7 @@ class AppState extends EventTarget {
   onTypographySetupChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.typographySetupChanged, listener); }
   onListSetupChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.listSetupChanged, listener); }
   onTableSetupChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.tableSetupChanged, listener); }
+  onImageSetupChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.imageSetupChanged, listener); }
   onProjectMetadataChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.projectMetadataChanged, listener); }
   onCustomStylesChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.customStylesChanged, listener); }
   onCustomBlockStylesChanged(listener: EventListener): () => void { return this.on(APP_STATE_EVENTS.customBlockStylesChanged, listener); }
@@ -149,6 +152,11 @@ class AppState extends EventTarget {
   setTableSetup(setup: TableSetup) {
     this.replaceProject({ tableSetup: setup });
     this.emit(APP_STATE_EVENTS.tableSetupChanged);
+  }
+
+  setImageSetup(setup: ImageSetup) {
+    this.replaceProject({ imageSetup: setup });
+    this.emit(APP_STATE_EVENTS.imageSetupChanged);
   }
 
   setProjectMetadata(metadata: ProjectMetadata) {

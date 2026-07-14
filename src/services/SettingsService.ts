@@ -13,6 +13,7 @@ export const SettingsService = {
         typographySetup: settings.typographySetup,
         listSetup: settings.listSetup,
         tableSetup: settings.tableSetup,
+        imageSetup: settings.imageSetup,
         projectMetadata: settings.projectMetadata,
         customStyles: settings.customStyles,
         customBlockStyles: settings.customBlockStyles,

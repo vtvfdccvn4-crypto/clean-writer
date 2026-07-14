@@ -23,10 +23,6 @@ function createDefaultSettings(): ProjectSettingsData {
   return createDefaultProjectSettings();
 }
 
-function normalizeSettings(raw: unknown): ProjectSettingsData {
-  return normalizeProjectSettings(raw).settings;
-}
-
 export class OPFSWorkspaceSession implements WorkspaceSession {
   readonly kind = 'opfs';
   readonly capabilities: WorkspaceCapabilities = {
@@ -61,7 +57,7 @@ export class OPFSWorkspaceSession implements WorkspaceSession {
   }
 
   private async getSettings(): Promise<ProjectSettingsData> {
-    return normalizeSettings(await readJson<ProjectSettingsData>(this.settingsHandle));
+    return normalizeProjectSettings(await readJson<ProjectSettingsData>(this.settingsHandle)).settings;
   }
 
   private async writeSettingsSnapshot(settings: ProjectSettingsData): Promise<void> {

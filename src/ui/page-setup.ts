@@ -11,18 +11,14 @@ import {
 import { DEFAULT_HEADER_FOOTER_FONT_FAMILY, setFontFamilySelectValue } from '../config/font-families';
 import { initSectionVisibilityControls } from './components/SectionVisibilityDrawer';
 import { bindProjectSettingsPanel } from './project-settings-panel';
+import { resolveHeaderFooterCell } from '../styles/resolved-document-styles';
 
 type HeaderFooterCellKey = 'left' | 'center' | 'right';
 
 const headerFooterCellKeys: HeaderFooterCellKey[] = ['left', 'center', 'right'];
 
 const cloneCell = (cell: HeaderFooterCell): HeaderFooterCell => ({
-  content: cell.content || '',
-  fontFamily: cell.fontFamily || DEFAULT_HEADER_FOOTER_FONT_FAMILY,
-  fontSize: cell.fontSize ?? 9,
-  color: cell.color || '#666666',
-  isBold: !!cell.isBold,
-  isItalic: !!cell.isItalic,
+  ...resolveHeaderFooterCell(cell),
   horizontalAlign: cell.horizontalAlign,
   verticalAlign: cell.verticalAlign
 });
@@ -123,7 +119,9 @@ export function initPageSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<v
       DEFAULT_HEADER_FOOTER_FONT_FAMILY
     );
     (document.getElementById(`${prefix}-size`) as HTMLSelectElement).value = String(cell.fontSize ?? 9);
-    (document.getElementById(`${prefix}-color`) as HTMLInputElement).value = cell.color || '#666666';
+    const colorInput = document.getElementById(`${prefix}-color`) as HTMLInputElement;
+    colorInput.value = resolveHeaderFooterCell(cell).color;
+    colorInput.dispatchEvent(new Event('input', { bubbles: true }));
     setDrawerToggleButtonState(`${prefix}-bold`, !!cell.isBold);
     setDrawerToggleButtonState(`${prefix}-italic`, !!cell.isItalic);
     (document.getElementById(`${prefix}-alignment`) as HTMLSelectElement).value = resolveDrawerAlignmentPreset(

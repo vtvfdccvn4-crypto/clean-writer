@@ -19,7 +19,6 @@ export function setupEditorSettingsDrawer(onSave: (setup: EditorSetup) => Promis
     ['editor-line-wrapping', 'lineWrapping'],
     ['editor-link-underline', 'linkUnderline'],
     ['editor-heading-bold', 'headingBold'],
-    ['editor-heading-colors', 'headingColors'],
     ['editor-strong-bold', 'strongBold'],
     ['editor-emphasis-italic', 'emphasisItalic'],
     ['editor-line-numbers', 'lineNumbers'],

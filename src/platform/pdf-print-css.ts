@@ -13,7 +13,6 @@ export function buildPdfPrintCss(pageSetup: PageSetup): string {
       height: auto !important;
       margin: 0 !important;
       padding: 0 !important;
-      background: #fff !important;
       overflow: visible !important;
     }
 
@@ -42,7 +41,6 @@ export function buildPdfPrintCss(pageSetup: PageSetup): string {
       min-height: ${pageSetup.paperHeight}mm !important;
       margin: 0 !important;
       border: 0 !important;
-      box-shadow: none !important;
       break-after: page;
       page-break-after: always;
     }
@@ -57,14 +55,12 @@ export function buildPdfPrintCss(pageSetup: PageSetup): string {
       margin: 0 !important;
       padding: 0 !important;
       overflow: hidden !important;
-      box-shadow: none !important;
     }
 
     .pagedjs_pagebox {
       width: 100% !important;
       height: 100% !important;
       overflow: hidden !important;
-      box-shadow: none !important;
     }
 
     .pagedjs_page:last-child {

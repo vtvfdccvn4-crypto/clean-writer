@@ -2,7 +2,7 @@ export interface HeaderFooterCell {
   content: string;
   fontFamily: string;
   fontSize: number; // pt
-  color: string;
+  color?: string;
   isBold: boolean;
   isItalic: boolean;
   verticalAlign?: 'top' | 'middle' | 'bottom';
@@ -19,7 +19,7 @@ export interface HeaderFooterRow {
 export interface TocStyle {
   fontFamily: string;
   fontSize: number;
-  color: string;
+  color?: string;
   isBold: boolean;
   isItalic: boolean;
   isAllCaps: boolean;
@@ -50,7 +50,7 @@ export interface SpecialHeadingDefinition {
   includeInToc: boolean;
   fontFamily: string;
   fontSize: number;
-  color: string;
+  color?: string;
   isBold: boolean;
   isItalic: boolean;
   isAllCaps: boolean;
@@ -76,7 +76,7 @@ export interface PageSetup {
 export interface TypographyStyle {
   fontFamily: string;
   fontSize: number; // pt
-  color: string;
+  color?: string;
   isBold: boolean;
   isItalic: boolean;
   lineHeight: number;
@@ -97,12 +97,12 @@ export interface TypographySetup {
 export interface ListStyle {
   fontFamily: string;
   fontSize: number; // pt
-  color: string;
+  color?: string;
   isBold: boolean;
   isItalic: boolean;
   lineHeight: number;
   bulletIcon: string;
-  bulletColor: string;
+  bulletColor?: string;
   marginLeft: number; // pt from the content edge to the marker
   paddingLeft: number; // pt between the marker and list-item text
 }
@@ -118,13 +118,13 @@ export interface ListSetup {
 export interface TableStyle {
   fontFamily: string;
   fontSize: number;
-  headerTextColor: string;
-  headerBackground: string;
+  headerTextColor?: string;
+  headerBackground?: string;
   headerBold: boolean;
-  bodyTextColor: string;
-  bodyBackground: string;
-  alternateRowColor: string;
-  borderColor: string;
+  bodyTextColor?: string;
+  bodyBackground?: string;
+  alternateRowColor?: string;
+  borderColor?: string;
   borderWidth: number;
   cellPadding: number;
   marginTop: number;
@@ -134,6 +134,12 @@ export interface TableStyle {
 export interface TableSetup {
   table1: TableStyle;
   table2: TableStyle;
+}
+
+export interface ImageSetup {
+  alignment: 'left' | 'center' | 'right';
+  marginTop: number;
+  marginBottom: number;
 }
 
 export interface ProjectMetadata {
@@ -155,7 +161,7 @@ export interface CustomStyle {
   closingPair: string;
   fontFamily: string;
   fontSize: number;
-  color: string;
+  color?: string;
   isBold: boolean;
   isItalic: boolean;
 }
@@ -167,7 +173,7 @@ export interface CustomBlockStyle {
   icon: string;
   fontFamily: string;
   fontSize: number;
-  color: string;
+  color?: string;
   isBold: boolean;
   isItalic: boolean;
   lineHeight?: number;
@@ -190,7 +196,6 @@ export interface EditorSetup {
   linkUnderline: boolean;
   fontSize: string;
   headingBold: boolean;
-  headingColors: boolean;
   strongBold: boolean;
   emphasisItalic: boolean;
   lineNumbers: boolean;
@@ -251,6 +256,7 @@ export interface ProjectSettingsData {
   typographySetup: TypographySetup;
   listSetup: ListSetup;
   tableSetup: TableSetup;
+  imageSetup: ImageSetup;
   projectMetadata: ProjectMetadata;
   customStyles: CustomStyle[];
   customBlockStyles: CustomBlockStyle[];
@@ -268,6 +274,7 @@ export interface AppStateData {
   typographySetup: TypographySetup;
   listSetup: ListSetup;
   tableSetup: TableSetup;
+  imageSetup: ImageSetup;
   projectMetadata: ProjectMetadata;
   customStyles: CustomStyle[];
   customBlockStyles: CustomBlockStyle[];
@@ -279,6 +286,7 @@ export interface ProjectSettingsSnapshot {
   typographySetup: TypographySetup;
   listSetup: ListSetup;
   tableSetup: TableSetup;
+  imageSetup: ImageSetup;
   projectMetadata: ProjectMetadata;
   customStyles: CustomStyle[];
   customBlockStyles: CustomBlockStyle[];

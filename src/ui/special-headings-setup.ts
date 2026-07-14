@@ -18,7 +18,7 @@ export function initSpecialHeadingsDrawer(onSave: (setup: PageSetup) => Promise<
     setDrawerToggleButtonState(get<HTMLButtonElement>('special-heading-toc'), definition.includeInToc);
     setFontFamilySelectValue(get<HTMLSelectElement>('special-heading-font'), definition.fontFamily);
     get<HTMLInputElement>('special-heading-size').value = String(definition.fontSize);
-    get<HTMLInputElement>('special-heading-color').value = definition.color;
+    get<HTMLInputElement>('special-heading-color').value = definition.color || '#000000';
     setDrawerToggleButtonState(get<HTMLButtonElement>('special-heading-bold'), definition.isBold);
     setDrawerToggleButtonState(get<HTMLButtonElement>('special-heading-italic'), definition.isItalic);
     setDrawerToggleButtonState(get<HTMLButtonElement>('special-heading-all-caps'), definition.isAllCaps);
