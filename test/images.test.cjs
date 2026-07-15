@@ -64,6 +64,18 @@ test('image attribute syntax rejects injected CSS values', async () => {
   assert.doesNotMatch(html, /style="[^"]*background|sideways/i);
 });
 
+test('image attributes apply width and alignment styles to the rendered preview', async () => {
+  const html = await compileMarkdown('![Safe](images/safe.png){width=50% align=center margin="6mm 0"}');
+  assert.match(html, /style="width: 50%; max-width: 100%; margin: 6mm auto; display: block;\s*"/);
+  assert.match(html, /data-image-alignment="center"/);
+});
+
+test('image attributes preserve left and right alignment with vertical margins', async () => {
+  const html = await compileMarkdown('![Safe](images/safe.png){align=right margin="4mm 0 8mm"}');
+  assert.match(html, /style="margin: 4mm 0 8mm; display: block; margin-left: auto;\s*"/);
+  assert.match(html, /data-image-alignment="right"/);
+});
+
 test('header and footer image parsing uses CommonMark image rules', () => {
   const matches = parseMarkdownImages(
     'Before ![Logo](<images/logo_(final).png> "Product logo") after'

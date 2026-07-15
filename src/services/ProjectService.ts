@@ -4,6 +4,8 @@ import { sortSectionsByHierarchy } from '../utils/tree-utils';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { WorkspaceSession, SectionPlacement } from '../platform/types';
 import type { ProjectHealthReport } from '../types';
+import type { ImageSetup } from '../types';
+import { resetImagePresentation } from '../images/resetImagePresentation';
 
 type PathFlagKey = 'pageBreaks' | 'hiddenHeaders' | 'hiddenFooters' | 'numberedHeadings' | 'tocSections';
 
@@ -205,6 +207,24 @@ export const ProjectService = {
 
   async checkProjectHealth(session: WorkspaceSession): Promise<ProjectHealthReport> {
     return session.inspectProject();
+  },
+
+  /** Apply the current image defaults to all persisted Markdown images. */
+  async resetProjectImagePresentation(session: WorkspaceSession, setup: ImageSetup): Promise<Array<{ path: string; content: string }>> {
+    const sections = (await session.listSections())
+      .filter(section => !section.isDir && /\.(?:md|markdown)$/i.test(section.path));
+    const changed: Array<{ path: string; content: string }> = [];
+
+    for (const section of sections) {
+      const content = await session.readSection(section.path);
+      const next = resetImagePresentation(content, setup);
+      if (next === content) continue;
+      if (!await session.writeSection(section.path, next)) {
+        throw new Error(`Could not update image settings in ${section.path}.`);
+      }
+      changed.push({ path: section.path, content: next });
+    }
+    return changed;
   },
 
   async recoverProjectSettings(session: WorkspaceSession): Promise<boolean> {

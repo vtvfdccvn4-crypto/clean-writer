@@ -55,6 +55,8 @@ test('ordered list delimiters compile into independent marker classes', async ()
 
   assert.match(html, /<ol data-marker="period"(?: [^>]*)?>/);
   assert.match(html, /<ol data-marker="paren"(?: [^>]*)?>/);
+  assert.equal((html.match(/data-list-index="1"/g) || []).length, 2);
+  assert.equal((html.match(/data-list-index="2"/g) || []).length, 2);
   assert.equal((html.match(/class="document-list-marker"/g) || []).length, 4);
   assert.match(html, /<div class="document-list-content">Period/);
   assert.match(html, /<div class="document-list-content">Parenthesis/);
@@ -97,6 +99,15 @@ test('list CSS applies independently configured line heights', () => {
 
   assert.match(css, /ul\[data-marker="asterisk"\] > li \{[\s\S]*?line-height: 1\.25 !important/);
   assert.match(css, /ol\[data-marker="period"\] > li \{[\s\S]*?line-height: 1\.8 !important/);
+});
+
+test('list CSS removes browser-default and loose-item vertical margins', () => {
+  const css = generateListCss(listSetup());
+
+  assert.match(css, /ul\[data-marker="asterisk"\] \{[\s\S]*?margin-top: 0 !important;[\s\S]*?margin-bottom: 0 !important/);
+  assert.match(css, /ol\[data-marker="period"\] \{[\s\S]*?margin-top: 0 !important;[\s\S]*?margin-bottom: 0 !important/);
+  assert.match(css, /ul\[data-marker="asterisk"\] > li > \.document-list-content > :first-child \{[\s\S]*?margin-top: 0 !important/);
+  assert.match(css, /ul\[data-marker="asterisk"\] > li > \.document-list-content > :last-child \{[\s\S]*?margin-bottom: 0 !important/);
 });
 
 test('list geometry is clamped and marker content is safely escaped', () => {

@@ -56,7 +56,8 @@ export function setupPdfExport(platform: Platform, editorManager: EditorManager)
         state.current.tableSetup,
         state.current.projectMetadata,
         state.current.projectRef ? state.current.projectRef.id : null,
-        exportWindow
+        exportWindow,
+        exportDocument.paginationCss
       );
       if (success) {
         setExportStatus('exported');
@@ -69,7 +70,10 @@ export function setupPdfExport(platform: Platform, editorManager: EditorManager)
       console.error('PDF export failed', error);
       if (exportWindow && !exportWindow.closed) exportWindow.close();
       setExportStatus('failed');
-      showNotice('PDF export failed. The document remains open and unchanged.', 'error');
+      const detail = error instanceof Error && error.message
+        ? ` ${error.message}`
+        : '';
+      showNotice(`PDF export failed.${detail} The document remains open and unchanged.`, 'error');
     } finally {
       setTimeout(() => {
         setExportStatus('idle');

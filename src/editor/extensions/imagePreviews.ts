@@ -1,29 +1,35 @@
 import { Text, type Range } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 
-import { imageWidthAttribute, parseEditorMarkdownImages, type EditorMarkdownImage } from '../markdown/parseMarkdownImage';
+import { imageAlignmentAttribute, imageWidthAttribute, parseEditorMarkdownImages, type EditorMarkdownImage } from '../markdown/parseMarkdownImage';
 import { ImagePreviewWidget } from '../widgets/ImagePreviewWidget';
 
 export type EditorImageSourceResolver = (source: string) => Promise<string>;
 export type EditorImageAlignment = 'left' | 'center' | 'right';
-export type EditImageWidth = (image: EditorMarkdownImage) => void;
+export type EditImagePresentation = (image: EditorMarkdownImage, update: { alignment?: EditorImageAlignment; width?: string }) => void;
 
 function imagePreviewDecorationRanges(
   document: Text,
   resolveSource: EditorImageSourceResolver,
-  alignment: EditorImageAlignment,
-  onEditWidth: EditImageWidth,
+  onEdit: EditImagePresentation,
   offset = 0
 ): readonly Range<Decoration>[] {
   const decorations: Range<Decoration>[] = [];
   for (const image of parseEditorMarkdownImages(document.toString())) {
     if (!image.isBlock) continue;
     const line = document.lineAt(image.start);
-    decorations.push(Decoration.line({ class: `cm-image-preview-align-${alignment}` }).range(offset + line.from));
+    decorations.push(Decoration.line({ class: `cm-image-preview-align-${imageAlignmentAttribute(image.attributes) || 'left'}` }).range(offset + line.from));
     decorations.push(Decoration.mark({ class: 'cm-image-preview-source' }).range(offset + image.start, offset + image.end));
     decorations.push(Decoration.widget({
       side: 1,
-      widget: new ImagePreviewWidget(image.alt, image.source, imageWidthAttribute(image.attributes), resolveSource, () => onEditWidth(image))
+      widget: new ImagePreviewWidget(
+        image.alt,
+        image.source,
+        imageWidthAttribute(image.attributes),
+        imageAlignmentAttribute(image.attributes),
+        resolveSource,
+        update => onEdit(image, update)
+      )
     }).range(offset + image.end));
   }
   return decorations;
@@ -32,10 +38,9 @@ function imagePreviewDecorationRanges(
 function imagePreviewDecorations(
   document: Text,
   resolveSource: EditorImageSourceResolver,
-  alignment: EditorImageAlignment,
-  onEditWidth: EditImageWidth
+  onEdit: EditImagePresentation
 ): DecorationSet {
-  return Decoration.set(imagePreviewDecorationRanges(document, resolveSource, alignment, onEditWidth), true);
+  return Decoration.set(imagePreviewDecorationRanges(document, resolveSource, onEdit), true);
 }
 
 interface ChangedLineRange {
@@ -60,12 +65,12 @@ function changedLineRanges(update: ViewUpdate): ChangedLineRange[] {
 }
 
 /** Shows a bounded preview beside standalone Markdown image syntax without replacing it. */
-export function imagePreviewExtension(resolveSource: EditorImageSourceResolver, alignment: EditorImageAlignment, onEditWidth: EditImageWidth) {
+export function imagePreviewExtension(resolveSource: EditorImageSourceResolver, onEdit: EditImagePresentation) {
   return ViewPlugin.fromClass(class {
     decorations;
 
     constructor(view: EditorView) {
-      this.decorations = imagePreviewDecorations(view.state.doc, resolveSource, alignment, onEditWidth);
+      this.decorations = imagePreviewDecorations(view.state.doc, resolveSource, onEdit);
     }
 
     update(update: ViewUpdate): void {
@@ -80,8 +85,7 @@ export function imagePreviewExtension(resolveSource: EditorImageSourceResolver, 
           add: imagePreviewDecorationRanges(
             Text.of(update.state.doc.sliceString(range.from, range.to).split('\n')),
             resolveSource,
-            alignment,
-            onEditWidth,
+            onEdit,
             range.from
           )
         });

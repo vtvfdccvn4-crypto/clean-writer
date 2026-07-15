@@ -452,6 +452,7 @@
   min-height: 32px;
   padding: 2px;
   border-radius: 10px;
+  background: color-mix(in srgb, var(--ui-text) 8%, transparent);
 }
 
 .drawer-switch-ui input {
@@ -474,6 +475,15 @@
   user-select: none;
   font-size: calc(var(--drawer-font-size) - 1pt);
   transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.drawer-switch-ui input:checked ~ .drawer-switch-option--enabled,
+.drawer-switch-ui input:not(:checked) ~ .drawer-switch-option--disabled {
+  /* Keep the active side visibly neutral across every settings drawer. */
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ui-text) 14%, transparent);
 }
 
 .drawer-switch-option--enabled {

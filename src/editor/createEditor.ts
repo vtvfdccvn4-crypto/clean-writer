@@ -15,8 +15,7 @@ import { markdownAppearanceExtension } from './extensions/markdownAppearance';
 import { markdownLanguageExtension } from './extensions/markdown';
 import { state as appState } from '../state';
 import type { EditorSetup } from '../types';
-import { imageWidthAttribute, parseEditorMarkdownImages, withImageWidthAttribute } from './markdown/parseMarkdownImage';
-import { showImageWidthDialog } from '../ui/image-width-dialog';
+import { parseEditorMarkdownImages, withImageAlignmentAttribute, withImageWidthAttribute } from './markdown/parseMarkdownImage';
 
 export interface EditorSelectionRange {
   from: number;
@@ -77,24 +76,28 @@ export function createEditor(
   const editorSetup = appState.current.editorSetup;
   let markdownSetup = editorSetup;
   const behavior = createEditorBehavior(editorSetup);
-  const editImageWidth = (image: ReturnType<typeof parseEditorMarkdownImages>[number]) => {
-    void showImageWidthDialog(imageWidthAttribute(image.attributes)).then(width => {
-      if (width === null) return;
-      const currentImage = parseEditorMarkdownImages(view.state.doc.toString()).find(candidate =>
-        candidate.source === image.source
-        && candidate.alt === image.alt
-        && candidate.attributes === image.attributes
-      );
-      if (!currentImage) return;
-      const current = view.state.doc.sliceString(currentImage.start, currentImage.end);
-      const replacement = `${current.slice(0, current.length - currentImage.attributes.length)}${withImageWidthAttribute(currentImage.attributes, width)}`;
-      view.dispatch({
-        changes: { from: currentImage.start, to: currentImage.end, insert: replacement },
-        selection: { anchor: currentImage.start + replacement.length },
-        scrollIntoView: true
-      });
-      view.focus();
+  const editImagePresentation = (
+    image: ReturnType<typeof parseEditorMarkdownImages>[number],
+    update: { alignment?: EditorImageAlignment; width?: string }
+  ) => {
+    if (update.width && !/^(?:0|\d+(?:\.\d+)?(?:px|pt|mm|cm|in|em|rem|%))$/i.test(update.width)) return;
+    const currentImage = parseEditorMarkdownImages(view.state.doc.toString()).find(candidate =>
+      candidate.source === image.source
+      && candidate.alt === image.alt
+      && candidate.attributes === image.attributes
+    );
+    if (!currentImage) return;
+    const current = view.state.doc.sliceString(currentImage.start, currentImage.end);
+    let attributes = currentImage.attributes;
+    if (update.width !== undefined) attributes = withImageWidthAttribute(attributes, update.width);
+    if (update.alignment !== undefined) attributes = withImageAlignmentAttribute(attributes, update.alignment);
+    const replacement = `${current.slice(0, current.length - currentImage.attributes.length)}${attributes}`;
+    view.dispatch({
+      changes: { from: currentImage.start, to: currentImage.end, insert: replacement },
+      selection: { anchor: currentImage.start + replacement.length },
+      scrollIntoView: true
     });
+    view.focus();
   };
 
   const state = EditorState.create({
@@ -117,7 +120,7 @@ export function createEditor(
       )),
       ...behavior.extensions,
       imagePreviews.of(callbacks.resolveImageSource
-        ? imagePreviewExtension(callbacks.resolveImageSource, appState.current.imageSetup.alignment, editImageWidth)
+        ? imagePreviewExtension(callbacks.resolveImageSource, editImagePresentation)
         : []),
       ...(callbacks.onImageFile ? [imagePasteExtension(callbacks.onImageFile)] : []),
       updateListener
@@ -170,18 +173,6 @@ export function createEditor(
   appState.addEventListener('page-setup-changed', onCustomStylesChanged);
   appState.addEventListener('custom-styles-changed', onCustomStylesChanged);
   appState.addEventListener('custom-block-styles-changed', onCustomStylesChanged);
-  const onImageSetupChanged = () => {
-    if (!callbacks.resolveImageSource) return;
-    view.dispatch({
-      effects: imagePreviews.reconfigure(imagePreviewExtension(
-        callbacks.resolveImageSource,
-        appState.current.imageSetup.alignment as EditorImageAlignment,
-        editImageWidth
-      ))
-    });
-  };
-  appState.addEventListener('image-setup-changed', onImageSetupChanged);
-
   return {
     getValue: () => view.state.doc.toString(),
     setValue: (value: string, notify = true) => {
@@ -235,7 +226,6 @@ export function createEditor(
       appState.removeEventListener('page-setup-changed', onCustomStylesChanged);
       appState.removeEventListener('custom-styles-changed', onCustomStylesChanged);
       appState.removeEventListener('custom-block-styles-changed', onCustomStylesChanged);
-      appState.removeEventListener('image-setup-changed', onImageSetupChanged);
       view.destroy();
     },
     openSearchPanel: () => openSearchPanel(view),

@@ -79,6 +79,8 @@ export interface ExportSupport {
 
 export interface PdfExportDocument {
   readonly html: string;
+  /** Generated Paged.js geometry bound to this exact paginated DOM. */
+  readonly paginationCss: string;
   readonly pageSetup: PageSetup;
   readonly isPaginated: true;
 }
@@ -95,7 +97,8 @@ export interface DocumentExportService {
     tableSetup: TableSetup,
     projectMetadata: ProjectMetadata,
     projectPath: string | null,
-    exportWindow?: Window | null
+    exportWindow?: Window | null,
+    paginationCss?: string
   ): Promise<boolean>;
 }
 

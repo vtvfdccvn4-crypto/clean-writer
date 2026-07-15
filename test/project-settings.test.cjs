@@ -61,6 +61,18 @@ test('untrusted settings values are clamped before CSS generation', () => {
   assert.equal(settings.customBlockStyles[0].color, undefined);
 });
 
+test('partial special-heading settings retain the configured defaults during normalization', () => {
+  const { settings } = normalizeProjectSettings({
+    pageSetup: { specialHeadings: [{ id: 'exercise', name: 'Exercise' }] }
+  });
+  const heading = settings.pageSetup.specialHeadings[0];
+
+  assert.equal(heading.breakBefore, true);
+  assert.equal(heading.includeInToc, true);
+  assert.equal(heading.isBold, true);
+  assert.equal(heading.fontSize, 12);
+});
+
 after(async () => {
   await server?.close();
 });

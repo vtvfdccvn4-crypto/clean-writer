@@ -1,8 +1,9 @@
 import type { TypographySetup } from '../../state';
 import { resolveTypographyStyle } from '../../styles/resolved-document-styles';
 export function generateTypographyCss(setup: TypographySetup): string {
+  const content = ':is(.pagedjs_page_content, .paged-stage.is-live-preview)';
   const applyStyle = (tag: string, s: any) => `
-    .pagedjs_page_content ${tag} {
+    ${content} ${tag} {
       font-family: ${s.fontFamily} !important;
       font-size: ${s.fontSize}pt !important;
       color: ${s.color || 'inherit'} !important;
@@ -22,7 +23,7 @@ export function generateTypographyCss(setup: TypographySetup): string {
     ${applyStyle('h4', resolveTypographyStyle(setup.h4))}
     ${applyStyle('h5', resolveTypographyStyle(setup.h5))}
     ${applyStyle('h6', resolveTypographyStyle(setup.h6))}
-    .pagedjs_page_content a {
+    ${content} a {
       color: inherit !important;
     }
   `;

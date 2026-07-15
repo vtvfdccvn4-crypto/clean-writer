@@ -18,7 +18,7 @@ type InterceptedListener = {
 
 export class PagedJsAdapter {
   private readonly factory: PagedPreviewerFactory;
-  private currentPreviewer: PagedPreviewer;
+  private currentPreviewer: PagedPreviewer | null = null;
   private activeRenderPromise: Promise<any> | null = null;
   private interceptedListeners: InterceptedListener[] = [];
   private readonly unthrottledPagination: boolean;
@@ -29,7 +29,6 @@ export class PagedJsAdapter {
   ) {
     this.factory = factory;
     this.unthrottledPagination = unthrottledPagination;
-    this.currentPreviewer = this.constructPreviewer();
   }
 
   getDebugState() {

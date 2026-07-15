@@ -23,7 +23,7 @@ const documentSchema = {
       'dataNumberHeadings',
       'dataIncludeInToc'
     ],
-    img: [...(defaultSchema.attributes?.img ?? []), 'style'],
+    img: [...(defaultSchema.attributes?.img ?? []), 'style', 'dataImageAlignment'],
     ul: [...(defaultSchema.attributes?.ul ?? []), 'dataMarker'],
     ol: [...(defaultSchema.attributes?.ol ?? []), 'dataMarker'],
     table: [...(defaultSchema.attributes?.table ?? []), 'dataTableStyle']

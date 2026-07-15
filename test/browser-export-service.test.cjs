@@ -186,7 +186,7 @@ test('browser PDF export writes only the paginated preview stage and explicit pr
   }
 });
 
-test('browser PDF export preserves all preview CSS in stylesheet order', async () => {
+test('browser PDF export does not copy application or preview styles into the print document', async () => {
   const previousWindow = global.window;
   const previousDocument = global.document;
   let written = '';
@@ -214,17 +214,59 @@ test('browser PDF export preserves all preview CSS in stylesheet order', async (
   try {
     const service = new BrowserExportService();
     assert.equal(await service.exportPdf('<p>Document</p>', { paperWidth: 210, paperHeight: 297 }, {}, {}, {}, {}, null, popup), true);
-    assert.match(written, /<link rel="stylesheet" href="https:\/\/clear-writer\.test\/assets\/app\.css">/);
-    assert.match(written, /\.workspace\s*\{/);
-    assert.match(written, /\.pagedjs_page_content\s*\{/);
-    assert.ok(written.indexOf('assets/app.css') < written.indexOf('.workspace'), 'print styles should retain preview stylesheet order');
+    assert.doesNotMatch(written, /assets\/app\.css/);
+    assert.doesNotMatch(written, /\.workspace\s*\{/);
+    assert.doesNotMatch(written, /\.pagedjs_page_content\s*\{\s*color: #111/);
   } finally {
     global.window = previousWindow;
     global.document = previousDocument;
   }
 });
 
-test('browser PDF export preserves ordinary and generated inline preview styles', async () => {
+test('browser PDF export carries the generated Paged.js geometry with the paginated DOM', async () => {
+  const previousWindow = global.window;
+  const previousDocument = global.document;
+  let written = '';
+  const popup = {
+    closed: false,
+    document: {
+      readyState: 'complete',
+      querySelectorAll: () => [],
+      open: () => {},
+      write: value => { written = value; },
+      close: () => {}
+    },
+    addEventListener: () => {},
+    requestAnimationFrame: callback => callback(),
+    focus: () => {},
+    print: () => {},
+    close: () => { popup.closed = true; }
+  };
+  global.window = { open: () => popup };
+  global.document = { querySelectorAll: () => [] };
+  try {
+    const service = new BrowserExportService();
+    const generatedCss = '.pagedjs_sheet { width: 210mm; } .pagedjs_margin-top { height: 20mm; }';
+    assert.equal(
+      await service.exportPdf(
+        '<div class="pagedjs_page"><div class="pagedjs_sheet"></div></div>',
+        { paperWidth: 210, paperHeight: 297 }, {}, {}, {}, {}, null, popup, generatedCss
+      ),
+      true
+    );
+    assert.match(written, /data-clear-writer-pagination-css/);
+    assert.match(written, /\.pagedjs_margin-top\s*\{\s*height: 20mm/);
+    assert.ok(
+      written.indexOf('data-clear-writer-pagination-css') < written.indexOf('Paged.js has already made every physical page'),
+      'generated pagination geometry must load before the printer-only stylesheet'
+    );
+  } finally {
+    global.window = previousWindow;
+    global.document = previousDocument;
+  }
+});
+
+test('browser PDF export ignores ordinary and generated inline preview styles', async () => {
   const previousWindow = global.window;
   const previousDocument = global.document;
   let written = '';
@@ -258,16 +300,16 @@ test('browser PDF export preserves ordinary and generated inline preview styles'
   try {
     const service = new BrowserExportService();
     assert.equal(await service.exportPdf('<p>Document</p>', { paperWidth: 210, paperHeight: 297 }, {}, {}, {}, {}, null, popup), true);
-    assert.match(written, /\.workspace\s*\{/);
-    assert.match(written, /\.pagedjs_page_content\s*\{/);
-    assert.match(written, /\.custom-document-rule\s*\{/);
+    assert.doesNotMatch(written, /\.workspace\s*\{/);
+    assert.doesNotMatch(written, /\.pagedjs_page_content\s*\{\s*color: #111/);
+    assert.doesNotMatch(written, /\.custom-document-rule\s*\{/);
   } finally {
     global.window = previousWindow;
     global.document = previousDocument;
   }
 });
 
-test('browser PDF export preserves stylesheet links without reading the CSSOM', async () => {
+test('browser PDF export ignores application stylesheet links', async () => {
   const previousWindow = global.window;
   const previousDocument = global.document;
   const popup = {
@@ -295,7 +337,7 @@ test('browser PDF export preserves stylesheet links without reading the CSSOM', 
   try {
     const service = new BrowserExportService();
     assert.equal(await service.exportPdf('<p>Document</p>', { paperWidth: 210, paperHeight: 297 }, {}, {}, {}, {}, null, popup), true);
-    assert.match(written, /<link rel="stylesheet" href="https:\/\/clear-writer\.test\/assets\/app\.css" media="print">/);
+    assert.doesNotMatch(written, /assets\/app\.css/);
   } finally {
     global.window = previousWindow;
     global.document = previousDocument;

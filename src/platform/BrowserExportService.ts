@@ -31,7 +31,8 @@ export class BrowserExportService implements DocumentExportService {
     _tableSetup: TableSetup,
     _projectMetadata: ProjectMetadata,
     _projectPath: string | null,
-    exportWindow?: Window | null
+    exportWindow?: Window | null,
+    paginationCss = ''
   ): Promise<boolean> {
     const popup = exportWindow === undefined ? this.preparePdfExport() : exportWindow;
     if (!popup) return false;
@@ -49,16 +50,21 @@ export class BrowserExportService implements DocumentExportService {
 
     try {
       const cssStarted = performance.now();
-      const styles = collectPreviewStyles();
+      // The isolated paginator has already supplied every document rule needed
+      // for this page DOM. Never copy application styles into this document:
+      // live-preview selectors are allowed to differ from print layout.
       previewMetrics.recordPdfExportPhase('css', performance.now() - cssStarted);
-      // Keep the rendered Paged.js DOM inside the same stage structure used by
-      // the preview. The print stylesheet removes only preview chrome; it must
-      // not reconstruct the document's layout with a different DOM context.
       const exportRoot = `<main id="clear-writer-pdf-document"><div id="paged-stage" class="paged-stage">${html}</div></main>`;
+      // The background frame owns Paged.js. Carry its generated page/margin
+      // stylesheet with the immutable DOM; recreating its geometry here makes
+      // the print layout diverge from the pagination layout.
+      const paginationStyle = paginationCss.trim()
+        ? `<style data-clear-writer-pagination-css>${escapeStyleText(paginationCss)}</style>`
+        : '';
       const pageCss = `<style>${buildPdfPrintCss(pageSetup)}</style>`;
 
       popup.document.open();
-      popup.document.write(`<!doctype html><html><head><meta charset="UTF-8"><title>Clear Writer PDF</title>${styles}${pageCss}</head><body>${exportRoot}</body></html>`);
+      popup.document.write(`<!doctype html><html><head><meta charset="UTF-8"><title>Clear Writer PDF</title>${paginationStyle}${pageCss}</head><body>${exportRoot}</body></html>`);
       popup.document.close();
       if (!this.printFrames.has(popup)) popup.focus();
 
@@ -117,33 +123,6 @@ export class BrowserExportService implements DocumentExportService {
     }
     if (!target.closed) target.close();
   }
-}
-
-/**
- * Serialise the preview's active stylesheet set in document order.
- *
- * PDF export receives the already-paginated preview DOM. Filtering to a list
- * of known selectors made its cascade diverge whenever an ordinary document
- * rule (for example a body, heading, or custom style rule) contributed to the
- * preview. An isolated print document has no application UI to style, so
- * copying the complete active stylesheet set is both safer and more faithful.
- */
-function collectPreviewStyles(): string {
-  return Array.from(document.querySelectorAll<HTMLLinkElement | HTMLStyleElement>('link[rel="stylesheet"], style'))
-    .map(element => {
-      if (element.tagName === 'LINK') return serializeStylesheetLink(element as HTMLLinkElement);
-      return `<style>${escapeStyleText(element.textContent || '')}</style>`;
-    })
-    .join('');
-}
-
-function serializeStylesheetLink(link: HTMLLinkElement): string {
-  const media = link.media ? ` media="${escapeHtmlAttribute(link.media)}"` : '';
-  return `<link rel="stylesheet" href="${escapeHtmlAttribute(link.href)}"${media}>`;
-}
-
-function escapeHtmlAttribute(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 function escapeStyleText(value: string): string {

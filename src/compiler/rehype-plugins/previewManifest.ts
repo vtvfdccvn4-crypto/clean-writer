@@ -7,10 +7,12 @@ export interface PreviewSourceRange {
 }
 
 /**
- * An in-memory locator for a navigable source block. It is deliberately not
- * serialized into preview or export HTML.
+ * Locator for a navigable source block. Its anchor is serialized only into
+ * preview HTML so Paged.js can report physical page boundaries.
  */
 export interface PreviewSourceManifestEntry {
+  /** Stable DOM reference retained by Paged.js when it creates physical pages. */
+  anchor: string;
   range: PreviewSourceRange;
   elementPath: number[];
   priority: number;
@@ -28,7 +30,13 @@ export const previewManifestPlugin: Plugin<[], Root> = () => {
 
         const elementPath = [...parentPath, elementIndex++];
         if (isNavigableBlock(child) && child.position?.start) {
+          const anchor = `preview-source-${elementPath.join('-')}`;
+          // This attribute is intentionally part of the preview HTML. It lets
+          // the paginated renderer map a physical page boundary back to a
+          // canonical source block without modifying the Markdown source.
+          child.properties.dataRef = anchor;
           manifest.push({
+            anchor,
             range: {
               startLine: child.position.start.line,
               endLine: Math.max(child.position.start.line, child.position.end?.line ?? child.position.start.line)

@@ -105,6 +105,10 @@ body.is-resizing-explorer {
   overflow-y: auto;
 }
 
+.outline-panel-body {
+  overflow-y: auto;
+}
+
 .image-browser {
   display: flex;
   flex: 1 1 auto;

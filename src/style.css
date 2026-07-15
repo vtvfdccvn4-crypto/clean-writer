@@ -10,6 +10,10 @@
 @import '@fontsource/inter/500.css';
 @import '@fontsource/inter/600.css';
 @import '@fontsource/inter/700.css';
+@import '@fontsource/google-sans-code/latin-400.css';
+@import '@fontsource/google-sans-code/latin-500.css';
+@import '@fontsource/google-sans-code/latin-600.css';
+@import '@fontsource/google-sans-code/latin-700.css';
 
 @import './ui/styles/workspace.css';
 @import './ui/styles/activity-bar.css';

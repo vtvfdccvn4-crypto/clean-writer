@@ -102,6 +102,15 @@
   justify-content: center;
 }
 
+/* The live sheet uses physical page dimensions. Auto margins centre it while
+   it fits; when it does not, horizontal scrolling starts at the left edge
+   instead of flex-centering part of the sheet outside the viewport. */
+.preview-scroll-container.is-live-preview-scroll {
+  justify-content: flex-start;
+  align-items: flex-start;
+  overflow-x: hidden;
+}
+
 .paged-stage {
   display: flex;
   flex-direction: column;
@@ -116,6 +125,60 @@
   --preview-scale: 1;
   transform: scale(var(--preview-scale));
   transform-origin: top center;
+}
+
+/* The writing preview is continuous and reconciled block-by-block. Print
+   pagination owns scaling and physical pages in its separate renderer. */
+.paged-stage.is-live-preview {
+  /* In print mode the direct children are physical pages, so centring them is
+     correct. In live mode they are semantic document blocks; centring makes
+     short blocks shrink-wrap and appear in the middle of the column. */
+  align-items: stretch;
+  /* Chromium's layout zoom keeps the selected paper geometry proportional
+     while PreviewViewport reduces the entire sheet to fit a narrow pane. */
+  transform: none;
+  zoom: var(--preview-scale);
+  /* A row flex container stretches children vertically by default. That
+     freezes the paper background at the viewport height and lets longer
+     content escape below it. A live sheet must instead grow with its blocks. */
+  align-self: flex-start;
+  height: auto;
+  margin-inline: auto;
+  background: Canvas;
+}
+
+.live-preview-block {
+  width: 100%;
+  min-width: 0;
+}
+
+.canonical-page-break-guide {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 24px;
+  margin: 18px 0 14px;
+  border-top: 2px dashed #6b7f99;
+  color: #50647e;
+  font: 600 10px var(--font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.canonical-page-break-guide::before,
+.canonical-page-break-guide::after {
+  height: 1px;
+  flex: 1 1 auto;
+  background: currentColor;
+  content: '';
+  opacity: 0.35;
+}
+
+.live-preview-block.canonical-page-break-before {
+  padding-top: 10px;
+  border-top: 2px solid #6b7f99;
 }
 
 @media print {

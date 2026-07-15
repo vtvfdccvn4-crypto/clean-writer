@@ -12,20 +12,30 @@ export interface EditorMarkdownImage {
 
 /** Returns the current width attribute from an image attribute block, if present. */
 export function imageWidthAttribute(attributes: string): string {
-  return attributes.match(/(?:^|\s)width=(?:"([^"]*)"|([^\s}]*))/)?.[1]
-    ?? attributes.match(/(?:^|\s)width=(?:"([^"]*)"|([^\s}]*))/)?.[2]
+  return attributes.match(/(?:^|[\s{])width=(?:"([^"]*)"|([^\s}]*))/)?.[1]
+    ?? attributes.match(/(?:^|[\s{])width=(?:"([^"]*)"|([^\s}]*))/)?.[2]
     ?? '';
 }
 
-/** Replaces only an image's width attribute, retaining its other presentation attributes. */
-export function withImageWidthAttribute(attributes: string, width: string): string {
+export function imageAlignmentAttribute(attributes: string): 'left' | 'center' | 'right' | '' {
+  const alignment = attributes.match(/(?:^|[\s{])align=(?:"([^"]*)"|([^\s}]*))/)?.[1]
+    ?? attributes.match(/(?:^|[\s{])align=(?:"([^"]*)"|([^\s}]*))/)?.[2]
+    ?? '';
+  return alignment === 'left' || alignment === 'center' || alignment === 'right' ? alignment : '';
+}
+
+/** Replaces one image presentation attribute while retaining its other attributes. */
+export function withImageAttribute(attributes: string, key: 'align' | 'width', value: string): string {
   const content = attributes.startsWith('{') && attributes.endsWith('}')
     ? attributes.slice(1, -1).trim()
     : '';
-  const withoutWidth = content.replace(/(?:^|\s+)width=(?:"[^"]*"|[^\s}]*)/g, ' ').trim();
-  const next = [withoutWidth, width ? `width=${width}` : ''].filter(Boolean).join(' ').trim();
+  const withoutAttribute = content.replace(new RegExp(`(?:^|\\s+)${key}=(?:"[^"]*"|[^\\s}]*)`, 'g'), ' ').trim();
+  const next = [withoutAttribute, value ? `${key}=${value}` : ''].filter(Boolean).join(' ').trim();
   return next ? `{${next}}` : '';
 }
+
+export const withImageWidthAttribute = (attributes: string, width: string): string => withImageAttribute(attributes, 'width', width);
+export const withImageAlignmentAttribute = (attributes: string, alignment: 'left' | 'center' | 'right'): string => withImageAttribute(attributes, 'align', alignment);
 
 /** Finds Markdown images and the optional attribute block immediately following each image. */
 export function parseEditorMarkdownImages(document: string): EditorMarkdownImage[] {

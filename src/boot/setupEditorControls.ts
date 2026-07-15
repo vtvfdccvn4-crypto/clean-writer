@@ -14,4 +14,8 @@ export function setupEditorControls(editorManager: EditorManager): void {
   document.getElementById('btn-open-search')?.addEventListener('click', () => {
     editorManager.getEditorView()?.openSearchPanel();
   });
+
+  document.getElementById('btn-toggle-print-preview')?.addEventListener('click', () => {
+    void editorManager.toggleFinalPrintPreview();
+  });
 }

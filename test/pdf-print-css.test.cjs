@@ -18,13 +18,12 @@ test('builds print CSS from the stored millimetre page setup', () => {
   const css = buildPdfPrintCss({ paperWidth: 210, paperHeight: 297 });
 
   assert.match(css, /size: 210mm 297mm/);
-  assert.match(css, /\.pagedjs_page[\s\S]*width: 210mm/);
-  assert.match(css, /\.pagedjs_page[\s\S]*height: 297mm/);
-  assert.match(css, /\.pagedjs_sheet[\s\S]*width: 210mm/);
-  assert.match(css, /\.pagedjs_pagebox[\s\S]*height: 100%/);
-  assert.match(css, /html, body[\s\S]*margin: 0 !important/);
+  assert.match(css, /html,\s*body[\s\S]*margin: 0 !important/);
   assert.match(css, /transform: none !important/);
-  assert.match(css, /break-after: page/);
-  assert.match(css, /print dialog/);
+  assert.doesNotMatch(css, /break-after:\s*page/);
+  assert.doesNotMatch(css, /page-break-after:\s*always/);
+  assert.match(css, /Paged\.js has already made every physical page/);
+  assert.doesNotMatch(css, /\.pagedjs_sheet\s*\{/);
+  assert.doesNotMatch(css, /\.pagedjs_pagebox\s*\{/);
   assert.doesNotMatch(css, /size: 210pt 297pt/);
 });

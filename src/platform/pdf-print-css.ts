@@ -1,6 +1,14 @@
 import type { PageSetup } from '../types';
 
-/** CSS used only by the isolated browser print document. */
+/**
+ * CSS for printing an immutable Paged.js result.
+ *
+ * Pagination has already happened in the isolated export frame. Its generated
+ * page, sheet, pagebox, content, and margin-box dimensions are therefore
+ * authoritative. This stylesheet deliberately owns only the browser print
+ * surface only; touching Paged.js internals here erases the
+ * reserved margins and causes headers/footers to overlap document content.
+ */
 export function buildPdfPrintCss(pageSetup: PageSetup): string {
   return `
     @page {
@@ -8,9 +16,12 @@ export function buildPdfPrintCss(pageSetup: PageSetup): string {
       margin: 0;
     }
 
-    html, body {
+    html,
+    body {
       width: auto !important;
       height: auto !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
       margin: 0 !important;
       padding: 0 !important;
       overflow: visible !important;
@@ -34,86 +45,16 @@ export function buildPdfPrintCss(pageSetup: PageSetup): string {
       gap: 0 !important;
     }
 
+    /* Paged.js has already made every physical page. Do not add CSS page
+       breaks here: a forced break after an already fixed-height page creates
+       an additional blank physical page in Chromium's print compositor. */
     .pagedjs_page {
-      width: ${pageSetup.paperWidth}mm !important;
-      height: ${pageSetup.paperHeight}mm !important;
-      min-width: ${pageSetup.paperWidth}mm !important;
-      min-height: ${pageSetup.paperHeight}mm !important;
       margin: 0 !important;
-      border: 0 !important;
-      break-after: page;
-      page-break-after: always;
-    }
-
-    .pagedjs_sheet {
-      width: ${pageSetup.paperWidth}mm !important;
-      height: ${pageSetup.paperHeight}mm !important;
-      min-width: ${pageSetup.paperWidth}mm !important;
-      min-height: ${pageSetup.paperHeight}mm !important;
-      max-width: ${pageSetup.paperWidth}mm !important;
-      max-height: ${pageSetup.paperHeight}mm !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow: hidden !important;
-    }
-
-    .pagedjs_pagebox {
-      width: 100% !important;
-      height: 100% !important;
-      overflow: hidden !important;
-    }
-
-    .pagedjs_page:last-child {
-      break-after: auto;
-      page-break-after: auto;
     }
 
     #clear-writer-pdf-document .preview-toolbar,
     #clear-writer-pdf-document .preview-scroll-container {
       display: contents !important;
-    }
-
-    /* Browser print headers and footers are controlled by the print dialog. */
-    @media print {
-      html, body {
-        width: 100% !important;
-        height: auto !important;
-        min-width: 0 !important;
-        min-height: 0 !important;
-      }
-
-      .pagedjs_pages {
-        display: block !important;
-        width: auto !important;
-        height: auto !important;
-        min-height: 0 !important;
-        max-height: none !important;
-        overflow: visible !important;
-      }
-
-      .pagedjs_page {
-        display: block !important;
-        width: ${pageSetup.paperWidth}mm !important;
-        height: ${pageSetup.paperHeight}mm !important;
-        min-height: ${pageSetup.paperHeight}mm !important;
-        max-height: ${pageSetup.paperHeight}mm !important;
-        break-after: page !important;
-        page-break-after: always !important;
-        break-inside: avoid !important;
-      }
-
-      .pagedjs_sheet {
-        width: ${pageSetup.paperWidth}mm !important;
-        height: ${pageSetup.paperHeight}mm !important;
-        min-height: ${pageSetup.paperHeight}mm !important;
-        max-height: ${pageSetup.paperHeight}mm !important;
-        overflow: hidden !important;
-      }
-
-      .pagedjs_pagebox {
-        width: 100% !important;
-        height: 100% !important;
-      }
     }
   `;
 }

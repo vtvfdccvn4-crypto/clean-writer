@@ -134,6 +134,17 @@ function safeBoolAlias(value: unknown, primary: string, alias: string): boolean 
   return safeBool(record[primary]) || safeBool(record[alias]);
 }
 
+function safeBoolWithFallback(value: unknown, fallback: boolean): boolean {
+  return value === undefined ? fallback : safeBool(value);
+}
+
+function safeBoolAliasWithFallback(value: unknown, primary: string, alias: string, fallback: boolean): boolean {
+  const record = value as Record<string, unknown>;
+  return record[primary] === undefined && record[alias] === undefined
+    ? fallback
+    : safeBoolAlias(record, primary, alias);
+}
+
 function safeColor(value: unknown, fallback: string | undefined): string | undefined {
   if (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) return value;
   return fallback;
@@ -155,14 +166,14 @@ function normalizeSpecialHeadings(value: unknown): SpecialHeadingDefinition[] {
       counterStart: Math.trunc(safeNumber(source.counterStart, fallback.counterStart, 1, 9_999)),
       counterPrefix: safeText(source.counterPrefix, fallback.counterPrefix, 200),
       counterSuffix: safeText(source.counterSuffix, fallback.counterSuffix, 200),
-      breakBefore: safeBool(source.breakBefore),
-      includeInToc: safeBool(source.includeInToc),
+      breakBefore: safeBoolWithFallback(source.breakBefore, fallback.breakBefore),
+      includeInToc: safeBoolWithFallback(source.includeInToc, fallback.includeInToc),
       fontFamily: resolveFontFamily(safeText(source.fontFamily, fallback.fontFamily, 200), fallback.fontFamily),
       fontSize: safeNumber(source.fontSize, fallback.fontSize, 1, 200),
       color: safeColor(source.color, fallback.color),
-      isBold: safeBoolAlias(source, 'isBold', 'bold'),
-      isItalic: safeBoolAlias(source, 'isItalic', 'italic'),
-      isAllCaps: safeBoolAlias(source, 'isAllCaps', 'allCaps'),
+      isBold: safeBoolAliasWithFallback(source, 'isBold', 'bold', fallback.isBold),
+      isItalic: safeBoolAliasWithFallback(source, 'isItalic', 'italic', fallback.isItalic),
+      isAllCaps: safeBoolAliasWithFallback(source, 'isAllCaps', 'allCaps', fallback.isAllCaps),
       lineHeight: safeNumber(source.lineHeight, fallback.lineHeight, 0.5, 5),
       marginTop: safeNumber(source.marginTop, fallback.marginTop, 0, 500),
       marginBottom: safeNumber(source.marginBottom, fallback.marginBottom, 0, 500)

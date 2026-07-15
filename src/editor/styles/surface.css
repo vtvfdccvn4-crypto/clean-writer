@@ -11,6 +11,7 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
+  font-family: "Google Sans Code", var(--font-mono);
   font-size: var(--editor-font-size, 10pt);
   overflow: hidden;
   background-color: var(--cm-surface-background);

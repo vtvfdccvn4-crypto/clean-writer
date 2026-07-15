@@ -16,6 +16,7 @@ const CONTENT_CLASS = 'document-list-content';
 export const listLayoutPlugin: Plugin<[], Root> = () => tree => {
   visit(tree, 'element', (node: Element) => {
     if (node.tagName !== 'ul' && node.tagName !== 'ol') return;
+    let orderedIndex = node.tagName === 'ol' ? readOrderedListStart(node) : null;
 
     for (const child of node.children) {
       if (child.type !== 'element' || child.tagName !== 'li') continue;
@@ -25,7 +26,11 @@ export const listLayoutPlugin: Plugin<[], Root> = () => tree => {
         {
           type: 'element',
           tagName: 'span',
-          properties: { className: [MARKER_CLASS], ariaHidden: 'true' },
+          properties: {
+            className: [MARKER_CLASS],
+            ariaHidden: 'true',
+            ...(orderedIndex === null ? {} : { dataListIndex: String(orderedIndex++) })
+          },
           children: []
         },
         {
@@ -38,3 +43,8 @@ export const listLayoutPlugin: Plugin<[], Root> = () => tree => {
     }
   });
 };
+
+function readOrderedListStart(node: Element): number {
+  const value = Number(node.properties?.start);
+  return Number.isSafeInteger(value) && value > 0 ? value : 1;
+}

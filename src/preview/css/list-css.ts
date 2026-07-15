@@ -1,6 +1,7 @@
 import type { ListSetup, ListStyle } from '../../state';
 import { resolveListStyle } from '../../styles/resolved-document-styles';
 export function generateListCss(setup: ListSetup): string {
+  const content = ':is(.pagedjs_page_content, .paged-stage.is-live-preview)';
   const points = (value: number, fallback: number): number => {
     const numericValue = Number(value);
     return Number.isFinite(numericValue) ? Math.max(0, Math.min(100, numericValue)) : fallback;
@@ -17,7 +18,7 @@ export function generateListCss(setup: ListSetup): string {
   };
 
   const listTypography = (selector: string, config: ListStyle) => `
-    .pagedjs_page_content ${selector} > li {
+    ${content} ${selector} > li {
       font-family: ${config.fontFamily} !important;
       font-size: ${points(config.fontSize, 11)}pt !important;
       color: ${config.color || 'inherit'} !important;
@@ -28,42 +29,62 @@ export function generateListCss(setup: ListSetup): string {
   `;
 
   const buildUnorderedListCss = (selector: string, config: ListStyle) => `
-    .pagedjs_page_content ${selector} {
+    ${content} ${selector} {
       margin-left: 0 !important;
+      /* List settings own marker geometry, while surrounding paragraph or
+         heading styles own vertical rhythm. Reset the UA list margins so they
+         do not silently stack with the configured spacing. */
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
       padding-inline-start: ${points(config.marginLeft, 20)}pt !important;
       list-style: none !important;
     }
 
     ${listTypography(selector, resolveListStyle(config))}
 
-    .pagedjs_page_content ${selector} > li {
+    ${content} ${selector} > li {
       display: grid;
       grid-template-columns: max-content minmax(0, 1fr);
       column-gap: ${points(config.paddingLeft, 8)}pt;
       padding-left: 0 !important;
     }
 
-    .pagedjs_page_content ${selector} > li > .document-list-marker {
+    ${content} ${selector} > li > .document-list-marker {
       grid-column: 1;
       grid-row: 1;
       min-width: 0;
     }
 
-    .pagedjs_page_content ${selector} > li > .document-list-marker::before {
+    ${content} ${selector} > li > .document-list-marker::before {
       content: ${cssString(config.bulletIcon, '•')};
       color: ${config.bulletColor || config.color || 'inherit'};
     }
 
-    .pagedjs_page_content ${selector} > li > .document-list-content {
+    ${content} ${selector} > li > .document-list-content {
       grid-column: 2;
       grid-row: 1;
       min-width: 0;
     }
+
+    /* A loose Markdown list contains paragraph elements. Their outer margins
+       are not document spacing; retaining them creates a blank band before
+       the first item and after the last one. */
+    ${content} ${selector} > li > .document-list-content > :first-child {
+      margin-top: 0 !important;
+    }
+
+    ${content} ${selector} > li > .document-list-content > :last-child {
+      margin-bottom: 0 !important;
+    }
   `;
 
   const buildOrderedListCss = (selector: string, config: ListStyle, delimiter: '.' | ')') => `
-    .pagedjs_page_content ${selector} {
+    ${content} ${selector} {
       margin-left: 0 !important;
+      /* See the unordered-list rule: vertical spacing belongs to surrounding
+         document blocks, never to browser-default list margins. */
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
       padding-inline-start: ${points(config.marginLeft, 20)}pt !important;
       list-style: none !important;
       counter-reset: document-ordered-list calc(attr(start type(<integer>), 1) - 1);
@@ -71,7 +92,7 @@ export function generateListCss(setup: ListSetup): string {
 
     ${listTypography(selector, resolveListStyle(config))}
 
-    .pagedjs_page_content ${selector} > li {
+    ${content} ${selector} > li {
       display: grid;
       grid-template-columns: max-content minmax(0, 1fr);
       column-gap: ${points(config.paddingLeft, 8)}pt;
@@ -79,20 +100,28 @@ export function generateListCss(setup: ListSetup): string {
       counter-increment: document-ordered-list;
     }
 
-    .pagedjs_page_content ${selector} > li > .document-list-marker {
+    ${content} ${selector} > li > .document-list-marker {
       grid-column: 1;
       grid-row: 1;
       min-width: 0;
     }
 
-    .pagedjs_page_content ${selector} > li > .document-list-marker::before {
+    ${content} ${selector} > li > .document-list-marker::before {
       content: counter(document-ordered-list, ${counterStyle(config.bulletIcon)}) "${delimiter}";
     }
 
-    .pagedjs_page_content ${selector} > li > .document-list-content {
+    ${content} ${selector} > li > .document-list-content {
       grid-column: 2;
       grid-row: 1;
       min-width: 0;
+    }
+
+    ${content} ${selector} > li > .document-list-content > :first-child {
+      margin-top: 0 !important;
+    }
+
+    ${content} ${selector} > li > .document-list-content > :last-child {
+      margin-bottom: 0 !important;
     }
   `;
 

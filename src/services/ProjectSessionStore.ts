@@ -1,4 +1,4 @@
-import type { ProjectSettingsPatch, WorkspaceRef, SectionPlacement } from '../types';
+import type { ImageSetup, ProjectSettingsPatch, WorkspaceRef, SectionPlacement } from '../types';
 import type { WorkspaceSession } from '../platform/types';
 import { state } from '../state';
 import { ProjectService } from './ProjectService';
@@ -30,6 +30,15 @@ export class ProjectSessionStore {
   async updateSettings(patch: ProjectSettingsPatch): Promise<void> {
     this.applySettingsPatch(patch);
     await SettingsService.saveSettings(this.requireSession(), patch);
+  }
+
+  /** Persist an image-default reset across all sections, then save those defaults. */
+  async resetImagePresentation(setup: ImageSetup): Promise<Array<{ path: string; content: string }>> {
+    const session = this.requireSession();
+    const changed = await ProjectService.resetProjectImagePresentation(session, setup);
+    this.applySettingsPatch({ imageSetup: setup });
+    await SettingsService.saveSettings(session, { imageSetup: setup });
+    return changed;
   }
 
   async toggleHeaderVisibility(path: string, hide: boolean): Promise<boolean> {

@@ -174,7 +174,23 @@ export async function bootApp(platform: Platform) {
   setupAppLifecycle(platform, editorManager);
 
   setupWritingWorkflow(editorManager);
-  setupSettingsFeatures(platform, saveSettingsWithNotice);
+  setupSettingsFeatures(platform, saveSettingsWithNotice, async (imageSetup) => {
+    try {
+      // Include the active editor's unsaved changes in the project-wide reset.
+      await editorManager.flushCurrentDocument();
+      const changed = await projectSession.resetImagePresentation(imageSetup);
+      changed.forEach(section => editorManager.replaceCurrentDocument(section.path, section.content));
+      showNotice(
+        changed.length === 0
+          ? 'Image settings saved. No existing image attributes needed updating.'
+          : `Image settings applied to ${changed.length} section${changed.length === 1 ? '' : 's'}.`
+      );
+    } catch (error) {
+      console.error('Image settings were not applied:', error);
+      showNotice(describeWorkspaceError(error, 'settings'), 'error');
+      throw error;
+    }
+  });
   setupWritingTools(platform, editorManager);
 
   await restoreInitialWorkspace(platform, editorManager);

@@ -60,9 +60,12 @@ export const imageAttributesPlugin: Plugin<[], Root> = () => {
             }
             
             if (align) {
+              // Preserve the explicit Markdown choice so project-level preview
+              // defaults do not overwrite this image's alignment.
+              node.data.hProperties.dataImageAlignment = align;
               styleStr += `display: block; `;
-              if (align === 'left' && !margin) styleStr += `margin-right: auto; `;
-              if (align === 'right' && !margin) styleStr += `margin-left: auto; `;
+              if (align === 'left') styleStr += `margin-right: auto; `;
+              if (align === 'right') styleStr += `margin-left: auto; `;
             }
             
             if (styleStr) {

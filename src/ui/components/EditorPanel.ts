@@ -26,6 +26,24 @@ function editorProjectSearchIconMarkup(): string {
   `;
 }
 
+function editorPrintPreviewIconMarkup(): string {
+  return `
+    <svg class="toolbar-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M4 1.75h5.25L12.5 5v8.25a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1Z" />
+      <path d="M9 1.9V5h3.1M5.5 8h5M5.5 10.5h5" />
+    </svg>
+  `;
+}
+
+function editorReviewIconMarkup(): string {
+  return `
+    <svg class="toolbar-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M3.25 2.25h9.5v11.5h-9.5zM5.5 5h5M5.5 8h5M5.5 11h3" />
+      <path d="m3.7 5.1.65.65 1.1-1.2" />
+    </svg>
+  `;
+}
+
 export const editorPanelTemplate = (): string => `
   <main class="editor-pane pane" aria-label="Markdown editor">
     <div class="editor-toolbar panel-bar panel-header">
@@ -36,7 +54,12 @@ export const editorPanelTemplate = (): string => `
         <button id="btn-open-project-search" class="toolbar-icon-button" type="button" aria-label="Search Project" title="Search Project" aria-controls="project-search-drawer" aria-expanded="false">
           ${editorProjectSearchIconMarkup()}
         </button>
-        <button id="btn-open-project-review" class="toolbar-icon-button" type="button" aria-label="Project Review" title="Project Review" aria-controls="project-review-drawer" aria-expanded="false">Review</button>
+        <button id="btn-toggle-print-preview" class="toolbar-icon-button" type="button" aria-label="Show final print preview" title="Show final print preview" aria-pressed="false">
+          ${editorPrintPreviewIconMarkup()}
+        </button>
+        <button id="btn-open-project-review" class="toolbar-icon-button" type="button" aria-label="Project Review" title="Project Review" aria-controls="project-review-drawer" aria-expanded="false">
+          ${editorReviewIconMarkup()}
+        </button>
         <button id="btn-open-search" class="toolbar-icon-button" type="button" aria-label="Find and Replace" title="Find and Replace">
           ${editorSearchIconMarkup()}
         </button>

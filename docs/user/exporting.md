@@ -217,7 +217,7 @@ These counters are intended for maintainers and future profiling work. They make
 - Sets browser print margins to `0` because margins are already inside each Paged.js page.
 - Removes app layout margin, padding, transforms, shadows, borders, and preview spacing.
 - Forces `.pagedjs_page`, `.pagedjs_sheet`, and `.pagedjs_pagebox` to the exact millimetre dimensions.
-- Uses `break-after: page` and `page-break-after: always` between Paged.js pages.
+- Preserves Paged.js' completed page flow without adding browser-level page breaks.
 - Removes the final page break from the last page.
 - Enables exact color printing with `print-color-adjust: exact` and `-webkit-print-color-adjust: exact`.
 

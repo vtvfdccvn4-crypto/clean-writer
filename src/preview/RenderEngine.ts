@@ -1,5 +1,6 @@
 import type { PageSetup, TypographySetup, ListSetup, TableSetup } from '../state';
-import { generatePageCss, generateTypographyCss, generateListCss, generateTableCss, resolveMarginContent } from './CssGenerator';
+import { generatePageCss, resolveMarginContent } from './CssGenerator';
+import { applyListPreviewStyle, applyTablePreviewStyle, applyTypographyPreviewStyle } from './PreviewStyleManager';
 import { applyImageFallback, bindImageFallbacks, resolveImageSource } from '../images/imageSources';
 import { parseMarkdownImages } from '../images/markdownImages';
 import type { AssetResolver } from '../platform/types';
@@ -66,11 +67,15 @@ export class RenderEngine {
   ): Promise<RenderResult> {
     const generation = ++this.renderGeneration;
 
-    const scrollParent = this.container.parentElement;
-    const previousScrollTop = scrollParent ? scrollParent.scrollTop : 0;
-
     await this.pagedJs.prepareForRender();
-    const oldElements = Array.from(document.querySelectorAll('style[data-pagedjs-inserted-styles], .pagedjs_sheet_style, [data-pagedjs]'));
+    // Paged.js installs its working styles in the application document. Keep
+    // the currently committed set alive until the replacement pages have been
+    // committed, then retire only those old styles.  Never perform broad DOM
+    // cleanup here: that used to touch the visible preview while a new render
+    // was still in progress.
+    const oldPagedStyles = Array.from(document.head.querySelectorAll<HTMLStyleElement>(
+      'style[data-pagedjs-inserted-styles]'
+    ));
 
     const cssText = generatePageCss(pageSetup);
     const styleBlob = new Blob([cssText], { type: 'text/css' });
@@ -83,17 +88,10 @@ export class RenderEngine {
     applySpecialHeadings(wrapper);
     applyTableOfContents(wrapper, pageSetup.toc?.maxLevel);
 
-    const tempContainer = document.createElement('div');
-    tempContainer.className = this.container.className;
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.inset = '0';
-    tempContainer.style.opacity = '0';
-    tempContainer.style.pointerEvents = 'none';
-    if (this.container.parentElement) {
-      this.container.parentElement.appendChild(tempContainer);
-    }
+    const tempContainer = this.createStagingContainer();
 
     let session: PagedRenderSession | null = null;
+    let didCommit = false;
     const cleanupRenderResources = () => {
       if (tempContainer.parentNode) tempContainer.parentNode.removeChild(tempContainer);
       URL.revokeObjectURL(styleUrl);
@@ -117,20 +115,13 @@ export class RenderEngine {
       if (listSetup) this.applyListSetup(listSetup);
       if (tableSetup) this.applyTableSetup(tableSetup);
 
-      // The detached fragment is fully prepared before the visible tree changes.
-      // replaceChildren performs the commit in one synchronous DOM operation.
-      const nextPages = document.createDocumentFragment();
-      while (tempContainer.firstChild) nextPages.appendChild(tempContainer.firstChild);
-      this.container.replaceChildren(nextPages);
-      // Remove obsolete Paged.js styles after the page tree has been committed.
-      // Removing them first lets the browser paint a frame with an unstyled
-      // preview during navigation and forced PDF pagination.
-      oldElements.forEach(el => el.remove());
+      this.commitPreparedPages(tempContainer);
+      didCommit = true;
+      // Removing styles before the commit permits a paint of an unstyled
+      // document. Removing only the previous session's styles afterwards
+      // keeps the replacement fully styled and avoids document-wide cleanup.
+      oldPagedStyles.forEach(style => style.remove());
       this.committedPreviewIndex = CommittedPreviewIndex.build(this.container, wrapper, sourceManifest);
-
-      if (scrollParent) {
-        scrollParent.scrollTop = previousScrollTop;
-      }
       return {
         status: 'rendered',
         pageCount: this.container.querySelectorAll('.pagedjs_page').length
@@ -159,8 +150,9 @@ export class RenderEngine {
         while (tempContainer.firstChild) fallback.appendChild(tempContainer.firstChild);
       }
 
-      this.container.replaceChildren(fallback);
-      oldElements.forEach(el => el.remove());
+      this.commitPreparedPages(fallback);
+      didCommit = true;
+      oldPagedStyles.forEach(style => style.remove());
       this.committedPreviewIndex = CommittedPreviewIndex.build(this.container, wrapper, sourceManifest);
       return {
         status: 'degraded',
@@ -170,40 +162,72 @@ export class RenderEngine {
     } finally {
       if (session) session.finish(cleanupRenderResources);
       else cleanupRenderResources();
+      // A stale or failed attempt must not leave its global Paged.js stylesheet
+      // behind to influence the still-visible, previously committed document.
+      if (!didCommit) {
+        const oldStyles = new Set(oldPagedStyles);
+        document.head.querySelectorAll<HTMLStyleElement>('style[data-pagedjs-inserted-styles]').forEach(style => {
+          if (!oldStyles.has(style)) style.remove();
+        });
+      }
     }
   }
 
   public applyTypographySetup(setup: TypographySetup) {
-    let styleTag = document.getElementById('dynamic-typography-setup');
-    if (!styleTag) {
-      styleTag = document.createElement('style');
-      styleTag.id = 'dynamic-typography-setup';
-      document.head.appendChild(styleTag);
-    }
-    styleTag.setAttribute('data-clear-writer-print-style', '');
-    styleTag.innerHTML = generateTypographyCss(setup);
+    applyTypographyPreviewStyle(setup);
   }
 
   public applyListSetup(setup: ListSetup) {
-    let styleTag = document.getElementById('dynamic-list-setup');
-    if (!styleTag) {
-      styleTag = document.createElement('style');
-      styleTag.id = 'dynamic-list-setup';
-      document.head.appendChild(styleTag);
-    }
-    styleTag.setAttribute('data-clear-writer-print-style', '');
-    styleTag.innerHTML = generateListCss(setup);
+    applyListPreviewStyle(setup);
   }
 
   public applyTableSetup(setup: TableSetup) {
-    let styleTag = document.getElementById('dynamic-table-setup');
-    if (!styleTag) {
-      styleTag = document.createElement('style');
-      styleTag.id = 'dynamic-table-setup';
-      document.head.appendChild(styleTag);
-    }
-    styleTag.setAttribute('data-clear-writer-print-style', '');
-    styleTag.innerHTML = generateTableCss(setup);
+    applyTablePreviewStyle(setup);
+  }
+
+  /**
+   * Paged.js mutates its target throughout pagination.  Its target must never
+   * share a layout tree with the live stage: even an invisible sibling can
+   * trigger scroll anchoring and transient page layout in the preview pane.
+   */
+  private createStagingContainer(): HTMLElement {
+    const staging = document.createElement('div');
+    staging.className = this.container.className;
+    staging.setAttribute('aria-hidden', 'true');
+    const width = Math.max(1, Math.round(this.container.getBoundingClientRect().width));
+    Object.assign(staging.style, {
+      position: 'fixed',
+      left: '-100000px',
+      top: '0',
+      width: `${width}px`,
+      visibility: 'hidden',
+      pointerEvents: 'none',
+      contain: 'layout style paint'
+    });
+    document.body.appendChild(staging);
+    return staging;
+  }
+
+  /** Commit a complete replacement without resetting a scroll made during pagination. */
+  private commitPreparedPages(source: Node): void {
+    const scrollParent = this.container.parentElement;
+    const scrollTop = scrollParent?.scrollTop ?? 0;
+    const scrollLeft = scrollParent?.scrollLeft ?? 0;
+    const previousOverflowAnchor = scrollParent?.style.overflowAnchor ?? '';
+    if (scrollParent) scrollParent.style.overflowAnchor = 'none';
+
+    const nextPages = document.createDocumentFragment();
+    while (source.firstChild) nextPages.appendChild(source.firstChild);
+    this.container.replaceChildren(nextPages);
+
+    if (!scrollParent) return;
+    const restoreScroll = () => {
+      scrollParent.scrollTop = scrollTop;
+      scrollParent.scrollLeft = scrollLeft;
+      scrollParent.style.overflowAnchor = previousOverflowAnchor;
+    };
+    restoreScroll();
+    window.requestAnimationFrame(restoreScroll);
   }
 
   private async postProcessMarginBoxes(pageSetup: PageSetup, assetResolver?: AssetResolver | null, root: ParentNode = this.container) {

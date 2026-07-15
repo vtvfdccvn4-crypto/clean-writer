@@ -2,7 +2,7 @@ import { state } from '../state';
 import { createEditor, DraftRecoveryStore } from '../editor';
 import { extractWritingStatistics } from '../editor/writing-statistics';
 import type { MarkdownEditor } from '../editor';
-import { compileMarkdown } from '../compiler';
+import { compileMarkdown, type CompiledPreview } from '../compiler';
 import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
 import { renderDocumentSection } from '../preview/document-rendering';
 import type { Platform, PdfExportDocument } from '../platform/types';
@@ -20,8 +20,11 @@ import { AppScreenController } from './AppScreenController';
 import { ExportOrchestrationController } from './ExportOrchestrationController';
 import { BackgroundExportPaginator } from './BackgroundExportPaginator';
 import { importPastedImage } from '../images/importPastedImage';
+import { createPrintLayoutSettings } from '../print/PrintLayoutSettings';
+import { compilePrintDocument } from '../print/PrintDocumentCompiler';
+import { compilePrintCss } from '../print/PrintCssCompiler';
 import { parseMarkdownImages } from '../images/markdownImages';
-import { resolveMarginContent } from '../preview/CssGenerator';
+import { PageGuideCoordinator, type PageGuideComputation, type PageGuideSnapshot } from './PageGuideCoordinator';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -38,6 +41,16 @@ export class EditorManager {
   private readonly backgroundExportPaginator: BackgroundExportPaginator;
   private readonly statusController = new EditorStatusController();
   private readonly saveCoordinator: EditorSaveCoordinator;
+  /** A selected document opens in paginated form until the first edit. */
+  private isFinalPrintPreview = true;
+  private canonicalEditTransitionInFlight: Promise<void> | null = null;
+  private readonly pageGuides: PageGuideCoordinator;
+  private latestCompiledPreview: {
+    projectId: string;
+    documentPath: string;
+    markdown: string;
+    compiled: CompiledPreview;
+  } | null = null;
 
   constructor(platform: Platform) {
     this.platform = platform;
@@ -46,6 +59,12 @@ export class EditorManager {
     this.previewPane = document.querySelector('.preview-pane')!;
     this.preview = new PreviewCoordinator(this.pagedStage, this.platform.assetResolver);
     this.backgroundExportPaginator = new BackgroundExportPaginator();
+    this.pageGuides = new PageGuideCoordinator({
+      getSnapshot: () => this.getPageGuideSnapshot(),
+      compute: (snapshot, signal) => this.computePageGuides(snapshot, signal),
+      isCurrent: snapshot => this.isCurrentPageGuideSnapshot(snapshot),
+      apply: guides => this.preview.setCanonicalPageBreakGuides(guides)
+    });
     const welcomeScreen = document.getElementById('welcome-screen-root')!;
     this.welcome = new WelcomeController({
       welcomeContainer: welcomeScreen,
@@ -58,24 +77,28 @@ export class EditorManager {
     });
     this.exportOrchestration = new ExportOrchestrationController({
       compileSnapshot: () => this.compileExportSnapshot(),
-      paginateInBackground: async html => {
+      capturePrintLayout: () => this.capturePrintLayout(),
+      paginateInBackground: async (html, css, layout) => {
         const paginated = await this.backgroundExportPaginator.paginate({
           html,
-          pageSetup: state.current.pageSetup,
-          typographySetup: state.current.typographySetup,
-          listSetup: state.current.listSetup,
-          tableSetup: state.current.tableSetup,
-          resolvedMarginImageSources: collectResolvedMarginImageSources(
-            state.current.pageSetup,
-            this.platform.assetResolver
-          )
+          css,
+          layout,
+          marginImageSources: collectPrintMarginImageSources(layout, this.platform.assetResolver)
         });
         return {
           ...paginated,
           error: paginated.error ? new Error(paginated.error) : undefined
         };
       },
-      getPageSetup: () => state.current.pageSetup
+      getPageSetup: layout => ({
+        ...state.current.pageSetup,
+        paperWidth: layout.paper.widthMm,
+        paperHeight: layout.paper.heightMm,
+        marginTop: layout.paper.marginsMm.top,
+        marginRight: layout.paper.marginsMm.right,
+        marginBottom: layout.paper.marginsMm.bottom,
+        marginLeft: layout.paper.marginsMm.left
+      })
     });
     this.activation = new DocumentActivationCoordinator({
       flushCurrentDocument: () => this.flushCurrentDocument(),
@@ -99,10 +122,16 @@ export class EditorManager {
 
     // Bind state events
     state.onSelectionChanged(() => {
+      // The print-form toggle applies only to the document that was open when
+      // it was invoked; opening a different document returns to its canonical view.
+      this.isFinalPrintPreview = true;
+      this.clearCanonicalPageBreakGuides();
+      this.syncFinalPrintPreviewToggle();
       if (this.activation.isNavigationCommandActive()) return;
       this.activation.request('selection change');
     });
     state.onProjectChanged(() => {
+      this.clearCanonicalPageBreakGuides();
       this.setPreviewVisible(Boolean(state.current.projectRef));
     });
     state.onProjectSnapshotChanged(() => {
@@ -120,19 +149,30 @@ export class EditorManager {
     state.onPageSetupChanged(() => {
       this.preview.applyPageSetup(state.current.pageSetup);
       this.applyDocumentContentWidth();
+      this.scheduleCanonicalPageBreakGuides();
     });
     state.onTypographySetupChanged(() => {
       this.preview.applyTypographySetup(state.current.typographySetup);
+      this.scheduleCanonicalPageBreakGuides();
     });
     state.onListSetupChanged(() => {
       this.preview.applyListSetup(state.current.listSetup);
+      this.scheduleCanonicalPageBreakGuides();
     });
     state.onTableSetupChanged(() => {
       this.preview.applyTableSetup(state.current.tableSetup);
+      this.scheduleCanonicalPageBreakGuides();
+    });
+    state.onImageSetupChanged(() => {
+      this.preview.applyImageSetup(state.current.imageSetup);
+      this.scheduleCanonicalPageBreakGuides();
     });
     state.onProjectMetadataChanged(() => {
+      this.scheduleCanonicalPageBreakGuides();
       this.activation.request('project metadata change');
     });
+    state.onCustomStylesChanged(() => this.scheduleCanonicalPageBreakGuides());
+    state.onCustomBlockStylesChanged(() => this.scheduleCanonicalPageBreakGuides());
 
     // Apply initial defaults
     this.preview.applyPageSetup(state.current.pageSetup);
@@ -140,6 +180,8 @@ export class EditorManager {
     this.preview.applyTypographySetup(state.current.typographySetup);
     this.preview.applyListSetup(state.current.listSetup);
     this.preview.applyTableSetup(state.current.tableSetup);
+    this.preview.applyImageSetup(state.current.imageSetup);
+    this.syncFinalPrintPreviewToggle();
   }
 
   private get currentEditorView(): MarkdownEditor | null {
@@ -157,6 +199,7 @@ export class EditorManager {
     this.preview.applyTypographySetup(state.current.typographySetup);
     this.preview.applyListSetup(state.current.listSetup);
     this.preview.applyTableSetup(state.current.tableSetup);
+    this.preview.applyImageSetup(state.current.imageSetup);
     this.editorContainer.style.setProperty('--editor-font-size', state.current.editorSetup.fontSize);
     this.applyDocumentContentWidth();
   }
@@ -216,12 +259,14 @@ export class EditorManager {
   }
 
   public renderEmptyWorkspace() {
+    this.clearCanonicalPageBreakGuides();
     this.preview.beginRevision();
     this.setPreviewVisible(false);
     this.updateSaveStatus('idle');
     this.updateActiveSectionLabel(null);
     this.documentSession.clearPendingFocus();
     this.documentSession.destroyActive();
+    this.latestCompiledPreview = null;
     this.screens.showWelcome();
     this.welcome.render();
 
@@ -234,6 +279,10 @@ export class EditorManager {
   }
 
   private async renderFullDocument(isLatest: () => boolean) {
+    // A merged document is the print-layout view. Keep it distinct from the
+    // continuous, block-reconciled preview used while a section is being
+    // edited.
+    this.preview.setMode('paginated');
     const revision = this.preview.beginRevision();
     this.preview.clearVisiblePreview();
     const { projectRef } = state.current;
@@ -241,6 +290,11 @@ export class EditorManager {
     
     // Cleanup old editor
     this.documentSession.destroyActive();
+    this.editorContainer.replaceChildren();
+    const fullDocumentNotice = document.createElement('div');
+    fullDocumentNotice.className = 'editor-mode-placeholder';
+    fullDocumentNotice.textContent = 'Editor disabled in Full Document mode';
+    this.editorContainer.appendChild(fullDocumentNotice);
     this.updateSaveStatus('idle');
     this.updateActiveSectionLabel('Full Document', 'Full Document Mode');
     this.documentSession.clearPendingFocus();
@@ -271,6 +325,8 @@ export class EditorManager {
   }
 
   private async renderSingleDocument(filename: string, isLatest: () => boolean) {
+    this.isFinalPrintPreview = true;
+    this.preview.setMode('paginated');
     const initialRevision = this.preview.beginRevision();
     this.preview.clearVisiblePreview();
     const { projectRef } = state.current;
@@ -306,6 +362,7 @@ export class EditorManager {
     // Callbacks for CodeMirror
     const callbacks = {
       onDirty: (newDoc: string) => {
+        if (this.isFinalPrintPreview) void this.enterCanonicalEditingMode();
         if (this.currentFilePath === filename && state.current.activeFile === filename) {
           DraftRecoveryStore.saveDraft(projectRef.id, filename, newDoc);
           this.updateSaveStatus('dirty');
@@ -321,6 +378,7 @@ export class EditorManager {
         }
       },
       onChange: async (newDoc: string) => {
+        if (this.canonicalEditTransitionInFlight) await this.canonicalEditTransitionInFlight;
         const changeRevision = this.preview.beginRevision();
         const sections = state.current.sections;
         const markdownToCompile = renderDocumentSection(
@@ -338,6 +396,28 @@ export class EditorManager {
           || state.current.activeFile !== filename) return;
 
         this.updateSaveStatus('saving');
+
+        // Writing feedback must not wait for filesystem latency. The preview
+        // lane owns only the current editor revision; persistence continues in
+        // parallel and still reports its own success or failure below.
+        void this.preview.compileLatestDocument(markdownToCompile)
+          .then(compiledPreview => {
+            if (!compiledPreview) return;
+            if (!this.preview.isCurrent(changeRevision)
+              || this.currentFilePath !== filename
+              || state.current.activeFile !== filename) return;
+            this.latestCompiledPreview = {
+              projectId: projectRef.id,
+              documentPath: filename,
+              markdown: newDoc,
+              compiled: compiledPreview
+            };
+            this.preview.publish(compiledPreview, changeRevision);
+          })
+          .catch(previewError => {
+            console.warn(`[EditorManager] Preview refresh failed for ${filename}.`, previewError);
+          });
+        this.scheduleCanonicalPageBreakGuides();
 
         try {
           let saved = await session.writeSection(filename, newDoc);
@@ -357,17 +437,6 @@ export class EditorManager {
           DraftRecoveryStore.markSaved(projectRef.id, filename);
           this.updateSaveStatus('saved');
           this.notifyProjectStatsChanged();
-
-          try {
-            const compiledPreview = await this.preview.compileDocument(markdownToCompile, 'single-document-edit');
-            if (!this.preview.isCurrent(changeRevision)
-              || this.currentFilePath !== filename
-              || state.current.activeFile !== filename) return;
-            // Two-Lane engine
-            this.preview.publish(compiledPreview, changeRevision);
-          } catch (previewError) {
-            console.warn(`[EditorManager] Preview refresh failed for ${filename}.`, previewError);
-          }
         } catch (error) {
           if (!this.preview.isCurrent(changeRevision)
             || this.currentFilePath !== filename
@@ -416,8 +485,16 @@ export class EditorManager {
     // Preload referenced images in initial layout
     const initialPreview = await this.preview.compileDocument(markdownToCompile, 'single-document-load');
     if (!this.preview.isCurrent(initialRevision) || !isLatest()) return;
+    this.latestCompiledPreview = {
+      projectId: projectRef.id,
+      documentPath: filename,
+      markdown: content,
+      compiled: initialPreview
+    };
+
     await this.preview.forceRender(initialPreview.html, initialPreview.manifest, initialRevision);
     if (!this.preview.isCurrent(initialRevision) || !isLatest()) return;
+    this.syncFinalPrintPreviewToggle();
 
     // Reset scroll positions to top
     this.preview.scrollToTop();
@@ -425,6 +502,8 @@ export class EditorManager {
       await this.documentSession.restoreViewState(projectRef, filename);
     }
     this.updateSaveStatus('saved');
+    // Guides are read directly from this committed paginated render when the
+    // user begins editing; hidden pagination takes over after the transition.
   }
 
   public getEditorView() {
@@ -497,6 +576,82 @@ export class EditorManager {
     return this.saveCoordinator.flushCurrentDocument();
   }
 
+  /** Switches the selected document from its initial print view into editing mode. */
+  private async enterCanonicalEditingMode(): Promise<void> {
+    if (!this.isFinalPrintPreview || this.canonicalEditTransitionInFlight) return;
+    const { projectRef, activeFile } = state.current;
+    const editor = this.currentEditorView;
+    if (!projectRef || !activeFile || !editor) return;
+
+    const transition = (async () => {
+      const guides = this.preview.getPaginatedPageBreakGuides();
+      const revision = this.preview.beginRevision();
+      this.isFinalPrintPreview = false;
+      this.syncFinalPrintPreviewToggle();
+      this.preview.setMode('live');
+      this.preview.clearVisiblePreview();
+
+      const cached = this.latestCompiledPreview;
+      const compiled = cached
+        && cached.projectId === projectRef.id
+        && cached.documentPath === activeFile
+        ? cached.compiled
+        : await this.preview.compileDocument(
+          renderDocumentSection({ path: activeFile, markdown: editor.getValue() }, state.current.sections, 0),
+          'single-document-load'
+        );
+      if (!this.preview.isCurrent(revision) || state.current.activeFile !== activeFile) return;
+      await this.preview.forceRender(compiled.html, compiled.manifest, revision);
+      if (!this.preview.isCurrent(revision) || state.current.activeFile !== activeFile) return;
+      if (guides.length > 0) this.preview.setCanonicalPageBreakGuides(guides);
+      this.scheduleCanonicalPageBreakGuides();
+    })();
+    this.canonicalEditTransitionInFlight = transition;
+    try {
+      await transition;
+    } finally {
+      if (this.canonicalEditTransitionInFlight === transition) this.canonicalEditTransitionInFlight = null;
+    }
+  }
+
+  /** Toggles the active section's canonical and final paginated preview forms. */
+  public async toggleFinalPrintPreview(): Promise<void> {
+    const { projectRef, activeFile, sections } = state.current;
+    const editor = this.currentEditorView;
+    if (!projectRef || !activeFile || !editor) return;
+
+    await this.flushCurrentDocument();
+    const visiblePaginatedGuides = this.isFinalPrintPreview
+      ? this.preview.getPaginatedPageBreakGuides()
+      : [];
+    this.isFinalPrintPreview = !this.isFinalPrintPreview;
+    this.syncFinalPrintPreviewToggle();
+    if (this.isFinalPrintPreview) this.clearCanonicalPageBreakGuides();
+
+    const revision = this.preview.beginRevision();
+    this.preview.setMode(this.isFinalPrintPreview ? 'paginated' : 'live');
+    this.preview.clearVisiblePreview();
+    const markdown = renderDocumentSection({ path: activeFile, markdown: editor.getValue() }, sections, 0);
+    const compiled = await this.preview.compileDocument(markdown, 'single-document-load');
+    if (!this.preview.isCurrent(revision)
+      || state.current.activeFile !== activeFile
+      || !this.currentEditorView) return;
+    await this.preview.forceRender(compiled.html, compiled.manifest, revision);
+    this.preview.scrollToTop();
+    if (!this.isFinalPrintPreview) {
+      if (visiblePaginatedGuides.length > 0) this.preview.setCanonicalPageBreakGuides(visiblePaginatedGuides);
+      this.scheduleCanonicalPageBreakGuides();
+    }
+  }
+
+  /** Refresh an open editor after a project-wide source transformation. */
+  public replaceCurrentDocument(path: string, markdown: string): void {
+    if (this.currentFilePath !== path || !this.currentEditorView) return;
+    const selection = this.currentEditorView.getSelection();
+    this.currentEditorView.setValue(markdown);
+    this.currentEditorView.setSelection(selection.from, selection.to);
+  }
+
   /** Compile a fresh, durable snapshot; never export the preview cache. */
   public async compileExportSnapshot(): Promise<string> {
     await this.flushCurrentDocument();
@@ -538,6 +693,96 @@ export class EditorManager {
     }
   }
 
+  private syncFinalPrintPreviewToggle(): void {
+    const button = document.getElementById('btn-toggle-print-preview');
+    if (!(button instanceof HTMLButtonElement)) return;
+    const isShowingFinalPreview = !state.current.isFullDocMode && this.isFinalPrintPreview;
+    button.setAttribute('aria-pressed', String(isShowingFinalPreview));
+    button.setAttribute('aria-label', isShowingFinalPreview ? 'Return to canonical editor' : 'Show final print preview');
+    button.title = isShowingFinalPreview ? 'Return to canonical editor' : 'Show final print preview';
+  }
+
+  /** Exact shared layout input for PDF export and background page guides. */
+  private capturePrintLayout() {
+    return createPrintLayoutSettings({
+      pageSetup: state.current.pageSetup,
+      typographySetup: state.current.typographySetup,
+      listSetup: state.current.listSetup,
+      tableSetup: state.current.tableSetup,
+      imageSetup: state.current.imageSetup,
+      projectMetadata: state.current.projectMetadata,
+      customStyles: state.current.customStyles,
+      customBlockStyles: state.current.customBlockStyles,
+      sections: state.current.sections
+    });
+  }
+
+  private clearCanonicalPageBreakGuides(): void {
+    this.pageGuides.clear();
+  }
+
+  /** Debounces an isolated print-layout pass without delaying editor feedback. */
+  private scheduleCanonicalPageBreakGuides(): void {
+    if (!this.isFinalPrintPreview) this.pageGuides.schedule();
+  }
+
+  private getPageGuideSnapshot(): PageGuideSnapshot | null {
+    const editor = this.currentEditorView;
+    const { projectRef, activeFile } = state.current;
+    if (!editor || !projectRef || !activeFile || this.isFinalPrintPreview) return null;
+    return { projectId: projectRef.id, documentPath: activeFile, markdown: editor.getValue() };
+  }
+
+  private async computePageGuides(snapshot: PageGuideSnapshot, signal: AbortSignal): Promise<PageGuideComputation> {
+    try {
+      const markdown = renderDocumentSection(
+        { path: snapshot.documentPath, markdown: snapshot.markdown },
+        state.current.sections,
+        0
+      );
+      const cached = this.latestCompiledPreview;
+      const compiled = cached
+        && cached.projectId === snapshot.projectId
+        && cached.documentPath === snapshot.documentPath
+        && cached.markdown === snapshot.markdown
+        ? cached.compiled
+        : await this.preview.compileDocument(markdown, 'single-document-edit');
+      if (signal.aborted) return { status: 'cancelled', guides: [] };
+
+      const layout = this.capturePrintLayout();
+      const printDocument = compilePrintDocument(compiled.html, layout);
+      const result = await this.backgroundExportPaginator.paginate({
+        html: printDocument.html,
+        css: compilePrintCss(layout),
+        layout,
+        marginImageSources: collectPrintMarginImageSources(layout, this.platform.assetResolver),
+        purpose: 'guides'
+      }, signal);
+      if (signal.aborted) return { status: 'cancelled', guides: [] };
+
+      const manifestByAnchor = new Map(compiled.manifest.map(entry => [entry.anchor, entry]));
+      return {
+        status: 'rendered',
+        guides: result.pageBoundaries.map(boundary => ({
+        ...boundary,
+        sourceLine: manifestByAnchor.get(boundary.anchor)?.range.startLine
+        }))
+      };
+    } catch (error) {
+      if (signal.aborted) return { status: 'cancelled', guides: [] };
+      console.warn('[EditorManager] Canonical page-guide refresh failed.', error);
+      return { status: 'failed', guides: [] };
+    }
+  }
+
+  private isCurrentPageGuideSnapshot(snapshot: PageGuideSnapshot): boolean {
+    return !this.isFinalPrintPreview
+      && state.current.projectRef?.id === snapshot.projectId
+      && state.current.activeFile === snapshot.documentPath
+      && this.currentFilePath === snapshot.documentPath
+      && this.currentEditorView?.getValue() === snapshot.markdown;
+  }
+
   private updateSectionStats(markdown: string | null) {
     const wordCount = document.getElementById('workspace-word-count');
     const lineCount = document.getElementById('workspace-line-count');
@@ -560,28 +805,15 @@ export class EditorManager {
 
 }
 
-function collectResolvedMarginImageSources(
-  pageSetup: typeof state.current.pageSetup,
+function collectPrintMarginImageSources(
+  layout: import('../print/PrintLayoutSettings').PrintLayoutSettings,
   assetResolver: Platform['assetResolver']
 ): Record<string, string> {
   const resolved: Record<string, string> = {};
-  const cells = [
-    pageSetup.header?.left,
-    pageSetup.header?.center,
-    pageSetup.header?.right,
-    pageSetup.footer?.left,
-    pageSetup.footer?.center,
-    pageSetup.footer?.right
-  ];
-
-  for (const cell of cells) {
-    if (!cell?.content) continue;
-    const content = resolveMarginContent(cell.content, 1);
-    for (const image of parseMarkdownImages(content)) {
-      if (resolved[image.source]) continue;
-      resolved[image.source] = assetResolver.resolveSync(image.source);
+  for (const cell of [layout.header.left, layout.header.center, layout.header.right, layout.footer.left, layout.footer.center, layout.footer.right]) {
+    for (const image of parseMarkdownImages(cell.content)) {
+      if (!resolved[image.source]) resolved[image.source] = assetResolver.resolveSync(image.source);
     }
   }
-
   return resolved;
 }
