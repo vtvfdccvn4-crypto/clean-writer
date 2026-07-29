@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 
 const root = new URL('..', import.meta.url).pathname.replace(/^\//, '').replace(/\//g, '\\');
 const port = await reservePort();
+const nodeExecutable = process.env.CLEAR_WRITER_NODE || 'node';
 let server;
 
 try {
@@ -13,7 +14,7 @@ try {
   assert(manifest.name === 'Clear Writer', 'Manifest name is incorrect.');
   assert(manifest.display === 'standalone', 'Manifest is not configured for standalone display.');
 
-  server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--outDir', 'dist-web', '--host', '127.0.0.1', '--port', String(port)], {
+  server = spawn(nodeExecutable, ['node_modules/vite/bin/vite.js', 'preview', '--outDir', 'dist-web', '--host', '127.0.0.1', '--port', String(port)], {
     cwd: root,
     stdio: ['ignore', 'ignore', 'pipe']
   });
