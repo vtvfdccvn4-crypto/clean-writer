@@ -385,6 +385,8 @@ function launchHeadlessBrowser(executable, debugPort, userDataDir) {
   const process = spawn(executable, [
     '--headless=new',
     '--disable-gpu',
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
     '--disable-background-networking',
     '--disable-background-timer-throttling',
     '--disable-renderer-backgrounding',

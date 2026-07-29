@@ -28,6 +28,8 @@ jobs:
 
       - id: setup-chrome
         uses: browser-actions/setup-chrome@v2
+        with:
+          install-dependencies: true
 
       - run: echo "CLEAR_WRITER_BROWSER=${{ steps.setup-chrome.outputs.chrome-path }}" >> "$GITHUB_ENV"
 
