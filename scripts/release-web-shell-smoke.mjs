@@ -1,10 +1,10 @@
 import fs from 'node:fs/promises';
 import net from 'node:net';
-import { spawn } from 'node:child_process';
+import path from 'node:path';
+import { preview } from 'vite';
 
-const root = new URL('..', import.meta.url).pathname.replace(/^\//, '').replace(/\//g, '\\');
+const root = path.resolve(import.meta.dirname, '..');
 const port = await reservePort();
-const nodeExecutable = process.env.CLEAR_WRITER_NODE || 'node';
 let server;
 
 try {
@@ -14,9 +14,15 @@ try {
   assert(manifest.name === 'Clear Writer', 'Manifest name is incorrect.');
   assert(manifest.display === 'standalone', 'Manifest is not configured for standalone display.');
 
-  server = spawn(nodeExecutable, ['node_modules/vite/bin/vite.js', 'preview', '--outDir', 'dist-web', '--host', '127.0.0.1', '--port', String(port)], {
-    cwd: root,
-    stdio: ['ignore', 'ignore', 'pipe']
+  server = await preview({
+    root,
+    configFile: path.join(root, 'vite.web.config.ts'),
+    logLevel: 'error',
+    preview: {
+      host: '127.0.0.1',
+      port,
+      strictPort: true
+    }
   });
   await waitForServer(port);
 
@@ -41,7 +47,7 @@ try {
 
   console.log(JSON.stringify({ ok: true, manifest: true, serviceWorker: true, productionShell: true, port }, null, 2));
 } finally {
-  if (server && !server.killed) server.kill();
+  if (server) await server.close();
 }
 
 async function assertFile(path) {
