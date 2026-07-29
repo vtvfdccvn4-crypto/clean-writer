@@ -26,6 +26,11 @@ jobs:
           node-version: 22
           cache: npm
 
+      - id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+
+      - run: echo "CLEAR_WRITER_BROWSER=${{ steps.setup-chrome.outputs.chrome-path }}" >> "$GITHUB_ENV"
+
       - run: npm ci
       - run: npm run release:prep
 
