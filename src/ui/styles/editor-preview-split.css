@@ -1,0 +1,26 @@
+/* Outer layout for the editor and preview split. */
+#shared-panel {
+  grid-area: shared;
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#shared-panel.is-project-closed {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.shared-panel-split {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shared-panel-split--editor {
+  border-right: 1px solid var(--ui-border-subtle);
+}

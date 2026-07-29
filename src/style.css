@@ -1,24 +1,24 @@
 @import './ui/styles/tokens.css';
 @import './editor/styles/surface.css';
 @import './editor/styles/imagePreviews.css';
-@import '@fontsource/inter-tight/400.css';
-@import '@fontsource/inter-tight/500.css';
-@import '@fontsource/inter-tight/600.css';
-@import '@fontsource/inter-tight/700.css';
+/* The application uses Inter Tight for UI and Courier Prime for the editor.
+ * Restrict these imports to the shipped Latin subsets; generic Fontsource
+ * entries pull every Unicode subset and several unused font families. */
+@import '@fontsource/inter-tight/latin-400.css';
+@import '@fontsource/inter-tight/latin-500.css';
+@import '@fontsource/inter-tight/latin-600.css';
+@import '@fontsource/inter-tight/latin-700.css';
+@import '@fontsource/courier-prime/latin-400.css';
+@import '@fontsource/courier-prime/latin-400-italic.css';
+@import '@fontsource/courier-prime/latin-700.css';
+@import '@fontsource/courier-prime/latin-700-italic.css';
 
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/500.css';
-@import '@fontsource/inter/600.css';
-@import '@fontsource/inter/700.css';
-@import '@fontsource/google-sans-code/latin-400.css';
-@import '@fontsource/google-sans-code/latin-500.css';
-@import '@fontsource/google-sans-code/latin-600.css';
-@import '@fontsource/google-sans-code/latin-700.css';
-
-@import './ui/styles/workspace.css';
+@import './ui/styles/global-defaults.css';
 @import './ui/styles/activity-bar.css';
-@import './ui/styles/shared-panels.css';
-@import './ui/styles/project-explorer-compact.css';
+@import './ui/styles/workspace.css';
+@import './ui/styles/task-panel.css';
+@import './ui/styles/editor-preview-split.css';
+@import './ui/styles/pane-shell.css';
 @import './ui/styles/editor.css';
 @import './ui/styles/preview.css';
 @import './ui/styles/overlays.css';
@@ -150,7 +150,7 @@ input {
 
 .welcome-brand h1 {
   margin: 0;
-  font-family: var(--font-ui-tight);
+  font-family: var(--font-ui);
   font-size: clamp(30px, 3.1vw, 42px);
   font-weight: 500;
   letter-spacing: -0.045em;
@@ -173,7 +173,7 @@ input {
 
 .welcome-section h2 {
   margin: 0 0 13px;
-  font-family: var(--font-ui-tight);
+  font-family: var(--font-ui);
   font-size: 20px;
   font-weight: 500;
 }
@@ -264,34 +264,6 @@ input {
   }
 }
 
-body.is-worker,
-body.is-worker .app-layout,
-body.is-worker .workspace-shell,
-body.is-worker .workspace,
-body.is-worker .preview-pane {
-  display: block !important;
-  width: auto !important;
-  height: auto !important;
-  overflow: visible !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-@media (max-width: 1280px) {
-  .workspace {
-    grid-template-columns: 288px minmax(0, 1fr) minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 1100px) {
-  .workspace {
-    grid-template-columns: 280px minmax(0, 1fr);
-  }
-}
-
-.workspace-mode-chip[data-kind="opfs"],
-.workspace-mode-chip[hidden] { display: none; }
-
 /* Subtle app-wide scrollbar tint. Keep the 9px rail stable, but make the
    thumb visually lighter so it feels less heavy against the paper-like UI. */
 body,
@@ -300,9 +272,7 @@ body * {
   scrollbar-color: color-mix(in srgb, var(--ui-border-strong) 8%, transparent) transparent;
 }
 
-body:hover,
 body:focus-within,
-body *:hover,
 body *:focus-within {
   scrollbar-color: color-mix(in srgb, var(--ui-border-strong) 18%, transparent) transparent;
 }
@@ -326,9 +296,7 @@ body *::-webkit-scrollbar-thumb {
   background-clip: content-box;
 }
 
-body:hover::-webkit-scrollbar-thumb,
 body:focus-within::-webkit-scrollbar-thumb,
-body *:hover::-webkit-scrollbar-thumb,
 body *:focus-within::-webkit-scrollbar-thumb {
   background-color: color-mix(in srgb, var(--ui-border-strong) 18%, transparent);
 }

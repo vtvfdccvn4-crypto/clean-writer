@@ -22,15 +22,12 @@ export class CommittedPreviewIndex {
 
   public static build(
     container: HTMLElement,
-    sourceRoot: HTMLElement,
     manifest: readonly PreviewSourceManifestEntry[]
   ): CommittedPreviewIndex {
     const entriesByReference = new Map<string, PreviewSourceManifestEntry[]>();
 
     for (const entry of manifest) {
-      const sourceElement = resolveElementPath(sourceRoot, entry.elementPath);
-      const reference = sourceElement?.getAttribute('data-ref');
-      if (!reference) continue;
+      const reference = entry.anchor;
 
       const entries = entriesByReference.get(reference) ?? [];
       entries.push(entry);
@@ -39,21 +36,16 @@ export class CommittedPreviewIndex {
 
     const targets: CommittedPreviewTarget[] = [];
     const pageBreakTargets: CommittedPreviewTarget[] = [];
-    const resolvedReferences = new Set<string>();
     const pages = Array.from(container.querySelectorAll<HTMLElement>('.pagedjs_page'));
     pages.forEach((page, pageIndex) => {
-      const candidates = [
-        ...Array.from(page.querySelectorAll<HTMLElement>('[data-ref]')),
-        ...Array.from(page.querySelectorAll<HTMLElement>('[data-split-from]'))
-      ];
+      const candidates = collectVisiblePageSourceElements(page);
 
       for (const element of candidates) {
         const reference = element.getAttribute('data-ref') ?? element.getAttribute('data-split-from');
-        if (!reference || resolvedReferences.has(reference)) continue;
+        if (!reference) continue;
 
         const entries = entriesByReference.get(reference);
         if (!entries) continue;
-        resolvedReferences.add(reference);
         entries.forEach(entry => targets.push({ entry, pageIndex, element }));
       }
 
@@ -101,6 +93,25 @@ export class CommittedPreviewIndex {
   }
 }
 
+/**
+ * Paged.js can retain structural copies of source nodes near the start of a
+ * page. Only nodes inside the visible page content may receive click mapping;
+ * keeping every visible instance also preserves clicks on blocks split across
+ * physical pages.
+ */
+export function collectVisiblePageSourceElements(page: HTMLElement): HTMLElement[] {
+  const elements = [
+    ...Array.from(page.querySelectorAll<HTMLElement>('[data-ref]')),
+    ...Array.from(page.querySelectorAll<HTMLElement>('[data-split-from]'))
+  ];
+  return elements.filter(element => isVisiblePageSourceElement(element, page));
+}
+
+export function isVisiblePageSourceElement(element: HTMLElement, page: HTMLElement): boolean {
+  const pageContent = element.closest('.pagedjs_page_content');
+  return pageContent !== null && page.contains(pageContent);
+}
+
 function chooseBestTarget(targets: readonly CommittedPreviewTarget[]): CommittedPreviewTarget {
   return [...targets].sort((left, right) => {
     const leftSpan = left.entry.range.endLine - left.entry.range.startLine;
@@ -111,14 +122,4 @@ function chooseBestTarget(targets: readonly CommittedPreviewTarget[]): Committed
     }
     return right.entry.priority - left.entry.priority;
   })[0]!;
-}
-
-function resolveElementPath(root: HTMLElement, path: readonly number[]): HTMLElement | null {
-  let current: HTMLElement = root;
-  for (const index of path) {
-    const next = current.children.item(index);
-    if (!(next instanceof HTMLElement)) return null;
-    current = next;
-  }
-  return current;
 }

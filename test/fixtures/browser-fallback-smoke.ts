@@ -1,4 +1,5 @@
 import { state } from '/src/state.ts';
+import { projectSession } from '/src/services/ProjectSessionStore.ts';
 import { click, waitFor } from './helpers/smoke-dom.ts';
 
 declare global {
@@ -35,13 +36,9 @@ async function run() {
 
   
   await waitFor('opfs project ref', () => state.current.projectRef?.kind === 'opfs' ? state.current.projectRef : null);
-  await waitFor('project tree render', () => document.querySelector('#section-list')?.childElementCount ? true : null);
+  await waitFor('project explorer ready', () => document.querySelector('#task-explorer-view:not(.hidden)') ? true : null);
 
-  await click('#btn-new-section');
-  const input = await waitFor('inline create input', () => document.querySelector<HTMLInputElement>('.tree-inline-create .inline-input'));
-  input.value = 'draft';
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await projectSession.createSection('sections/draft.md', '# Draft');
 
   await waitFor('section created', () => state.current.sections.some(section => section.path === 'sections/draft.md') ? true : null);
   await waitFor('active file selection', () => state.current.activeFile === 'sections/draft.md' ? true : null);

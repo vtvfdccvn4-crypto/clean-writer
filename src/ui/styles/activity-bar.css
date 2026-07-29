@@ -1,38 +1,56 @@
-/* Left workspace toolbar */
 .activity-bar {
   grid-area: activity;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
   align-self: stretch;
-  height: auto;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 50px;
+  min-width: 50px;
   min-height: 0;
-  padding: 10px 8px;
-  overflow: hidden;
-  background-color: var(--color-surface);
+  padding: 4px 0;
+  background: var(--color-app-chrome);
+  border-right: 1px solid var(--color-app-chrome-border);
 }
 
 .activity-bar-primary {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  gap: 4px;
+  min-height: 0;
 }
 
 .activity-bar-button {
   display: grid;
-  flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  padding: 0;
   place-items: center;
+  width: 50px;
+  height: 50px;
+  padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--color-app-chrome-text);
   cursor: pointer;
 }
 
 .activity-bar-button svg {
-  width: 18px;
-  height: 18px;
+  display: block;
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.activity-bar-button:hover,
+.activity-bar-button.is-active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.activity-bar-button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: -2px;
+}
+
+.activity-bar-settings {
+  margin-top: auto;
 }

@@ -1,4 +1,4 @@
-import { compileMarkdown, compilePreviewDocument } from '../compiler';
+import { compilePreviewDocument } from '../compiler';
 import type { CompiledPreview } from '../compiler';
 import { scanCustomBlockStyleIcons, scanMarkdownForImages } from '../services/ExportSnapshotService';
 import { PreviewController } from '../preview';
@@ -7,6 +7,12 @@ import type { AssetResolver } from '../platform/types';
 import type { ImageSetup, ListSetup, PageSetup, TableSetup, TypographySetup } from '../types';
 import { IncrementalPreviewCompiler } from '../preview/live/IncrementalPreviewCompiler';
 import type { CanonicalPageBreakGuide } from '../preview/live/LivePreviewRenderer';
+import type { DocumentPreviewSourceSegment } from '../preview/document-rendering';
+import type { PdfPreviewFrameTimings, PdfPreviewJob } from '../pdf-preview/contracts';
+import type { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
+import type { CommittedPreviewTarget } from '../preview/navigation/CommittedPreviewIndex';
+import type { PreviewTimingPhase } from '../perf/preview-timing';
+import type { PreviewPageTiming } from '../perf/preview-timing';
 
 /** Owns preview revisions, compilation, asset preparation, and render lanes. */
 export class PreviewCoordinator {
@@ -25,9 +31,21 @@ export class PreviewCoordinator {
   private readonly preparedPreviewAssets = new Set<string>();
   private readonly incrementalCompiler = new IncrementalPreviewCompiler();
 
-  constructor(stage: HTMLElement, assetResolver: AssetResolver) {
+  constructor(
+    stage: HTMLElement,
+    assetResolver: AssetResolver,
+    onPreviewSourceClick?: (line: number) => void,
+    onPreviewSourceTargetClick?: (target: CommittedPreviewTarget) => void,
+    createIsolatedJob?: (sourceHtml: string, pageSetup: PageSetup) => PdfPreviewJob,
+    paginationHost?: IsolatedPaginationHost
+  ) {
     this.assetResolver = assetResolver;
-    this.controller = new PreviewController(stage, assetResolver);
+    this.controller = new PreviewController(stage, assetResolver, {
+      onPreviewSourceClick,
+      onPreviewSourceTargetClick,
+      createIsolatedJob,
+      paginationHost
+    });
   }
 
   get currentRevision(): number {
@@ -103,9 +121,13 @@ export class PreviewCoordinator {
     });
   }
 
-  async compileFullDocument(markdown: string): Promise<string> {
+  async compileFullDocument(
+    markdown: string,
+    sourceSegments: readonly DocumentPreviewSourceSegment[] = [],
+    onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void
+  ): Promise<CompiledPreview> {
     const started = performance.now();
-    const compiled = await compileMarkdown(markdown, this.assetResolver);
+    const compiled = await compilePreviewDocument(markdown, this.assetResolver, { sourceSegments, onPhase });
     previewMetrics.recordPreviewCompile('full-document', performance.now() - started);
     return compiled;
   }
@@ -116,6 +138,18 @@ export class PreviewCoordinator {
 
   forceRender(html: string, manifest: readonly import('../compiler/rehype-plugins').PreviewSourceManifestEntry[] = [], revision: number | null = null) {
     return this.controller.forceRender(html, manifest, revision);
+  }
+
+  forceRenderIsolated(
+    input: PdfPreviewJob,
+    sourceHtml: string,
+    manifest: readonly import('../compiler/rehype-plugins').PreviewSourceManifestEntry[] = [],
+    revision: number | null = null,
+    onPaginationPhase?: (phase: PreviewTimingPhase, durationMs: number) => void,
+    onPageTimings?: (pageTimings: readonly PreviewPageTiming[]) => void,
+    onPaginationStats?: (stats: Pick<PdfPreviewFrameTimings, 'paginationCssCharacterCount' | 'paginationStyleCount'>) => void
+  ) {
+    return this.controller.forceRenderIsolated(input, sourceHtml, manifest, revision, onPaginationPhase, onPageTimings, onPaginationStats);
   }
 
   scrollToTop(): void {

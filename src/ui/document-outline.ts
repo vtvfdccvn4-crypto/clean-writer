@@ -6,9 +6,11 @@ import { extractWritingStatistics, calculateReadingTime } from '../editor/writin
 
 export function initDocumentOutlineDrawer(platform: Platform, editorManager: EditorManager) {
   const PROJECT_STATS_REFRESH_EVENT = 'clear-writer-project-stats-refresh';
-  const drawer = document.querySelector<HTMLElement>('.outline-section');
+  const OUTLINE_ACTIVATED_EVENT = 'clear-writer-task-outline-activated';
+  const drawer = document.querySelector<HTMLElement>('#task-panel .outline-section');
   const content = document.getElementById('document-outline-content');
   const emptyState = document.getElementById('document-outline-empty');
+  const footer = document.querySelector<HTMLElement>('#task-panel .task-footer');
 
   if (!drawer || !content || !emptyState) {
     return;
@@ -17,9 +19,21 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
   let outlineDirty = true;
   let rebuildInFlight: Promise<void> | null = null;
 
-  document.addEventListener('clear-writer-activity-view-changed', ((event: CustomEvent<{ view?: string | null }>) => {
-    if (event.detail?.view === 'outline' && outlineDirty) void rebuildOutline();
-  }) as EventListener);
+  const showFooter = () => {
+    footer?.classList.remove('hidden');
+    if (footer) footer.setAttribute('aria-hidden', 'false');
+  };
+
+  const hideFooter = () => {
+    footer?.classList.add('hidden');
+    if (footer) footer.setAttribute('aria-hidden', 'true');
+  };
+
+  document.addEventListener(OUTLINE_ACTIVATED_EVENT, () => {
+    showFooter();
+    outlineDirty = true;
+    void rebuildOutline();
+  });
 
   state.onProjectSnapshotChanged(() => {
     if (!drawer.hidden) {
@@ -45,8 +59,10 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
   state.onProjectChanged(() => {
     outlineDirty = true;
     if (!state.current.projectRef) {
+      hideFooter();
       clearOutline();
     } else if (!drawer.hidden) {
+      showFooter();
       clearOutline();
     }
   });
@@ -127,9 +143,10 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
         if (totalWords > 0 || totalHeadings > 0) {
           const readingTime = calculateReadingTime(totalWords);
           summaryStats.textContent = `Project Totals: ${totalWords.toLocaleString()} words • ~${readingTime}m read`;
-          summaryStats.classList.remove('hidden');
+          showFooter();
         } else {
-          summaryStats.classList.add('hidden');
+          summaryStats.textContent = '';
+          hideFooter();
         }
       }
 
@@ -176,7 +193,6 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
     emptyState.classList.remove('hidden');
     const summaryStats = document.getElementById('project-statistics-summary');
     if (summaryStats) {
-      summaryStats.classList.add('hidden');
       summaryStats.textContent = '';
     }
   }

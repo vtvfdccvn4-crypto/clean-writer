@@ -1,13 +1,7 @@
-.preview-pane {
-  grid-area: preview;
-  position: relative;
-  overflow: hidden;
-  background-color: var(--color-surface);
-}
-
-.preview-pane.is-project-closed {
-  visibility: hidden;
-  pointer-events: none;
+.shared-preview-pane {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
 }
 
 .preview-empty-state {
@@ -59,6 +53,13 @@
   flex: 1 1 auto;
 }
 
+.preview-page-indicator {
+  color: var(--text-muted, #6b7280);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .preview-footer-toolbar .preview-diagnostics {
   flex-shrink: 0;
 }
@@ -80,7 +81,6 @@
   white-space: nowrap;
 }
 
-.preview-toolbar .toolbar-text-button:hover,
 .toolbar-icon--text {
   font-family: var(--font-ui);
   font-size: 10pt;
@@ -292,4 +292,29 @@
   .pagedjs_page {
     margin: 0 !important;
   }
+}
+.preview-diagnostics-panel {
+  flex: 0 0 auto;
+  margin: 0 0.75rem 0.75rem;
+  border: 1px solid var(--color-border, #d6d9df);
+  border-radius: 0.35rem;
+  background: var(--color-surface-subtle, #f7f8fa);
+  color: var(--color-text, #20242a);
+  font-size: 0.75rem;
+}
+
+.preview-diagnostics-panel summary {
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  font-weight: 600;
+}
+
+.preview-diagnostics-panel pre {
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
 }

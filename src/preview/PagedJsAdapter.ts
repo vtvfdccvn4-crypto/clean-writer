@@ -151,18 +151,30 @@ export class PagedRenderSession {
     );
   }
 
-  async wait(timeoutMs: number): Promise<void> {
+  async wait(timeoutMs: number, signal?: AbortSignal): Promise<void> {
     const timeout = new Promise<never>((_, reject) => {
       this.timeoutId = window.setTimeout(() => {
         this.timedOut = true;
         reject(new Error(`Paged.js render timed out after ${timeoutMs}ms`));
       }, timeoutMs);
     });
+    let abortListener: (() => void) | null = null;
+    const abort = signal
+      ? new Promise<never>((_, reject) => {
+        abortListener = () => {
+          this.retirePageListeners();
+          reject(new DOMException('Paged.js render was cancelled.', 'AbortError'));
+        };
+        if (signal.aborted) abortListener();
+        else signal.addEventListener('abort', abortListener, { once: true });
+      })
+      : null;
     try {
-      await Promise.race([this.promise, timeout]);
+      await Promise.race(abort ? [this.promise, timeout, abort] : [this.promise, timeout]);
     } finally {
       if (this.timeoutId !== null) window.clearTimeout(this.timeoutId);
       this.timeoutId = null;
+      if (signal && abortListener) signal.removeEventListener('abort', abortListener);
     }
   }
 

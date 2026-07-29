@@ -31,13 +31,14 @@ export class PreviewNavigationCoordinator {
     }
   }
 
-  public commitRender(revision: number, index: SourceNavigationIndex) {
-    if (this.pendingRenderRevision !== null && revision < this.pendingRenderRevision) return;
+  public commitRender(revision: number, index: SourceNavigationIndex): boolean {
+    if (this.pendingRenderRevision !== null && revision < this.pendingRenderRevision) return false;
 
     this.committedIndex = index;
     this.committedRevision = revision;
     if (this.pendingRenderRevision === revision) this.pendingRenderRevision = null;
     this.flushPendingRequest();
+    return true;
   }
 
   public requestNavigation(line: number, revision: number) {

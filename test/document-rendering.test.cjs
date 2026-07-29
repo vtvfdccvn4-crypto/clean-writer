@@ -6,6 +6,7 @@ let server;
 let classifyDocumentMode;
 let buildFullDocumentMarkdown;
 let buildFullDocumentPreviewInput;
+let renderDocumentSection;
 let buildExplorerTree;
 let getExplorerDisplayRoots;
 let getSectionVisibilityNodes;
@@ -16,7 +17,8 @@ before(async () => {
   ({
     classifyDocumentMode,
     buildFullDocumentMarkdown,
-    buildFullDocumentPreviewInput
+    buildFullDocumentPreviewInput,
+    renderDocumentSection
   } = await server.ssrLoadModule('/src/preview/document-rendering/index.ts'));
   ({ buildExplorerTree, getExplorerDisplayRoots } = await server.ssrLoadModule('/src/utils/tree-utils.ts'));
   ({ getSectionVisibilityNodes } = await server.ssrLoadModule('/src/ui/components/SectionVisibilityDrawer.ts'));
@@ -92,6 +94,21 @@ test('compiled sections preserve preview control metadata', async () => {
   assert.match(html, /data-number-headings="true"/);
   assert.match(html, /data-include-in-toc="true"/);
   assert.match(html, /class="toc-placeholder"/);
+});
+
+test('page-break directives render inside single and full-document section wrappers', async () => {
+  const sections = [{ path: 'chapter.md', isDir: false, pageBreak: false }];
+  const singleMarkdown = renderDocumentSection(
+    { path: 'chapter.md', markdown: 'Before\n\n:::pagebreak\n\nAfter' },
+    sections,
+    0
+  );
+  const fullMarkdown = buildFullDocumentMarkdown(sections, [
+    { path: 'chapter.md', markdown: 'Before\n\n:::pagebreak\n\nAfter' }
+  ]);
+
+  assert.match(await compileMarkdown(singleMarkdown), /<div class="section-break"><\/div>/);
+  assert.match(await compileMarkdown(fullMarkdown), /<div class="section-break"><\/div>/);
 });
 
 test('full-document preview input records source segments for each section', () => {

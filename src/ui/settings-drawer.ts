@@ -57,16 +57,18 @@ export function onSettingsTabActivated(tabId: SettingsTabId, listener: () => voi
   return () => document.removeEventListener(SETTINGS_TAB_ACTIVATED_EVENT, wrapped);
 }
 
-export function initSettingsDrawer(): void {
+export function initSettingsDrawer(bindOpenButton = true): void {
   const drawer = document.getElementById('settings-drawer');
-  const openButton = document.getElementById('btn-settings');
+  const openButton = document.getElementById('btn-activity-settings');
   const closeButton = document.getElementById('btn-close-settings-drawer');
   const backdrop = document.getElementById('drawer-backdrop');
   if (!drawer || !openButton || !closeButton) return;
 
-  openButton.addEventListener('click', () => {
-    openSettingsDrawer();
-  });
+  if (bindOpenButton) {
+    openButton.addEventListener('click', () => {
+      openSettingsDrawer();
+    });
+  }
 
   closeButton.addEventListener('click', () => {
     closeDrawer(drawer);

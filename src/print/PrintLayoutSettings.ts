@@ -22,6 +22,8 @@ import type {
  * consult live settings, preview CSS, or fallback defaults.
  */
 export interface PrintLayoutSettings {
+  /** Preview-only visual boundaries for the printable body and margin regions. */
+  readonly showGuidelines: boolean;
   readonly paper: {
     readonly widthMm: number;
     readonly heightMm: number;
@@ -75,6 +77,7 @@ export function createPrintLayoutSettings(input: CreatePrintLayoutSettingsInput)
   validatePageSetup(input.pageSetup);
 
   const snapshot: PrintLayoutSettings = {
+    showGuidelines: input.pageSetup.showGuidelines === true,
     paper: {
       widthMm: input.pageSetup.paperWidth,
       heightMm: input.pageSetup.paperHeight,

@@ -32,6 +32,17 @@ export const listsDrawerContentTemplate = (): string => {
 
       <div class="drawer-grid drawer-grid-2">
         <label class="drawer-control">
+          <span>Margin–top (pt)</span>
+          <input id="${prefix}-margin-top" type="number" min="0" max="200" value="0">
+        </label>
+        <label class="drawer-control">
+          <span>Margin–bottom (pt)</span>
+          <input id="${prefix}-margin-bottom" type="number" min="0" max="200" value="0">
+        </label>
+      </div>
+
+      <div class="drawer-grid drawer-grid-2">
+        <label class="drawer-control">
           <span>Margin–marker gap (pt)</span>
           <input id="${prefix}-margin-left" type="number" min="0" max="100" value="20">
         </label>

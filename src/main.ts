@@ -10,24 +10,11 @@ function reportStartupError(error: unknown) {
     : String(error);
 }
 
-if (params.get('export-frame') === 'true') {
-  void import('./boot/export-pagination-frame')
-    .then(({ bootExportPaginationFrame }) => bootExportPaginationFrame())
+if (params.get('pdf-preview') === 'true') {
+  void import('./boot/pdf-preview-frame')
+    .then(({ bootPdfPreviewFrame }) => bootPdfPreviewFrame())
     .catch(error => {
-      console.error('Clear Writer export frame failed to boot:', error);
-      reportStartupError(error);
-    });
-} else if (params.get('worker') === 'true') {
-  void Promise.all([
-    import('./boot/worker'),
-    import('./platform')
-  ])
-    .then(([{ bootWorker }, { createWorkerRuntime }]) => {
-      const { transport, assetResolver } = createWorkerRuntime();
-      bootWorker(transport, assetResolver);
-    })
-    .catch(error => {
-      console.error('Clear Writer worker failed to boot:', error);
+      console.error('Clear Writer PDF preview frame failed to boot:', error);
       reportStartupError(error);
     });
 } else {

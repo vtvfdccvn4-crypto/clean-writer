@@ -5,7 +5,7 @@ export type MarkdownCommand =
   | 'heading-1' | 'heading-2' | 'heading-3'
   | 'bold' | 'italic' | 'link'
   | 'unordered-list' | 'ordered-list' | 'quote'
-  | 'inline-code' | 'code-block';
+  | 'inline-code' | 'code-block' | 'page-break';
 
 type Range = { from: number; to: number };
 
@@ -78,6 +78,26 @@ function wrapSelection(view: EditorView, before: string, after: string) {
   view.focus();
 }
 
+function insertPageBreak(view: EditorView) {
+  const transaction = view.state.changeByRange((range) => {
+    const startLine = view.state.doc.lineAt(range.from);
+    const endLine = view.state.doc.lineAt(range.to);
+    const before = view.state.doc.sliceString(startLine.from, range.from);
+    const after = view.state.doc.sliceString(range.to, endLine.to);
+    const prefix = before.length > 0 ? `${before}\n` : '';
+    const suffix = after.length > 0 ? `\n${after}` : '';
+    const insert = `${prefix}:::pagebreak\n\n${suffix}`;
+    const cursor = startLine.from + insert.length - suffix.length;
+
+    return {
+      changes: { from: startLine.from, to: endLine.to, insert },
+      range: EditorSelection.cursor(cursor)
+    };
+  });
+  view.dispatch(transaction);
+  view.focus();
+}
+
 export function applyMarkdownCommand(view: EditorView, command: MarkdownCommand): void {
   const wrapper = inlineWrappers[command];
   if (wrapper) {
@@ -87,6 +107,11 @@ export function applyMarkdownCommand(view: EditorView, command: MarkdownCommand)
 
   if (command === 'code-block') {
     wrapSelection(view, '```\n', '\n```');
+    return;
+  }
+
+  if (command === 'page-break') {
+    insertPageBreak(view);
     return;
   }
 

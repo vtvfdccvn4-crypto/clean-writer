@@ -9,6 +9,18 @@ declare global {
     __HARNESS_PROGRESS__?: string;
     __CLEAR_WRITER_READY__?: boolean;
     __CLEAR_WRITER_BOOT_ERROR__?: string;
+    clearWriterPerf?: {
+      snapshot(): {
+        previewTimings: Array<{
+          kind: string;
+          status: string;
+          totalDurationMs: number;
+          phases: Array<{ phase: string; durationMs: number }>;
+          pageTimings?: Array<{ pageNumber: number; deltaMs: number; domNodeCount: number }>;
+          metadata?: { pageCount?: number };
+        }>;
+      };
+    };
   }
 }
 
@@ -17,6 +29,8 @@ const waitFor = <T>(label: string, read: () => T | null | undefined | false, tim
 
 async function run() {
   console.log('[PERF] Starting run()');
+  const requestedSectionCount = Number(new URLSearchParams(window.location.search).get('sections') ?? '50');
+  const sectionCount = Number.isInteger(requestedSectionCount) && requestedSectionCount > 0 ? requestedSectionCount : 50;
   
   // Clean up any old test sessions
   try {
@@ -35,9 +49,9 @@ async function run() {
   const projectDir = await projectsDir.getDirectoryHandle('test-perf-project', { create: true });
   (window as any).__HARNESS_PROGRESS__ = 'test session initialized';
   
-  // Generate a moderately large nested project (50 sections in 10 folders).
+  // Generate a configurable nested project for preview timing baselines.
   console.log('[PERF] Generating large project');
-  await generateLargeProject(projectDir, 50);
+  await generateLargeProject(projectDir, sectionCount);
   (window as any).__HARNESS_PROGRESS__ = 'large project generated';
 
   // ADD TO CATALOGUE
@@ -56,15 +70,48 @@ async function run() {
 
   // Wait for the project to finish loading
   await waitFor('nested project tree to load', () => {
-    const rows = document.querySelectorAll('#section-list .tree-row');
-    if (rows.length >= 60) return true;
+    const loadedSectionCount = state.current.sections.filter(section => !section.isDir).length;
+    const explorerReady = document.querySelector('#task-explorer-content .task-explorer-tree') !== null;
+    if (loadedSectionCount >= sectionCount && explorerReady) return true;
     
     // Log the current state to see what's rendering
-    const listHtml = document.getElementById('section-list')?.innerHTML;
-    console.log(`[PERF] Loaded rows: ${rows.length}, HTML: ${listHtml?.substring(0, 200)}`);
+    const listHtml = document.getElementById('task-explorer-content')?.innerHTML;
+    console.log(`[PERF] Loaded sections: ${loadedSectionCount}, HTML: ${listHtml?.substring(0, 200)}`);
     return null;
   }, 10000);
   (window as any).__HARNESS_PROGRESS__ = 'nested project tree loaded';
+
+  const previewTiming = await waitFor('full-document preview timing', () => {
+    const records = window.clearWriterPerf?.snapshot().previewTimings ?? [];
+    return records.find(record => record.kind === 'document-preview' && record.status === 'success') ?? null;
+  }, 60_000);
+  const previewPhaseNames = previewTiming.phases.map(phase => phase.phase);
+  const requiredPreviewPhases = [
+    'snapshot-load',
+    'asset-preload',
+    'compile-parse-markdown',
+    'compile-transform-document',
+    'compile-stringify-html',
+    'compile-rebase-manifest',
+    'compile',
+    'create-pagination-job',
+    'load-pagination-frame',
+    'paginate',
+    'transfer-print-artifact',
+    'parse-artifact',
+    'install-pages',
+    'build-navigation-index',
+    'restore-scroll',
+    'total'
+  ];
+  if (requiredPreviewPhases.some(phase => !previewPhaseNames.includes(phase))) {
+    throw new Error(`Full-document preview timing is missing phases: ${requiredPreviewPhases.filter(phase => !previewPhaseNames.includes(phase)).join(', ')}`);
+  }
+  if (new URLSearchParams(window.location.search).get('preview-diagnostics') === 'true'
+    && previewTiming.pageTimings?.length !== previewTiming.metadata?.pageCount) {
+    throw new Error(`Expected one page timing per page, got ${previewTiming.pageTimings?.length ?? 0} for ${previewTiming.metadata?.pageCount ?? 0} pages`);
+  }
+  (window as any).__HARNESS_PROGRESS__ = 'full-document preview timing captured';
 
   const editorManager = (window as any).__CLEAR_WRITER_EDITOR_MANAGER__ as EditorManager;
 
@@ -73,12 +120,11 @@ async function run() {
   console.log('[PERF] Clicking outline button');
   await click('#btn-activity-outline');
   console.log('[PERF] Click executed, waiting for panel');
-  await waitFor('outline panel open', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === false ? true : null);
+  await waitFor('outline panel open', () => !document.querySelector<HTMLElement>('.outline-section')?.classList.contains('hidden') ? true : null);
   
   await waitFor('outline built', () => {
     const headings = document.querySelectorAll('#document-outline-content .document-outline-heading');
-    // 50 sections * 6 headings (1 title + 5 subs) = 300 headings expected
-    return headings.length === 300 ? true : null;
+    return headings.length === sectionCount * 6 ? true : null;
   }, 10000);
   const t1 = performance.now();
   const outlineRenderMs = t1 - t0;
@@ -86,7 +132,7 @@ async function run() {
   
   // Close the outline panel by clicking its active activity button.
   await click('#btn-activity-outline');
-  await waitFor('outline panel closed', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === true ? true : null);
+  await waitFor('outline panel closed', () => document.querySelector<HTMLElement>('.outline-section')?.classList.contains('hidden') ? true : null);
 
   // 2. Measure Search Execution Performance
   const t2 = performance.now();
@@ -111,8 +157,9 @@ async function run() {
   const firstSearchResult = document.querySelector('#project-search-results .project-search-item') as HTMLElement;
   firstSearchResult.click();
   
-  await waitFor('active file switched to Section50', () => state.current.activeFile === 'sections/Chapter10/Section50.md' ? true : null);
-  await waitFor('Section50 loaded', () => document.querySelector('.cm-content') && editorManager.getEditorView().getValue().includes('PERFORMANCE_SEARCH_TOKEN_XYZ') ? true : null);
+  const lastSectionPath = `sections/Chapter${Math.ceil(sectionCount / 5)}/Section${sectionCount}.md`;
+  await waitFor(`active file switched to Section${sectionCount}`, () => state.current.activeFile === lastSectionPath ? true : null);
+  await waitFor(`Section${sectionCount} loaded`, () => document.querySelector('.cm-content') && editorManager.getEditorView().getValue().includes('PERFORMANCE_SEARCH_TOKEN_XYZ') ? true : null);
   editorManager.getEditorView().focus();
   const editorInputReady = document.activeElement?.closest('.cm-editor') !== null;
   const t5 = performance.now();
@@ -123,9 +170,9 @@ async function run() {
   // Open and close outline 5 times rapidly
   for (let i = 0; i < 5; i++) {
     await click('#btn-activity-outline');
-    await waitFor('outline open loop', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === false ? true : null);
+    await waitFor('outline open loop', () => !document.querySelector<HTMLElement>('.outline-section')?.classList.contains('hidden') ? true : null);
     await click('#btn-activity-outline');
-    await waitFor('outline close loop', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === true ? true : null);
+    await waitFor('outline close loop', () => document.querySelector<HTMLElement>('.outline-section')?.classList.contains('hidden') ? true : null);
   }
   (window as any).__HARNESS_PROGRESS__ = 'repeated interaction 1 measured';
   
@@ -148,7 +195,9 @@ async function run() {
     searchExecutionMs,
     searchNavigationMs,
     editorInputReady,
-    repeatedInteractionsStable: true
+    repeatedInteractionsStable: true,
+    sectionCount,
+    previewTiming
   };
 }
 

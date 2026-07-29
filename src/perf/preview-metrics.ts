@@ -1,3 +1,5 @@
+import type { PreviewTimingRecord } from './preview-timing';
+
 type MetricBucket = {
   count: number;
   totalMs: number;
@@ -9,12 +11,14 @@ type MetricListener = (snapshot: PreviewMetricsSnapshot) => void;
 export interface PreviewMetricsSnapshot {
   buckets: Record<string, MetricBucket>;
   lastResetAt: number;
+  previewTimings: readonly PreviewTimingRecord[];
 }
 
 class PreviewMetricsTracker {
   private buckets = new Map<string, MetricBucket>();
   private lastResetAt = performance.now();
   private listeners = new Set<MetricListener>();
+  private previewTimingRecords: PreviewTimingRecord[] = [];
 
   record(name: string, durationMs = 0) {
     const bucket = this.buckets.get(name) ?? { count: 0, totalMs: 0, lastMs: 0 };
@@ -45,6 +49,16 @@ class PreviewMetricsTracker {
     this.record(`previewRender:${kind}`, durationMs);
   }
 
+  recordPreviewTiming(record: PreviewTimingRecord): void {
+    this.previewTimingRecords.push(record);
+    if (this.previewTimingRecords.length > 20) this.previewTimingRecords.shift();
+    this.record(`previewOperation:${record.kind}`, record.totalDurationMs);
+  }
+
+  getPreviewTimingRecords(): readonly PreviewTimingRecord[] {
+    return this.previewTimingRecords;
+  }
+
   recordPdfPrintCssFallback(reason: 'stylesheet-missing' | 'cssom-unreadable' | 'stylesheets-unavailable') {
     this.record(`pdfPrintCssFallback:${reason}`);
   }
@@ -58,7 +72,8 @@ class PreviewMetricsTracker {
       buckets: Object.fromEntries(
         [...this.buckets.entries()].sort(([left], [right]) => left.localeCompare(right))
       ),
-      lastResetAt: this.lastResetAt
+      lastResetAt: this.lastResetAt,
+      previewTimings: [...this.previewTimingRecords]
     };
   }
 
@@ -71,6 +86,7 @@ class PreviewMetricsTracker {
 
   reset() {
     this.buckets.clear();
+    this.previewTimingRecords = [];
     this.lastResetAt = performance.now();
     this.notify();
   }

@@ -16,8 +16,15 @@ import {
 import { highlightSelectionMatches } from '@codemirror/search';
 
 import type { EditorSetup } from '../../types';
+import { applyMarkdownCommand } from '../markdown-commands';
 
 const enabled = (value: boolean, extension: Extension): Extension => value ? extension : [];
+
+const wrapSelectedWithAsterisk = (view: EditorView): boolean => {
+  if (view.state.selection.ranges.every(range => range.empty)) return false;
+  applyMarkdownCommand(view, 'italic');
+  return true;
+};
 
 function foldGutterExtension(setup: EditorSetup): Extension {
   const glyphs: Record<EditorSetup['foldGutterGlyph'], { openText: string; closedText: string }> = {
@@ -33,6 +40,7 @@ function foldGutterExtension(setup: EditorSetup): Extension {
 export function createEditorBehavior(setup: EditorSetup) {
   let currentSetup = setup;
   const lineWrapping = new Compartment();
+  const spellchecking = new Compartment();
   const lineNumbersGutter = new Compartment();
   const folding = new Compartment();
   const activeLine = new Compartment();
@@ -44,10 +52,12 @@ export function createEditorBehavior(setup: EditorSetup) {
   const multipleSelections = new Compartment();
   const rectangularSelections = new Compartment();
   const selectionMatches = new Compartment();
+  const selectionWrapping = new Compartment();
 
   return {
     extensions: [
       lineWrapping.of(enabled(setup.lineWrapping, EditorView.lineWrapping)),
+      spellchecking.of(enabled(setup.spellcheck, EditorView.contentAttributes.of({ spellcheck: 'true' }))),
       lineNumbersGutter.of(enabled(setup.lineNumbers, lineNumbers())),
       folding.of(foldGutterExtension(setup)),
       activeLine.of(enabled(setup.highlightActiveLine, [highlightActiveLine(), highlightActiveLineGutter()])),
@@ -58,11 +68,15 @@ export function createEditorBehavior(setup: EditorSetup) {
       indentation.of(enabled(setup.indentOnInput, indentOnInput())),
       multipleSelections.of(EditorState.allowMultipleSelections.of(setup.multipleSelections)),
       rectangularSelections.of(enabled(setup.rectangularSelection, [rectangularSelection(), crosshairCursor()])),
-      selectionMatches.of(enabled(setup.highlightSelectionMatches, highlightSelectionMatches()))
+      selectionMatches.of(enabled(setup.highlightSelectionMatches, highlightSelectionMatches())),
+      selectionWrapping.of(keymap.of([
+        { key: '*', run: wrapSelectedWithAsterisk }
+      ]))
     ],
     reconfigure(view: EditorView, value: EditorSetup): void {
       const effects: StateEffect<unknown>[] = [];
       if (currentSetup.lineWrapping !== value.lineWrapping) effects.push(lineWrapping.reconfigure(enabled(value.lineWrapping, EditorView.lineWrapping)));
+      if (currentSetup.spellcheck !== value.spellcheck) effects.push(spellchecking.reconfigure(enabled(value.spellcheck, EditorView.contentAttributes.of({ spellcheck: 'true' }))));
       if (currentSetup.lineNumbers !== value.lineNumbers) effects.push(lineNumbersGutter.reconfigure(enabled(value.lineNumbers, lineNumbers())));
       if (currentSetup.foldGutter !== value.foldGutter || currentSetup.foldGutterGlyph !== value.foldGutterGlyph) effects.push(folding.reconfigure(foldGutterExtension(value)));
       if (currentSetup.highlightActiveLine !== value.highlightActiveLine) effects.push(activeLine.reconfigure(enabled(value.highlightActiveLine, [highlightActiveLine(), highlightActiveLineGutter()])));

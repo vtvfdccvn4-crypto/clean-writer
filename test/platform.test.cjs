@@ -5,10 +5,14 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 describe('Platform Adapter Contract Tests', () => {
   let server;
   let InMemoryWorkspaceRepository;
+  let ProjectService;
+  let state;
 
   before(async () => {
     server = await createTestServer({ server: { hmr: { port: 24687 } } });
     ({ InMemoryWorkspaceRepository } = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts'));
+    ({ ProjectService } = await server.ssrLoadModule('/src/services/ProjectService.ts'));
+    ({ state } = await server.ssrLoadModule('/src/state.ts'));
   });
 
   after(async () => {
@@ -105,5 +109,65 @@ describe('Platform Adapter Contract Tests', () => {
 
     const invalidTarget = await session.moveSection('Folder', 'Folder/Subfolder', 'inside');
     assert.deepEqual(invalidTarget, { success: false });
+  });
+
+  test('InMemory Workspace Adapter - rejects same-path filesystem moves without deleting the source', async () => {
+    const repo = new InMemoryWorkspaceRepository();
+    const session = await repo.open({ id: 'same-path-move-proj', kind: 'memory', displayName: 'Same Path Move' });
+    await session.createSection('sections/One.md', '# One');
+    await session.createSection('sections/Two.md', '# Two');
+
+    const result = await session.moveSection('sections/Two.md', 'sections/One.md', 'before');
+    assert.deepEqual(result, { success: false });
+    assert.equal(await session.readSection('sections/Two.md'), '# Two');
+  });
+
+  test('ProjectService reorders siblings without touching their files', async () => {
+    const repo = new InMemoryWorkspaceRepository();
+    const ref = { id: 'reorder-mem-proj', kind: 'memory', displayName: 'Reorder Proj' };
+    const session = await repo.open(ref);
+    await session.createSection('sections/One.md', '# One');
+    await session.createSection('sections/Two.md', '# Two');
+    await session.mutateSettings({ type: 'set-order', order: ['sections/One.md', 'sections/Two.md'] });
+    state.setProjectRef(ref);
+
+    const moved = await ProjectService.moveSection(session, 'sections/Two.md', 'sections/One.md', 'before');
+    assert.equal(moved, true);
+    assert.equal(await session.readSection('sections/One.md'), '# One');
+    assert.equal(await session.readSection('sections/Two.md'), '# Two');
+    assert.deepEqual((await session.readSettings()).order, ['sections/Two.md', 'sections/One.md']);
+    state.closeProject();
+  });
+
+  test('ProjectService relocates a section between folders and persists the new path', async () => {
+    const repo = new InMemoryWorkspaceRepository();
+    const ref = { id: 'relocate-mem-proj', kind: 'memory', displayName: 'Relocate Proj' };
+    const session = await repo.open(ref);
+    await session.createFolder('sections/Archive');
+    await session.createFolder('sections/Notes');
+    await session.createSection('sections/One.md', '# One');
+    await session.mutateSettings({ type: 'set-order', order: ['sections/Archive', 'sections/Notes', 'sections/One.md'] });
+    state.setProjectRef(ref);
+
+    const moved = await ProjectService.moveSection(session, 'sections/One.md', 'sections/Archive', 'inside');
+    assert.equal(moved, true);
+    assert.equal(await session.readSection('sections/Archive/One.md'), '# One');
+    await assert.rejects(() => session.readSection('sections/One.md'));
+    assert.ok((await session.readSettings()).order.includes('sections/Archive/One.md'));
+    state.closeProject();
+  });
+
+  test('ProjectService rejects an invalid relocation without changing the source', async () => {
+    const repo = new InMemoryWorkspaceRepository();
+    const ref = { id: 'invalid-relocate-mem-proj', kind: 'memory', displayName: 'Invalid Relocate Proj' };
+    const session = await repo.open(ref);
+    await session.createFolder('sections/Archive');
+    await session.createSection('sections/One.md', '# One');
+    state.setProjectRef(ref);
+
+    const moved = await ProjectService.moveSection(session, 'sections/missing.md', 'sections/Archive', 'inside');
+    assert.equal(moved, false);
+    assert.equal(await session.readSection('sections/One.md'), '# One');
+    state.closeProject();
   });
 });

@@ -101,11 +101,16 @@ test('list CSS applies independently configured line heights', () => {
   assert.match(css, /ol\[data-marker="period"\] > li \{[\s\S]*?line-height: 1\.8 !important/);
 });
 
-test('list CSS removes browser-default and loose-item vertical margins', () => {
-  const css = generateListCss(listSetup());
+test('list CSS keeps configured vertical margins on first and last lists', () => {
+  const css = generateListCss(listSetup({
+    ulAsterisk: listStyle({ marginTop: 13, marginBottom: 17 }),
+    ol: listStyle({ marginTop: 19, marginBottom: 23 })
+  }));
 
-  assert.match(css, /ul\[data-marker="asterisk"\] \{[\s\S]*?margin-top: 0 !important;[\s\S]*?margin-bottom: 0 !important/);
-  assert.match(css, /ol\[data-marker="period"\] \{[\s\S]*?margin-top: 0 !important;[\s\S]*?margin-bottom: 0 !important/);
+  assert.match(css, /ul\[data-marker="asterisk"\] \{[\s\S]*?margin-top: 13pt !important;[\s\S]*?margin-bottom: 17pt !important/);
+  assert.match(css, /ol\[data-marker="period"\] \{[\s\S]*?margin-top: 19pt !important;[\s\S]*?margin-bottom: 23pt !important/);
+  assert.doesNotMatch(css, /:not\(:first-child\) \{[\s\S]*?margin-top:/);
+  assert.doesNotMatch(css, /:not\(:last-child\) \{[\s\S]*?margin-bottom:/);
   assert.match(css, /ul\[data-marker="asterisk"\] > li > \.document-list-content > :first-child \{[\s\S]*?margin-top: 0 !important/);
   assert.match(css, /ul\[data-marker="asterisk"\] > li > \.document-list-content > :last-child \{[\s\S]*?margin-bottom: 0 !important/);
 });

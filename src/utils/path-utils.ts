@@ -19,18 +19,6 @@ export function getParentPath(rawPath: string): string | null {
   return parts.slice(0, -1).join('/');
 }
 
-export function getAncestorFolders(rawPath: string): string[] {
-  const normalized = normalizeExplorerPath(rawPath);
-  const parts = normalized.split('/').filter(Boolean);
-  if (parts.length <= 1) return [];
-
-  const ancestors: string[] = [];
-  for (let i = 1; i < parts.length; i++) {
-    ancestors.push(parts.slice(0, i).join('/'));
-  }
-  return ancestors;
-}
-
 export function isDescendantPath(parentPath: string, candidatePath: string): boolean {
   const normalizedParent = normalizeExplorerPath(parentPath);
   const normalizedCandidate = normalizeExplorerPath(candidatePath);

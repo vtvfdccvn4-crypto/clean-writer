@@ -1,16 +1,14 @@
 import { state } from '/src/state.ts';
+import { projectSession } from '/src/services/ProjectSessionStore.ts';
 import { click, getTexts, isHidden, waitFor } from './helpers/smoke-dom.ts';
 
 declare global { interface Window { __HARNESS_RESULT__?: Record<string, unknown>; __CLEAR_WRITER_READY__?: boolean; __CLEAR_WRITER_BOOT_ERROR__?: string; } }
 
 async function createSection(name: string, template: string) {
-  await click('#btn-new-section');
-  const row = await waitFor(`${name} create row`, () => document.querySelector<HTMLElement>('.tree-inline-create'));
-  const select = row.querySelector<HTMLSelectElement>('.section-template-select');
-  if (select) { select.value = template; select.dispatchEvent(new Event('change', { bubbles: true })); }
-  const input = row.querySelector<HTMLInputElement>('.inline-input')!;
-  input.value = name;
-  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  const content = template === 'blank'
+    ? `# ${name}\n\nStart writing here...`
+    : `# ${name}\n\n${template} template smoke content.`;
+  if (!await projectSession.createSection(name, content)) throw new Error(`Failed to create ${name}.`);
   const path = `sections/${name}.md`;
   await waitFor(`${name} section`, () => state.current.activeFile === path ? true : null);
   // State updates before the asynchronous document activation has necessarily
@@ -39,7 +37,10 @@ async function run() {
   if (window.__CLEAR_WRITER_BOOT_ERROR__) throw new Error(window.__CLEAR_WRITER_BOOT_ERROR__);
   await click('#empty-canvas-new-project'); await click('#btn-modal-new-opfs'); await click('#btn-modal-new-opfs-confirm');
   await waitFor('project', () => state.current.projectRef);
-  await waitFor('project tree', () => document.querySelector('#section-list')?.childElementCount ? true : null);
+  await waitFor('project explorer', () => {
+    const view = document.getElementById('task-explorer-view');
+    return view && !view.classList.contains('hidden') ? true : null;
+  });
 
   for (const [name, template] of [['BlankSection', 'blank'], ['ChapterSection', 'chapter'], ['SceneSection', 'scene'], ['NotesSection', 'notes'], ['AppendixSection', 'appendix']] as const) await createSection(name, template);
   const editorManager = (window as any).__CLEAR_WRITER_EDITOR_MANAGER__;
@@ -48,22 +49,14 @@ async function run() {
   await click('[data-markdown-command="bold"]');
   const toolbarEdited = view.getValue() === '**Toolbar** text';
   await editorManager.flushCurrentDocument();
-  const originalAppendChild = Element.prototype.appendChild;
-  let pdfPrintCalled = false;
-  Element.prototype.appendChild = function<T extends Node>(node: T): T {
-    const appended = originalAppendChild.call(this, node) as T;
-    if (node instanceof HTMLIFrameElement && node.contentWindow) {
-      node.contentWindow.print = () => { pdfPrintCalled = true; };
-    }
-    return appended;
-  };
-  await click('#btn-export-pdf');
-  await waitFor('PDF export status', () => document.getElementById('btn-export-pdf')?.dataset.exportStatus === 'exported' ? true : null);
-  Element.prototype.appendChild = originalAppendChild;
+  const pdfPreviewAvailable = document.getElementById('btn-pdf-preview') instanceof HTMLButtonElement;
 
   await createAndWriteSection('DuplicateOne', 'blank', '# Same\n\nText');
   await createAndWriteSection('DuplicateTwo', 'blank', '# Same\n\nOther');
-  await createSection('EmptySection', 'blank'); await editorManager.flushCurrentDocument();
+  if (!await projectSession.createSection('EmptySection', '')) throw new Error('Failed to create EmptySection.');
+  await waitFor('EmptySection section', () => state.current.activeFile === 'sections/EmptySection.md' ? true : null);
+  await editorManager.openDocument('sections/EmptySection.md');
+  await editorManager.flushCurrentDocument();
   await createAndWriteSection('JumpSection', 'blank', '# Top\n### Jumped');
   await createAndWriteSection('LongSection', 'blank', 'word '.repeat(2001));
 
@@ -88,6 +81,6 @@ async function run() {
   const outlineShortcut = await waitFor('outline shortcut', () => document.querySelector<HTMLElement>('.outline-section')?.hidden === false);
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, shiftKey: true, bubbles: true }));
   const searchShortcut = await waitFor('search shortcut', () => !isHidden(document.getElementById('project-search-drawer')));
-  window.__HARNESS_RESULT__ = { ok: true, projectKind: state.current.projectRef?.kind, templateCount: 5, toolbarEdited, pdfPrintCalled, reviewCount, reviewKinds, outlineShortcut: Boolean(outlineShortcut), searchShortcut: Boolean(searchShortcut) };
+  window.__HARNESS_RESULT__ = { ok: true, projectKind: state.current.projectRef?.kind, templateCount: 5, toolbarEdited, pdfPreviewAvailable, reviewCount, reviewKinds, outlineShortcut: Boolean(outlineShortcut), searchShortcut: Boolean(searchShortcut) };
 }
 run().catch(error => { window.__HARNESS_RESULT__ = { ok: false, error: error instanceof Error ? error.stack : String(error) }; });

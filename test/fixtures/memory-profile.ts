@@ -1,5 +1,4 @@
-import { RenderEngine } from '../../src/preview/RenderEngine';
-import type { PageSetup } from '../../src/types';
+import { paginateIsolated } from './helpers/isolated-pagination.ts';
 
 type ProfileScenario = { name: string; html: string };
 type ProfileRequest = { samples: number; scenarios: ProfileScenario[] };
@@ -10,15 +9,6 @@ declare global {
     gc?: () => void;
   }
 }
-
-const pageSetup: PageSetup = {
-  paperWidth: 210,
-  paperHeight: 297,
-  marginTop: 20,
-  marginBottom: 20,
-  marginLeft: 18,
-  marginRight: 18
-};
 
 async function forceGC() {
   for (let i = 0; i < 2; i++) {
@@ -48,26 +38,17 @@ window.__RUN_MEMORY_PROFILE__ = async ({ scenarios, samples }) => {
     let pageCount = 0;
 
     // Baseline run
-    const oldStage = document.getElementById('stage');
-    const stage = document.createElement('div');
-    stage.id = 'stage';
-    stage.className = 'paged-stage';
-    oldStage?.replaceWith(stage);
-
-    const engine = new RenderEngine(stage, {
-      renderTimeoutMs: 120_000,
-      unthrottledPagination: true
-    });
-
     // Warmup the scenario once
-    await engine.runRender(scenario.html, pageSetup, null, null);
+    const warmup = await paginateIsolated(scenario.html);
+    if (warmup.status !== 'success') throw new Error(`Warmup pagination failed: ${warmup.status}`);
     await forceGC();
     const baselineHeap = getHeapSize();
 
     for (let sample = 0; sample < samples; sample += 1) {
       // Re-trigger render
-      await engine.runRender(scenario.html, pageSetup, null, null);
-      pageCount = stage.querySelectorAll('.pagedjs_page').length;
+      const outcome = await paginateIsolated(scenario.html);
+      if (outcome.status !== 'success') throw new Error(`Memory profile pagination failed: ${outcome.status}`);
+      pageCount = outcome.result.pageCount;
 
       // Yield and run GC
       await forceGC();
@@ -92,16 +73,8 @@ window.__RUN_MEMORY_PROFILE__ = async ({ scenarios, samples }) => {
 };
 
 async function warmPaginationRuntime() {
-  const oldStage = document.getElementById('stage');
-  const stage = document.createElement('div');
-  stage.id = 'stage';
-  stage.className = 'paged-stage';
-  oldStage?.replaceWith(stage);
-  const engine = new RenderEngine(stage, {
-    renderTimeoutMs: 30_000,
-    unthrottledPagination: true
-  });
-  await engine.runRender('<p>Pagination memory profiling warmup.</p>', pageSetup, null, null);
+  const outcome = await paginateIsolated('<p>Pagination memory profiling warmup.</p>');
+  if (outcome.status !== 'success') throw new Error(`Memory profiling warmup failed: ${outcome.status}`);
 }
 
 function percentile(sorted: number[], quantile: number) {

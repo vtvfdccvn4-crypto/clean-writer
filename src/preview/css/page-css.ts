@@ -25,8 +25,8 @@ export const resolveMarginContent = (content: string, pageNumber?: number) => {
   return formatted;
 };
 
-// RenderEngine supplies resolved chapter text as a real margin child. Hide
-// Paged.js' generated pseudo-content so page counters are not duplicated.
+// The isolated paginator supplies resolved chapter text as a real margin child.
+// Hide Paged.js' generated pseudo-content so page counters are not duplicated.
 const chapterMarginOverrideCss = `
   .chapter-margin-resolved::before,
   .chapter-margin-resolved::after { content: none !important; }
@@ -76,8 +76,7 @@ const renderMarginBox = (box: string, cell?: any) => {
 const escapeCssAttributeValue = (value: string): string => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
 export function generatePageCss(s: PageSetup): string {
-  const isWorker = window.location.search.includes('worker=true');
-  const shouldShowHeaders = isWorker || state.current.isFullDocMode;
+  const shouldShowHeaders = state.current.isFullDocMode;
 
   const emptyCell = {content:''};
   const emptyBox = { centerWidth: '100px', left: emptyCell, center: emptyCell, right: emptyCell };
@@ -165,7 +164,7 @@ export function generatePageCss(s: PageSetup): string {
       overflow: hidden;
     }
 
-    ${s.showGuidelines && !window.location.search.includes('worker=true') ? `
+    ${s.showGuidelines ? `
     /* Preview Guidelines */
     .pagedjs_page_content {
       outline-offset: -1px;

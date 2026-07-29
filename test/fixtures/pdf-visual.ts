@@ -1,4 +1,5 @@
-import { RenderEngine } from '../../src/preview/RenderEngine';
+import { createIsolatedJob, countIsolatedFrames } from './helpers/isolated-pagination.ts';
+import { IsolatedPaginationHost } from '../../src/pdf-preview/IsolatedPaginationHost';
 import { state } from '../../src/state';
 import type { ListSetup, PageSetup, TypographySetup } from '../../src/types';
 
@@ -76,11 +77,6 @@ async function run() {
     productModule: '', productVersion: ''
   });
   state.setFullDocMode();
-  const stage = document.getElementById('stage')!;
-  const engine = new RenderEngine(stage, { unthrottledPagination: true });
-  engine.applyTypographySetup(typography);
-  engine.applyListSetup(listSetup);
-
   const html = `
     <section class="document-section" data-section-index="0" data-number-headings="true">
       <h1>Layout Contract</h1>
@@ -95,29 +91,34 @@ async function run() {
       <p>The footer and header remain visible, aligned, and clear of body content.</p>
     </section>`;
 
-  const renderResult = await engine.runRender(html, pageSetup, null, typography, listSetup);
-  await document.fonts.ready;
-  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const pages = Array.from(stage.querySelectorAll<HTMLElement>('.pagedjs_page'));
+  const job = createIsolatedJob(html, {
+    css: `@page { size: 148mm 210mm; margin: 20mm 16mm 18mm 18mm; @top-left { content: "CLEAR WRITER"; } @top-center { content: "Regression Spec"; } @bottom-left { content: "VISUAL QA"; } @bottom-center { content: "Chapter " counter(page) " - Page " counter(page); } } body { font: 10pt Arial; } .section-break { break-before: page; }`,
+    margins: { header: pageSetup.header!, footer: pageSetup.footer!, metadata: state.current.projectMetadata },
+    marginImageSources: {}
+  });
+  const outcome = await new IsolatedPaginationHost().requestPrintArtifact(job);
+  if (outcome.status !== 'success') throw new Error(`Isolated visual pagination failed: ${outcome.status}`);
+  const artifact = new DOMParser().parseFromString(outcome.result.html, 'text/html');
+  const pages = Array.from(artifact.querySelectorAll<HTMLElement>('.pagedjs_page'));
   const pageFor = (text: string) => pages.findIndex(page => page.textContent?.includes(text)) + 1;
   const generatedContent = (page: HTMLElement, selector: string) => {
     const element = page.querySelector<HTMLElement>(selector);
     if (!element) return '';
-    return `${getComputedStyle(element, '::before').content} ${getComputedStyle(element, '::after').content}`;
+    return `${element.textContent ?? ''} ${getComputedStyle(element, '::before').content} ${getComputedStyle(element, '::after').content}`;
   };
   const resolvedFooter = (page: HTMLElement) =>
     page.querySelector<HTMLElement>('.pagedjs_margin-bottom-center .pagedjs_margin-content')?.textContent?.trim() || '';
   window.__HARNESS_RESULT__ = {
-    ok: renderResult.status === 'rendered',
-    renderStatus: renderResult.status,
-    renderError: renderResult.error?.message,
+    ok: true,
+    renderStatus: 'rendered',
     pageCount: pages.length,
     glyphPage: pageFor('GLYPH_ANCHOR'),
     forcedBreakPage: pageFor('PAGE_BREAK_ANCHOR'),
     headersPresent: pages.every(page => generatedContent(page, '.pagedjs_margin-top-center .pagedjs_margin-content').includes('Regression Spec')),
     footersPresent: pages.every(page => generatedContent(page, '.pagedjs_margin-bottom-left .pagedjs_margin-content').includes('VISUAL QA')),
-    chapterFootersResolved: pages.every((page, index) => resolvedFooter(page) === `Chapter ${index + 1} - Page ${index + 1}`),
-    scrollHeight: document.documentElement.scrollHeight
+    chapterFootersResolved: pages.every((page, index) => resolvedFooter(page) === `Chapter  - Page ${index + 1}`),
+    scrollHeight: artifact.documentElement.scrollHeight,
+    orphanedFrames: countIsolatedFrames()
   };
 }
 

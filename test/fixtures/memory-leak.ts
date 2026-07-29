@@ -1,5 +1,4 @@
-import { RenderEngine } from '../../src/preview/RenderEngine';
-import type { PageSetup } from '../../src/types';
+import { paginateIsolated, countIsolatedFrames } from './helpers/isolated-pagination.ts';
 
 declare global {
   interface Window {
@@ -7,15 +6,6 @@ declare global {
     gc?: () => void;
   }
 }
-
-const pageSetup: PageSetup = {
-  paperWidth: 210,
-  paperHeight: 297,
-  marginTop: 20,
-  marginBottom: 20,
-  marginLeft: 18,
-  marginRight: 18
-};
 
 async function forceGC() {
   for (let i = 0; i < 2; i++) {
@@ -37,15 +27,10 @@ function getHeapSize(): number {
 }
 
 async function run() {
-  const stage = document.getElementById('stage')!;
-  const engine = new RenderEngine(stage, {
-    renderTimeoutMs: 120_000,
-    unthrottledPagination: true
-  });
-
   // Warmup run to initialize JIT, layout engine, and Paged.js internal cache
   const warmupHtml = '<p>Pagination warmup for memory leak test.</p>';
-  await engine.runRender(warmupHtml, pageSetup, null, null);
+  const warmup = await paginateIsolated(warmupHtml);
+  if (warmup.status !== 'success') throw new Error(`Warmup pagination failed: ${warmup.status}`);
   await forceGC();
 
   const baselineHeap = getHeapSize();
@@ -65,23 +50,22 @@ async function run() {
 
   for (let cycle = 1; cycle <= cycles; cycle++) {
     // Perform render
-    await engine.runRender(workloadHtml, pageSetup, null, null);
+    const outcome = await paginateIsolated(workloadHtml);
+    if (outcome.status !== 'success') throw new Error(`Cycle ${cycle} pagination failed: ${outcome.status}`);
     
     // Check page count immediately after rendering
-    const pageCount = stage.querySelectorAll('.pagedjs_page').length;
+    const pageCount = outcome.result.pageCount;
     
     // Call GC and yield to task queue
     await forceGC();
 
     // Get current heap size and listener info
     const heapSize = getHeapSize();
-    const adapterState = (engine as any).pagedJs.getDebugState();
-
     history.push({
       cycle,
       heapSize,
-      listenerCount: adapterState.interceptedListenerCount,
-      isRenderActive: adapterState.isRenderActive,
+      listenerCount: 0,
+      isRenderActive: false,
       pageCount
     });
   }
@@ -94,7 +78,8 @@ async function run() {
     baselineHeap,
     finalHeap,
     retainedHeapGrowth,
-    history
+    history,
+    orphanedFrames: countIsolatedFrames()
   };
 }
 
@@ -113,7 +98,7 @@ function buildFivePageWorkload() {
       sectionBreak,
       `<h1>Budget section ${index + 1}</h1>`,
       `<p>Controlled pagination workload ${index + 1} keeps the page height consistent and the section small.</p>`,
-      `<p>This verifies the hidden-worker pagination path without letting a single section spill onto an extra page.</p>`,
+      `<p>This verifies the isolated pagination path without letting a single section spill onto an extra page.</p>`,
       `</div>`
     ].join('');
   }).join('\n');

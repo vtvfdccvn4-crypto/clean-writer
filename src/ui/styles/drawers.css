@@ -11,7 +11,7 @@
 }
 
 .drawer {
-  --drawer-font-size: 10pt;
+  --drawer-font-size: 9pt;
   --drawer-card-header-size: calc(var(--drawer-font-size) - 2pt);
   --drawer-card-header-weight: 700;
   position: fixed;

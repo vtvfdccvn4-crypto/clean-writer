@@ -1,0 +1,35 @@
+:root {
+  --font-ui: "Inter Tight", "Segoe UI", Calibri, Arial, sans-serif;
+  --font-ui-tight: "Inter Tight", "Segoe UI", Calibri, Arial, sans-serif;
+  --font-mono: Consolas, "Courier New", monospace;
+
+  --color-surface: #f8f7f3;
+  --color-text: #000000;
+  --color-border: #000000;
+  --color-app-chrome: #102a4c;
+  --color-app-chrome-text: #ffffff;
+  --color-app-chrome-border: #0a1b33;
+  --color-accent: #405a78;
+  --ui-text: var(--color-text);
+  --ui-muted: var(--color-text);
+  --ui-accent: var(--color-text);
+  --ui-accent-soft: transparent;
+  --ui-border: var(--color-border);
+  --ui-border-soft: var(--color-border);
+  --ui-border-subtle: var(--color-border);
+  --ui-border-strong: var(--color-border);
+  --ui-surface: var(--color-surface);
+  --ui-surface-muted: var(--color-surface);
+  --ui-surface-strong: var(--color-surface);
+  --ui-surface-dim: var(--color-surface);
+  --explorer-border: var(--color-border);
+  --font-sans: var(--font-ui);
+  --text-main: var(--color-text);
+  --text-muted: var(--color-text);
+  --accent-glow: transparent;
+  --paper-width: 210mm;
+  --paper-height: 297mm;
+  --ui-radius-sm: 6px;
+  --ui-radius-md: 8px;
+  --ui-radius-lg: 10px;
+}

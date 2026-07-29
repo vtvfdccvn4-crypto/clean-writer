@@ -1,4 +1,5 @@
 import { state } from '/src/state.ts';
+import { projectSession } from '/src/services/ProjectSessionStore.ts';
 import { click, waitFor } from './helpers/smoke-dom.ts';
 
 declare global {
@@ -46,25 +47,19 @@ async function run() {
     throw new Error(window.__CLEAR_WRITER_BOOT_ERROR__);
   }
 
-  await click('#btn-new');
+  await click('#btn-task-new-project');
   await click('#btn-modal-new-dir');
   await waitFor('directory project ref', () => state.current.projectRef?.kind === 'directory' ? state.current.projectRef : null);
   const initialProjectId = state.current.projectRef?.id;
   if (!initialProjectId) throw new Error('Missing initial directory project id.');
 
-  await click('#btn-new-section');
-  const sectionRow = await waitFor('section row', () => document.querySelector<HTMLElement>('.tree-inline-create'));
-  const templateSelect = sectionRow.querySelector<HTMLSelectElement>('.section-template-select');
-  if (templateSelect) templateSelect.value = 'chapter';
-  const sectionInput = sectionRow.querySelector<HTMLInputElement>('.inline-input')!;
-  sectionInput.value = 'FolderSaved';
-  sectionInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await projectSession.createSection('sections/FolderSaved.md', '# Chapter\n\nSaved directory content.');
   await waitFor('section created', () => state.current.sections.some(section => section.path === 'sections/FolderSaved.md') ? true : null);
 
-  await click('#btn-close-project');
+  await click('#btn-task-close-project');
   await waitFor('project closed', () => state.current.projectRef === null ? true : null);
 
-  await click('#btn-open');
+  await click('#btn-task-open-project');
   await click('.recent-item-btn');
   await waitFor('directory reopened from recent', () => state.current.projectRef?.id === initialProjectId ? true : null);
   await waitFor('section restored', () => state.current.sections.some(section => section.path === 'sections/FolderSaved.md') ? true : null);

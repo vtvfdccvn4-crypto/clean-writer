@@ -12,7 +12,9 @@ tmp/
 .tmp-pagedjs/
 dist
 dist-web
+dist-web-*/
 dist-ssr
+reports/
 *.local
 
 # Editor directories and files

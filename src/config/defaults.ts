@@ -61,11 +61,11 @@ export const DEFAULT_TYPOGRAPHY_SETUP: TypographySetup = {
 };
 
 export const DEFAULT_LIST_SETUP: ListSetup = {
-  ulAsterisk: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '*', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
-  ulDash: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '-', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
-  ulPlus: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '+', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
-  ol: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '1.', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 },
-  olParen: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '1)', bulletColor: '#000000', marginLeft: 20, paddingLeft: 8 }
+  ulAsterisk: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '*', bulletColor: '#000000', marginTop: 0, marginBottom: 0, marginLeft: 20, paddingLeft: 8 },
+  ulDash: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '-', bulletColor: '#000000', marginTop: 0, marginBottom: 0, marginLeft: 20, paddingLeft: 8 },
+  ulPlus: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '+', bulletColor: '#000000', marginTop: 0, marginBottom: 0, marginLeft: 20, paddingLeft: 8 },
+  ol: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '1.', bulletColor: '#000000', marginTop: 0, marginBottom: 0, marginLeft: 20, paddingLeft: 8 },
+  olParen: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, lineHeight: 1.4, bulletIcon: '1)', bulletColor: '#000000', marginTop: 0, marginBottom: 0, marginLeft: 20, paddingLeft: 8 }
 };
 
 export const DEFAULT_TABLE_SETUP: TableSetup = {
@@ -97,6 +97,7 @@ export const DEFAULT_PROJECT_METADATA: ProjectMetadata = {
 
 export const DEFAULT_EDITOR_SETUP: EditorSetup = {
   lineWrapping: true,
+  spellcheck: true,
   linkUnderline: true,
   fontSize: '10pt',
   headingBold: true,

@@ -18,4 +18,8 @@ export function setupEditorControls(editorManager: EditorManager): void {
   document.getElementById('btn-toggle-print-preview')?.addEventListener('click', () => {
     void editorManager.toggleFinalPrintPreview();
   });
+
+  document.getElementById('btn-full-doc')?.addEventListener('click', () => {
+    void editorManager.showFullDocumentPreview();
+  });
 }

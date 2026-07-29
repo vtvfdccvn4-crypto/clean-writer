@@ -5,6 +5,7 @@ import remarkRehype from 'remark-rehype';
 import rehypeStringify from 'rehype-stringify';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import { VFile } from 'vfile';
 
 import { listMarkerPlugin, imageAttributesPlugin, imageSourcePlugin, customStylesPlugin, customBlockStylesPlugin, specialHeadingsPlugin, metadataSubstitutionPlugin, tableStylePlugin } from './remark-plugins';
 import { listLayoutPlugin, tocPlaceholderPlugin, previewManifestPlugin, type PreviewSourceManifestEntry } from './rehype-plugins';
@@ -63,7 +64,15 @@ export interface PreviewCompilationOptions {
   sourceLineOffset?: number;
   /** Source-file ranges embedded in a generated multi-section document. */
   sourceSegments?: readonly PreviewSourceSegment[];
+  /** Fine-grained compilation spans for full-document performance telemetry. */
+  onPhase?: (phase: PreviewCompilationPhase, durationMs: number) => void;
 }
+
+export type PreviewCompilationPhase =
+  | 'compile-parse-markdown'
+  | 'compile-transform-document'
+  | 'compile-stringify-html'
+  | 'compile-rebase-manifest';
 
 export interface PreviewSourceSegment {
   filePath: string;
@@ -82,14 +91,29 @@ export async function compilePreviewDocument(
   assetResolver?: AssetResolver | null,
   options: PreviewCompilationOptions = {}
 ): Promise<CompiledPreview> {
-  const file = await createMarkdownCompiler(assetResolver).process(markdown);
+  const compiler = createMarkdownCompiler(assetResolver);
+  const file = new VFile({ value: markdown });
+  const parseStartedAt = performance.now();
+  const tree = compiler.parse(file);
+  options.onPhase?.('compile-parse-markdown', performance.now() - parseStartedAt);
+  const transformStartedAt = performance.now();
+  // Unified's plugin chain changes the tree from mdast to hast. The installed
+  // type declarations cannot express that mixed pipeline at this boundary.
+  const transformed = await compiler.run(tree as never, file);
+  options.onPhase?.('compile-transform-document', performance.now() - transformStartedAt);
+  const stringifyStartedAt = performance.now();
+  const html = String(compiler.stringify(transformed as never, file));
+  options.onPhase?.('compile-stringify-html', performance.now() - stringifyStartedAt);
   const manifest = file.data.previewSourceManifest;
   const sourceLineOffset = Math.max(0, options.sourceLineOffset ?? 0);
+  const rebaseStartedAt = performance.now();
+  const rebasedManifest = Array.isArray(manifest)
+    ? rebaseManifest(manifest as PreviewSourceManifestEntry[], sourceLineOffset, options.sourceSegments)
+    : [];
+  options.onPhase?.('compile-rebase-manifest', performance.now() - rebaseStartedAt);
   return {
-    html: String(file),
-    manifest: Array.isArray(manifest)
-      ? rebaseManifest(manifest as PreviewSourceManifestEntry[], sourceLineOffset, options.sourceSegments)
-      : []
+    html,
+    manifest: rebasedManifest
   };
 }
 
@@ -122,8 +146,4 @@ function rebaseManifest(
       }
     };
   });
-}
-
-export function sliceMarkdownChunks(markdown: string): string[] {
-  return markdown.split('\n\n');
 }

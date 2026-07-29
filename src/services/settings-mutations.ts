@@ -18,6 +18,11 @@ export function applyProjectSettingsMutation(
     return;
   }
 
+  if (mutation.type === 'set-order') {
+    settings.order = [...new Set(mutation.order.map(normalizeExplorerPath).filter(Boolean))];
+    return;
+  }
+
   if (mutation.type === 'set-path-flag') {
     const path = normalizeExplorerPath(mutation.path);
     const paths = settings[mutation.key];

@@ -1,5 +1,5 @@
 import { isBlockGlyphPath, toBlockGlyphPath } from '../customBlockGlyphs';
-import { resolveImageSource } from '../images/imageSources';
+import { applyImageFallback, resolveImageSource } from '../images/imageSources';
 import { state } from '../state';
 import type { Platform, AssetResolver } from '../platform/types';
 import { projectSession } from '../services/ProjectSessionStore';
@@ -14,6 +14,7 @@ export function createBlockIcon(assetResolver: AssetResolver | null | undefined,
     image.src = resolveImageSource(icon, assetResolver);
     image.alt = '';
     image.setAttribute('aria-hidden', 'true');
+    image.onerror = () => applyImageFallback(image, icon);
     return image;
   }
   const text = document.createElement('span');
@@ -35,6 +36,7 @@ export function updateBlockGlyphPreview(assetResolver: AssetResolver | null | un
   empty.classList.toggle('hidden', hasGlyph);
   if (hasGlyph) preview.src = resolveImageSource(glyph, assetResolver);
   else preview.removeAttribute('src');
+  preview.onerror = () => applyImageFallback(preview, glyph);
   empty.textContent = hasGlyph ? glyph : 'Choose glyph';
   trigger.title = glyph ? `Selected glyph: ${glyph}` : 'Choose block glyph';
 
@@ -68,6 +70,7 @@ function renderBlockGlyphMenu(assetResolver: AssetResolver | null | undefined) {
       const image = document.createElement('img');
       image.src = resolveImageSource(option.value, assetResolver);
       image.alt = option.text;
+      image.onerror = () => applyImageFallback(image, option.value);
       button.appendChild(image);
     } else {
       button.textContent = option.value || 'None';

@@ -9,11 +9,6 @@ import type {
   WorkspaceCapabilities,
   WorkspaceRef,
   AssetResolver,
-  DocumentExportService,
-  ExportResult,
-  PaginationTransport,
-  PdfPaginationPayload,
-  AppLifecycle,
   SectionPlacement
 } from './types';
 import { normalizeExplorerPath, replacePathPrefix } from '../utils/path-utils';
@@ -223,6 +218,7 @@ export class InMemoryWorkspaceSession implements WorkspaceSession {
     const entries = await this.listSections();
     const move = calculateSectionMove(entries, this.settings.order, sourceName, targetName, placement);
     if (!move) return { success: false };
+    if (move.source === move.destination) return { success: false };
 
     const committed = await this.renameSection(move.source, move.destination);
     if (!committed) return { success: false };
@@ -276,40 +272,5 @@ export class InMemoryWorkspaceRepository implements WorkspaceRepository {
       kind: 'memory',
       displayName: 'Mock In-Memory Workspace'
     };
-  }
-}
-
-export class InMemoryExportService implements DocumentExportService {
-  readonly support = {
-    docx: true,
-    pdf: true
-  } as const;
-
-  async saveDocx(_data: Uint8Array, _suggestedName: string): Promise<ExportResult> {
-    return { status: 'saved' };
-  }
-
-  async exportPdf(): Promise<boolean> {
-    return true;
-  }
-}
-
-export class InMemoryPaginationTransport implements PaginationTransport {
-  onExecutePagination(_callback: (payload: PdfPaginationPayload) => void): void {
-    // No-op
-  }
-
-  sendPaginationResult(_result: unknown): void {
-    // No-op
-  }
-}
-
-export class InMemoryAppLifecycle implements AppLifecycle {
-  onBeforeClose(_callback: () => void): void {
-    // No-op
-  }
-
-  confirmClose(_ok: boolean, _error?: string): void {
-    // No-op
   }
 }

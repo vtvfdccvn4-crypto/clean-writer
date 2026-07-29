@@ -5,7 +5,7 @@ import type { MarkdownEditor } from '../editor';
 import { compileMarkdown, type CompiledPreview } from '../compiler';
 import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
 import { renderDocumentSection } from '../preview/document-rendering';
-import type { Platform, PdfExportDocument } from '../platform/types';
+import type { Platform } from '../platform/types';
 import { showNotice } from './components/Notice';
 import { showConfirmDialog } from './confirm-dialog';
 import { describeWorkspaceError } from '../services/project-runtime-feedback';
@@ -17,14 +17,16 @@ import { EditorSaveCoordinator } from './EditorSaveCoordinator';
 import { DocumentActivationCoordinator } from './DocumentActivationCoordinator';
 import { WelcomeController } from './WelcomeController';
 import { AppScreenController } from './AppScreenController';
-import { ExportOrchestrationController } from './ExportOrchestrationController';
-import { BackgroundExportPaginator } from './BackgroundExportPaginator';
 import { importPastedImage } from '../images/importPastedImage';
 import { createPrintLayoutSettings } from '../print/PrintLayoutSettings';
-import { compilePrintDocument } from '../print/PrintDocumentCompiler';
-import { compilePrintCss } from '../print/PrintCssCompiler';
-import { parseMarkdownImages } from '../images/markdownImages';
+import { PdfPreviewPageGuidePaginator } from '../pdf-preview/PdfPreviewPageGuidePaginator';
+import { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
+import { createPdfPreviewGuideJob, createPdfPreviewJob } from '../pdf-preview/PdfPreviewJobFactory';
+import type { CommittedPreviewTarget } from '../preview/navigation/CommittedPreviewIndex';
 import { PageGuideCoordinator, type PageGuideComputation, type PageGuideSnapshot } from './PageGuideCoordinator';
+import { createWelcomeProjectActions } from './WelcomeProjectActions';
+import { PreviewPhaseTimer } from '../perf/preview-phase-timer';
+import { previewMetrics } from '../perf/preview-metrics';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -37,14 +39,15 @@ export class EditorManager {
   private readonly welcome: WelcomeController;
   private readonly screens: AppScreenController;
   private platform: Platform;
-  private readonly exportOrchestration: ExportOrchestrationController;
-  private readonly backgroundExportPaginator: BackgroundExportPaginator;
   private readonly statusController = new EditorStatusController();
   private readonly saveCoordinator: EditorSaveCoordinator;
+  private suppressPreviewSelectionNavigation = false;
   /** A selected document opens in paginated form until the first edit. */
   private isFinalPrintPreview = true;
   private canonicalEditTransitionInFlight: Promise<void> | null = null;
   private readonly pageGuides: PageGuideCoordinator;
+  private readonly isolatedPaginationHost = new IsolatedPaginationHost();
+  private readonly pdfPreviewPageGuidePaginator: PdfPreviewPageGuidePaginator;
   private latestCompiledPreview: {
     projectId: string;
     documentPath: string;
@@ -56,49 +59,32 @@ export class EditorManager {
     this.platform = platform;
     this.editorContainer = document.getElementById('editor-container')!;
     this.pagedStage = document.getElementById('paged-stage')!;
-    this.previewPane = document.querySelector('.preview-pane')!;
-    this.preview = new PreviewCoordinator(this.pagedStage, this.platform.assetResolver);
-    this.backgroundExportPaginator = new BackgroundExportPaginator();
+    this.previewPane = document.getElementById('preview-panel')!;
+    this.preview = new PreviewCoordinator(
+      this.pagedStage,
+      this.platform.assetResolver,
+      line => this.focusPreviewSourceLine(line),
+      target => this.focusPreviewSourceTarget(target),
+      (sourceHtml, pageSetup) => createPdfPreviewJob(sourceHtml, this.capturePrintLayout(pageSetup), this.platform.assetResolver),
+      this.isolatedPaginationHost
+    );
     this.pageGuides = new PageGuideCoordinator({
       getSnapshot: () => this.getPageGuideSnapshot(),
       compute: (snapshot, signal) => this.computePageGuides(snapshot, signal),
       isCurrent: snapshot => this.isCurrentPageGuideSnapshot(snapshot),
       apply: guides => this.preview.setCanonicalPageBreakGuides(guides)
     });
+    this.pdfPreviewPageGuidePaginator = new PdfPreviewPageGuidePaginator(this.isolatedPaginationHost);
     const welcomeScreen = document.getElementById('welcome-screen-root')!;
     this.welcome = new WelcomeController({
       welcomeContainer: welcomeScreen,
-      workspaceRepository: this.platform.workspaceRepository
+      workspaceRepository: this.platform.workspaceRepository,
+      ...createWelcomeProjectActions(this.platform)
     });
     this.screens = new AppScreenController({
       welcomeScreen,
       workspaceScreen: document.querySelector<HTMLElement>('.workspace-shell')!,
       workspaceStatusBar: document.querySelector<HTMLElement>('.workspace-status-bar')!
-    });
-    this.exportOrchestration = new ExportOrchestrationController({
-      compileSnapshot: () => this.compileExportSnapshot(),
-      capturePrintLayout: () => this.capturePrintLayout(),
-      paginateInBackground: async (html, css, layout) => {
-        const paginated = await this.backgroundExportPaginator.paginate({
-          html,
-          css,
-          layout,
-          marginImageSources: collectPrintMarginImageSources(layout, this.platform.assetResolver)
-        });
-        return {
-          ...paginated,
-          error: paginated.error ? new Error(paginated.error) : undefined
-        };
-      },
-      getPageSetup: layout => ({
-        ...state.current.pageSetup,
-        paperWidth: layout.paper.widthMm,
-        paperHeight: layout.paper.heightMm,
-        marginTop: layout.paper.marginsMm.top,
-        marginRight: layout.paper.marginsMm.right,
-        marginBottom: layout.paper.marginsMm.bottom,
-        marginLeft: layout.paper.marginsMm.left
-      })
     });
     this.activation = new DocumentActivationCoordinator({
       flushCurrentDocument: () => this.flushCurrentDocument(),
@@ -132,7 +118,18 @@ export class EditorManager {
     });
     state.onProjectChanged(() => {
       this.clearCanonicalPageBreakGuides();
-      this.setPreviewVisible(Boolean(state.current.projectRef));
+      if (state.current.projectRef) {
+        // Switch screens as soon as the project is selected. Snapshot loading
+        // and document activation can continue asynchronously without leaving
+        // the welcome screen covering an already-open project.
+        this.welcome.destroy();
+        this.screens.showWorkspace();
+        this.setPreviewVisible(true);
+      } else {
+        this.setPreviewVisible(false);
+        this.screens.showWelcome();
+        this.welcome.render();
+      }
     });
     state.onProjectSnapshotChanged(() => {
       this.applySnapshotSettings();
@@ -279,49 +276,98 @@ export class EditorManager {
   }
 
   private async renderFullDocument(isLatest: () => boolean) {
-    // A merged document is the print-layout view. Keep it distinct from the
-    // continuous, block-reconciled preview used while a section is being
-    // edited.
-    this.preview.setMode('paginated');
-    const revision = this.preview.beginRevision();
-    this.preview.clearVisiblePreview();
-    const { projectRef } = state.current;
-    if (!projectRef) throw new Error('No project is open.');
+    const sections = state.current.sections ?? [];
+    const timing = new PreviewPhaseTimer({
+      kind: 'document-preview',
+      trigger: 'project-open',
+      metadata: {
+        sourceSectionCount: sections.filter(section => !section.isDir).length,
+        sourceFileCount: sections.filter(section => !section.isDir).length
+      }
+    });
+    let outcome: 'success' | 'stale' | 'cancelled' | 'failed' = 'success';
+    let timingError: unknown;
+    let sourceCharacterCount = 0;
+    try {
+      // A merged document is the print-layout view. Keep it distinct from the
+      // continuous, block-reconciled preview used while a section is being
+      // edited.
+      this.preview.setMode('paginated');
+      const revision = this.preview.beginRevision();
+      this.preview.clearVisiblePreview();
+      const { projectRef } = state.current;
+      if (!projectRef) throw new Error('No project is open.');
     
-    // Cleanup old editor
-    this.documentSession.destroyActive();
-    this.editorContainer.replaceChildren();
-    const fullDocumentNotice = document.createElement('div');
-    fullDocumentNotice.className = 'editor-mode-placeholder';
-    fullDocumentNotice.textContent = 'Editor disabled in Full Document mode';
-    this.editorContainer.appendChild(fullDocumentNotice);
-    this.updateSaveStatus('idle');
-    this.updateActiveSectionLabel('Full Document', 'Full Document Mode');
-    this.documentSession.clearPendingFocus();
+      // Cleanup old editor
+      this.documentSession.destroyActive();
+      this.editorContainer.replaceChildren();
+      const fullDocumentNotice = document.createElement('div');
+      fullDocumentNotice.className = 'editor-mode-placeholder';
+      fullDocumentNotice.textContent = 'Editor disabled in Full Document mode';
+      this.editorContainer.appendChild(fullDocumentNotice);
+      this.updateSaveStatus('idle');
+      this.updateActiveSectionLabel('Full Document', 'Full Document Mode');
+      this.documentSession.clearPendingFocus();
     
-    const { sections } = state.current;
-    if (!projectRef) throw new Error('No project is open.');
+      // A newly created project can briefly publish its folder tree before it
+      // contains a Markdown section. The isolated print compiler correctly
+      // rejects an empty document, so keep this state as an empty preview.
+      if (!sections.some(section => !section.isDir)) return;
 
-    if (!sections || sections.length === 0) {
-      return;
-    }
-
+    const endSnapshotLoad = timing.start('snapshot-load');
     const session = await this.platform.workspaceRepository.open(projectRef);
-    const initialHtml = await compileSnapshot({
+    endSnapshotLoad();
+    const initialDocument = await compileSnapshot<import('../compiler').CompiledPreview>({
       session,
       assetResolver: this.platform.assetResolver,
       isFullDocMode: true,
       activeFile: null,
-      sections
+      sections,
+      onPhase: (phase, durationMs) => timing.record(phase, durationMs)
     }, {
-      compile: async (markdown: string) => {
+      compile: async (markdown: string, _assetResolver, sourceSegments) => {
         // These counters are intentionally coarse: they let us compare the
         // number of preview compiles before and after snapshot-flow changes.
-        return this.preview.compileFullDocument(markdown);
+        sourceCharacterCount = markdown.length;
+        const endCompile = timing.start('compile');
+        try {
+          return await this.preview.compileFullDocument(markdown, sourceSegments, (phase, durationMs) => timing.record(phase, durationMs));
+        } finally {
+          endCompile();
+        }
       }
     });
-    if (!this.preview.isCurrent(revision) || !isLatest()) return;
-    await this.preview.forceRender(initialHtml);
+    timing.updateMetadata({
+      sourceCharacterCount,
+      compiledHtmlCharacterCount: initialDocument.html.length,
+      manifestEntryCount: initialDocument.manifest.length
+    });
+    if (!this.preview.isCurrent(revision) || !isLatest()) {
+      outcome = 'stale';
+      return;
+    }
+    const endJobCreation = timing.start('create-pagination-job');
+    const job = createPdfPreviewJob(initialDocument.html, this.capturePrintLayout(), this.platform.assetResolver);
+    endJobCreation();
+    const renderResult = await this.preview.forceRenderIsolated(
+      job,
+      initialDocument.html,
+      initialDocument.manifest,
+      revision,
+      (phase, durationMs) => timing.record(phase, durationMs),
+      pageTimings => timing.setPageTimings(pageTimings),
+      stats => timing.updateMetadata(stats)
+    );
+    timing.updateMetadata({ pageCount: renderResult.pageCount });
+    if (renderResult.status === 'stale') outcome = 'stale';
+    else if (renderResult.status !== 'rendered') outcome = 'failed';
+    } catch (error) {
+      outcome = 'failed';
+      timingError = error;
+      throw error;
+    } finally {
+      previewMetrics.recordPreviewTiming(timing.finish(outcome, { error: timingError }));
+    }
   }
 
   private async renderSingleDocument(filename: string, isLatest: () => boolean) {
@@ -450,6 +496,7 @@ export class EditorManager {
         this.reportWorkflowError(`Autosave failed for ${filename}.`, error);
       },
       onSelectionChange: (line: number) => {
+        if (this.suppressPreviewSelectionNavigation) return;
         this.preview.navigateToSourceLine(line);
       },
       resolveImageSource: async (source: string) => {
@@ -492,7 +539,12 @@ export class EditorManager {
       compiled: initialPreview
     };
 
-    await this.preview.forceRender(initialPreview.html, initialPreview.manifest, initialRevision);
+    await this.preview.forceRenderIsolated(
+      createPdfPreviewJob(initialPreview.html, this.capturePrintLayout(), this.platform.assetResolver),
+      initialPreview.html,
+      initialPreview.manifest,
+      initialRevision
+    );
     if (!this.preview.isCurrent(initialRevision) || !isLatest()) return;
     this.syncFinalPrintPreviewToggle();
 
@@ -560,6 +612,26 @@ export class EditorManager {
     this.documentSession.focusLine(state.current.activeFile ?? this.currentFilePath, line);
   }
 
+  /** Focuses source from a preview click without echoing the move back to the preview. */
+  private focusPreviewSourceLine(line: number): void {
+    this.suppressPreviewSelectionNavigation = true;
+    try {
+      this.focusLine(line);
+    } finally {
+      this.suppressPreviewSelectionNavigation = false;
+    }
+  }
+
+  /** Opens the manifest-backed source section when a merged-preview block is clicked. */
+  private focusPreviewSourceTarget(target: CommittedPreviewTarget): void {
+    const path = target.entry.filePath;
+    if (!path) return;
+    this.suppressPreviewSelectionNavigation = true;
+    void this.navigateToLine(path, target.entry.range.startLine)
+      .catch(error => this.reportWorkflowError(`Could not open ${path} from preview.`, error))
+      .finally(() => { this.suppressPreviewSelectionNavigation = false; });
+  }
+
   public hasUnsavedChanges(): boolean {
     return this.saveCoordinator.hasUnsavedChanges();
   }
@@ -574,6 +646,13 @@ export class EditorManager {
 
   public async flushCurrentDocument(): Promise<void> {
     return this.saveCoordinator.flushCurrentDocument();
+  }
+
+  /** Switches to the merged document preview from the preview toolbar. */
+  public async showFullDocumentPreview(): Promise<void> {
+    await this.flushCurrentDocument();
+    if (!state.current.projectRef) return;
+    state.setFullDocMode();
   }
 
   /** Switches the selected document from its initial print view into editing mode. */
@@ -636,7 +715,16 @@ export class EditorManager {
     if (!this.preview.isCurrent(revision)
       || state.current.activeFile !== activeFile
       || !this.currentEditorView) return;
-    await this.preview.forceRender(compiled.html, compiled.manifest, revision);
+    if (this.isFinalPrintPreview) {
+      await this.preview.forceRenderIsolated(
+        createPdfPreviewJob(compiled.html, this.capturePrintLayout(), this.platform.assetResolver),
+        compiled.html,
+        compiled.manifest,
+        revision
+      );
+    } else {
+      await this.preview.forceRender(compiled.html, compiled.manifest, revision);
+    }
     this.preview.scrollToTop();
     if (!this.isFinalPrintPreview) {
       if (visiblePaginatedGuides.length > 0) this.preview.setCanonicalPageBreakGuides(visiblePaginatedGuides);
@@ -653,7 +741,7 @@ export class EditorManager {
   }
 
   /** Compile a fresh, durable snapshot; never export the preview cache. */
-  public async compileExportSnapshot(): Promise<string> {
+  public async compileExportSnapshot(signal?: AbortSignal): Promise<string> {
     await this.flushCurrentDocument();
     const { projectRef, isFullDocMode, activeFile, sections } = state.current;
     if (!projectRef) throw new Error('No project is open.');
@@ -664,6 +752,7 @@ export class EditorManager {
       isFullDocMode,
       activeFile,
       sections,
+      signal,
       currentMarkdown: this.currentFilePath === activeFile && this.currentEditorView
         ? this.currentEditorView.getValue()
         : undefined
@@ -672,9 +761,16 @@ export class EditorManager {
     });
   }
 
-  /** Compile and paginate the durable snapshot used by browser PDF export. */
-  public async compilePaginatedExportSnapshot(): Promise<PdfExportDocument> {
-    return this.exportOrchestration.compilePaginatedSnapshot();
+  /** Builds input for the isolated PDF preview pipeline. */
+  public async compilePdfPreviewInput(signal?: AbortSignal): Promise<{
+    html: string;
+    css: string;
+    margins: import('../pdf-preview/contracts').PdfPreviewMarginData;
+    marginImageSources: Record<string, string>;
+  }> {
+    const html = await this.compileExportSnapshot(signal);
+    const layout = this.capturePrintLayout();
+    return createPdfPreviewJob(html, layout, this.platform.assetResolver);
   }
 
   private updateActiveSectionLabel(filename: string | null, customLabel?: string) {
@@ -703,9 +799,9 @@ export class EditorManager {
   }
 
   /** Exact shared layout input for PDF export and background page guides. */
-  private capturePrintLayout() {
+  private capturePrintLayout(pageSetup = state.current.pageSetup) {
     return createPrintLayoutSettings({
-      pageSetup: state.current.pageSetup,
+      pageSetup,
       typographySetup: state.current.typographySetup,
       listSetup: state.current.listSetup,
       tableSetup: state.current.tableSetup,
@@ -750,15 +846,13 @@ export class EditorManager {
       if (signal.aborted) return { status: 'cancelled', guides: [] };
 
       const layout = this.capturePrintLayout();
-      const printDocument = compilePrintDocument(compiled.html, layout);
-      const result = await this.backgroundExportPaginator.paginate({
-        html: printDocument.html,
-        css: compilePrintCss(layout),
-        layout,
-        marginImageSources: collectPrintMarginImageSources(layout, this.platform.assetResolver),
-        purpose: 'guides'
-      }, signal);
-      if (signal.aborted) return { status: 'cancelled', guides: [] };
+      const outcome = await this.pdfPreviewPageGuidePaginator.paginate(
+        createPdfPreviewGuideJob(compiled.html, layout),
+        signal
+      );
+      if (signal.aborted || outcome.status === 'cancelled') return { status: 'cancelled', guides: [] };
+      if (outcome.status !== 'success') throw new Error(outcome.message);
+      const result = outcome.result;
 
       const manifestByAnchor = new Map(compiled.manifest.map(entry => [entry.anchor, entry]));
       return {
@@ -803,17 +897,4 @@ export class EditorManager {
     this.statusController.setStatus(status);
   }
 
-}
-
-function collectPrintMarginImageSources(
-  layout: import('../print/PrintLayoutSettings').PrintLayoutSettings,
-  assetResolver: Platform['assetResolver']
-): Record<string, string> {
-  const resolved: Record<string, string> = {};
-  for (const cell of [layout.header.left, layout.header.center, layout.header.right, layout.footer.left, layout.footer.center, layout.footer.right]) {
-    for (const image of parseMarkdownImages(cell.content)) {
-      if (!resolved[image.source]) resolved[image.source] = assetResolver.resolveSync(image.source);
-    }
-  }
-  return resolved;
 }

@@ -1,11 +1,17 @@
-const CACHE_NAME = 'clear-writer-shell-v3';
+const CACHE_BUSTER = new URL(self.location.href).searchParams.get('v') || 'v3';
+const CACHE_NAME = `clear-writer-shell-${CACHE_BUSTER}`;
+const ASSET_ROOT_PATH = new URL('assets/', self.registration.scope).pathname;
+
+function isScopedAsset(url) {
+  return url.origin === self.location.origin && url.pathname.startsWith(ASSET_ROOT_PATH);
+}
 
 function referencedAssetPaths(text, baseUrl) {
   const paths = new Set();
   const add = (value) => {
     try {
       const url = new URL(value, baseUrl);
-      if (url.origin === self.location.origin && url.pathname.startsWith('/assets/')) {
+      if (isScopedAsset(url)) {
         paths.add(url.pathname);
       }
     } catch {
@@ -45,8 +51,7 @@ async function pruneStaleAssets() {
   const requests = await cache.keys();
   await Promise.all(requests.map(request => {
     const url = new URL(request.url);
-    return url.origin === self.location.origin
-      && url.pathname.startsWith('/assets/')
+    return isScopedAsset(url)
       && !keep.has(url.pathname)
       ? cache.delete(request)
       : Promise.resolve(false);
@@ -84,7 +89,6 @@ self.addEventListener('fetch', event => {
 
   // Always check the network for the HTML shell so a new build is visible
   // immediately. Hashed assets remain cacheable through the fallback below.
-  const scopePath = new URL(self.registration.scope).pathname;
   const indexPath = new URL('index.html', self.registration.scope).pathname;
   if (request.mode === 'navigate' || new URL(request.url).pathname === indexPath) {
     event.respondWith(

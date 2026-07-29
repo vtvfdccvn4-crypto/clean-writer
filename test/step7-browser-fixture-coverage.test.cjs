@@ -5,21 +5,18 @@ const { test } = require('node:test');
 
 const fixturePath = path.join(__dirname, 'fixtures', 'browser-authoring-smoke.ts');
 
-test('browser authoring fixture retains Step 7 editor reliability checks', () => {
+test('browser authoring fixture covers current isolated-preview reliability checks', () => {
   const source = fs.readFileSync(fixturePath, 'utf-8');
 
   [
-    'autosaveCompleted',
-    'undoAfterAutosave',
-    'viewStateRestored',
-    'searchPanelOpened',
-    'recoveryConfirmShown',
-    'draftRestored',
-    'fileDropNoticeSeen',
-    'longTextAutosaved',
-    'longTextPreserved',
-    'longTextCursorRestored'
+    'projectSession.createSection',
+    'setFullDocMode',
+    'isolated-full-document',
+    'isolated page-setup rerender',
+    'pageSetupUsedIsolatedPipeline',
+    'sourceNavigationAvailable',
+    'previewCleanAfterClose'
   ].forEach(marker => {
-    assert.match(source, new RegExp(`\\b${marker}\\b`), `Expected Step 7 fixture marker ${marker}`);
+    assert.match(source, new RegExp(marker.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')), `Expected authoring fixture marker ${marker}`);
   });
 });

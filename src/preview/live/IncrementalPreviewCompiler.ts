@@ -89,7 +89,11 @@ function splitSectionEnvelope(markdown: string): SectionEnvelope | null {
     openingHtml,
     closingHtml: '</div>',
     body,
-    bodyStartLine: prefix.split(/\r?\n/).length + leadingWhitespace.split(/\r?\n/).length - 1
+    // The generated section envelope contributes two lines before the
+    // Markdown body.  The manifest consumed by the editor is expressed in
+    // editor-source lines, so remove that envelope offset here rather than
+    // letting every incremental target drift below the first block.
+    bodyStartLine: prefix.split(/\r?\n/).length + leadingWhitespace.split(/\r?\n/).length - 3
   };
 }
 

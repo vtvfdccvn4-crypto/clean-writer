@@ -1,15 +1,10 @@
-import type { Platform, WorkspaceRepository, WorkspaceSession, WorkspaceRef, AssetResolver, PaginationTransport } from './types';
-import {
-  InMemoryAssetResolver,
-  InMemoryPaginationTransport,
-} from './InMemoryWorkspace';
+import type { Platform, WorkspaceRepository, WorkspaceSession, WorkspaceRef } from './types';
 import { OPFSCatalogue } from './OPFSCatalogue';
 import { OPFSAppLifecycle, OPFSWorkspaceRepository } from './OPFSWorkspace';
 import { DirectoryHandleCatalogue } from './DirectoryHandleCatalogue';
 import { LocalDirectoryWorkspaceRepository } from './LocalDirectoryWorkspace';
 import { BlobUrlAssetResolver } from './BlobUrlAssetResolver';
 import { projectSession } from '../services/ProjectSessionStore';
-import { BrowserExportService } from './BrowserExportService';
 
 export type RecentWorkspaceEntry = { ref: WorkspaceRef, displayName: string, time: number };
 
@@ -104,24 +99,12 @@ export function createAppPlatform(win: Window = window): Platform {
 
   return {
     workspaceRepository: compositeRepo,
-    exportService: new BrowserExportService(),
     appLifecycle: new OPFSAppLifecycle(),
     assetResolver: new BlobUrlAssetResolver(async (path) => {
       const session = projectSession.getSession();
       if (!session || typeof session.readBlob !== 'function') return null;
       try { return await session.readBlob(path); }
       catch { return null; }
-    }),
-    paginationTransport: new InMemoryPaginationTransport()
-  };
-}
-
-export function createWorkerRuntime(): {
-  transport: PaginationTransport;
-  assetResolver: AssetResolver;
-} {
-  return {
-    transport: new InMemoryPaginationTransport(),
-    assetResolver: new InMemoryAssetResolver(() => null)
+    })
   };
 }

@@ -13,7 +13,7 @@ This page describes the technologies, frameworks, plugins, and runtime boundarie
 
 Clear Writer is a browser/PWA application. It does not use Electron, a desktop shell, IPC, or a preload bridge.
 
-- `src/main.ts` selects normal application boot or the `?export-frame=true` isolated PDF-pagination frame; the legacy worker entry remains available for the browser transport contract.
+- `src/main.ts` selects normal application boot or the `?pdf-preview=true` isolated PDF-preview frame.
 - `src/boot/app.ts` creates the application shell and connects platform, editor, preview, settings, storage, export, and lifecycle services.
 - `public/manifest.webmanifest` defines the installable PWA metadata.
 - `public/sw.js` provides the production service worker and prunes obsolete hashed assets while preserving the current shell and referenced resources.
@@ -25,9 +25,10 @@ Clear Writer is a browser/PWA application. It does not use Electron, a desktop s
 
 - CodeMirror 6 provides the Markdown editor, history, search, autocomplete, syntax highlighting, folding, selections, and editor compartments.
 - `@codemirror/lang-markdown` and Lezer provide Markdown parsing and syntax support.
+- Editor behavior is split between CodeMirror compartments and small command helpers: the Markdown toolbar and the `*` selection-wrapping shortcut reuse `src/editor/markdown-commands.ts`, while `src/editor/extensions/editorBehavior.ts` owns editor preferences such as line numbers, matching-text highlight, bracket matching, and rectangular selection.
 - The UI is built with TypeScript DOM components and CSS. There is no React, Vue, Angular, or other component framework.
 - `@fontsource/inter` and `@fontsource/inter-tight` provide bundled interface fonts.
-- `morphdom` is available for DOM patching where incremental updates are needed.
+- DOM updates use focused TypeScript controllers and the existing preview/rendering boundaries; there is no general-purpose DOM morphing dependency.
 
 ## Markdown And Document Pipeline
 
@@ -47,14 +48,13 @@ Clear Writer adds compiler plugins for images, metadata, custom inline styles, c
 
 - Paged.js provides live paginated preview rendering and page layout.
 - Paged.js is pinned to `0.4.3` and receives a committed `patches/pagedjs+0.4.3.patch` through `patch-package`. `npm run test:pagedjs-patch` verifies that the expected DOM helpers and null guards are present after installation.
-- PDF export uses the browser print API. `BrowserExportService` prefers a hidden iframe and falls back to a popup when required.
-- `docx` provides the DOCX conversion implementation. DOCX is present in source, but the active browser runtime disables it and the UI marks the button unavailable.
+- PDF Preview uses the browser print API through the isolated preview pipeline.
 
 ## Storage Architecture
 
 The platform layer separates application behavior from storage and browser capabilities through `Platform`, `WorkspaceRepository`, and `WorkspaceSession` contracts.
 
-- `InMemoryWorkspace` supports tests and worker-oriented browser transport.
+- `InMemoryWorkspace` supports browser workspace tests.
 - `OPFSWorkspace` stores browser projects in the Origin Private File System.
 - `LocalDirectoryWorkspace` stores projects in user-selected local folders.
 
@@ -93,16 +93,23 @@ The closed-project surface is isolated in `src/ui/WelcomeController.ts`. It
 owns welcome markup, recent workspace lookup, and the New/Open action bridges;
 `EditorManager` retains only session cleanup and preview reset around it.
 
-PDF export orchestration is isolated in `src/ui/ExportOrchestrationController.ts`.
-It coordinates durable snapshot compilation, background iframe pagination,
-stale-render retry, printable-page validation, and telemetry. The editor manager
-continues to expose the existing `compilePaginatedExportSnapshot()` facade.
+PDF Preview orchestration is isolated in `src/pdf-preview/IsolatedPdfPreviewPipeline.ts`.
+The editor manager uses `EditorManager.compilePdfPreviewInput()` to capture its
+immutable input.
 
-PDF pagination is intentionally isolated from the visible preview. The
-`BackgroundExportPaginator` creates a hidden same-origin iframe, loads the
-minimal export frame, sends it the compiled snapshot, and receives paginated
-HTML over `postMessage`. This prevents an export render from replacing or
-disturbing the document the user is currently viewing.
+All physical-page pagination uses the isolated same-origin frame protocol. The
+parent sends an immutable print job through `IsolatedPaginationHost`, receives
+the paginated artifact over `postMessage`, and commits it only if the request
+is still current. The editor shares one host between visible full-document
+preview and page-break guide pagination, serializing competing Paged.js jobs
+and guaranteeing iframe cleanup. The standalone PDF preview pipeline retains
+its own host because it has a separate print-window lifecycle.
+
+`src/print/PrintDocumentCompiler.ts` normalises logical page breaks,
+`src/print/PrintCssCompiler.ts` creates the frozen print stylesheet, and the
+isolated frame runs Paged.js before returning headers, footers, and page
+content. `IsolatedPaginationHost` supplies size-aware budgets, cancellation,
+progress diagnostics, and stale-result protection.
 - `project-paths.ts` centralizes section/image path resolution and settings-path migration shared by all workspace adapters. Glyph paths are handled separately by the custom block glyph helpers.
 - `BlobUrlAssetResolver` resolves project images for preview and export. Glyph lookup uses the custom block glyph resolver helpers.
 

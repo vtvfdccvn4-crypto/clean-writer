@@ -11,7 +11,7 @@ let ProjectService;
 let InMemoryWorkspaceSession;
 let bindProjectSettingsPanel;
 let DocumentSessionController;
-let projectExplorerTemplate;
+let taskPanelTemplate;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24683 } } });
@@ -21,15 +21,15 @@ before(async () => {
   ({ InMemoryWorkspaceSession } = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts'));
   ({ bindProjectSettingsPanel } = await server.ssrLoadModule('/src/ui/project-settings-panel.ts'));
   ({ DocumentSessionController } = await server.ssrLoadModule('/src/ui/DocumentSessionController.ts'));
-  ({ projectExplorerTemplate } = await server.ssrLoadModule('/src/ui/components/ProjectExplorer.ts'));
+  ({ taskPanelTemplate } = await server.ssrLoadModule('/src/ui/components/TaskPanel.ts'));
   ({ escapeRegExp } = await server.ssrLoadModule('/src/utils/regex.ts'));
   ({ readDrawerNumber } = await server.ssrLoadModule('/src/ui/components/drawerControls.ts'));
 });
 
-test('project explorer does not expose a manual Save action', () => {
-  const explorer = projectExplorerTemplate();
-  assert.doesNotMatch(explorer, /id="btn-save"/);
-  assert.doesNotMatch(explorer, /Save project/);
+test('task panel does not expose a manual Save action', () => {
+  const panel = taskPanelTemplate();
+  assert.doesNotMatch(panel, /id="btn-save"/);
+  assert.doesNotMatch(panel, /Save project/);
 });
 
 after(async () => server?.close());
@@ -150,6 +150,26 @@ test('project session activation replaces the active session atomically', async 
   await sessionStore.activate({ id: second.id, kind: 'memory', displayName: second.displayName }, second);
   assert.equal(sessionStore.getSession(), second);
   assert.equal(state.current.projectRef.id, second.id);
+  sessionStore.close();
+});
+
+test('project session keeps the active project when a replacement snapshot fails', async () => {
+  const sessionStore = new ProjectSessionStore();
+  const first = new InMemoryWorkspaceSession('stable-session', 'Stable');
+  const failing = new InMemoryWorkspaceSession('failing-session', 'Failing');
+  const firstRef = { id: first.id, kind: 'memory', displayName: first.displayName };
+  const failingRef = { id: failing.id, kind: 'memory', displayName: failing.displayName };
+  const originalReadSettings = failing.readSettings.bind(failing);
+  failing.readSettings = async () => {
+    await originalReadSettings();
+    throw new Error('simulated snapshot failure');
+  };
+
+  await sessionStore.activate(firstRef, first);
+  await assert.rejects(() => sessionStore.activate(failingRef, failing), /simulated snapshot failure/);
+
+  assert.equal(sessionStore.getSession(), first);
+  assert.equal(state.current.projectRef.id, first.id);
   sessionStore.close();
 });
 

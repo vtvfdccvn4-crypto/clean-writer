@@ -17,11 +17,12 @@ flowchart LR
   A[CodeMirror selection change] --> B[Editor manager captures revision]
   B --> C[Compiler builds HTML + source manifest]
   C --> D[Preview controller stores manifest and revision]
-  D --> E[Exact pagination render]
-  E --> F[Paged.js commits final page DOM]
-  F --> G[Committed preview index is built]
-  G --> H[Navigation coordinator resolves line to target]
-  H --> I[Preview viewport scrolls target near the top]
+  D --> E[PreviewController creates immutable print job]
+  E --> F[IsolatedPaginationHost paginates disposable iframe]
+  F --> G[Artifact is committed to visible preview]
+  G --> H[Committed preview index is built]
+  H --> I[Navigation coordinator resolves line to target]
+  I --> J[Preview viewport scrolls target near the top]
 ```
 
 ## Implementation Details
@@ -47,7 +48,7 @@ When Clear Writer builds a merged document from multiple section files, the same
 
 ### 4. Committed preview indexing
 
-`src/preview/RenderEngine.ts` sends the manifest into the exact render path after Paged.js has finished. Once the page DOM is committed, `src/preview/navigation/CommittedPreviewIndex.ts` maps manifest entries to the rendered pages using Paged.js references like `data-ref` and `data-split-from`.
+`src/preview/PreviewController.ts` keeps the source manifest and revision associated with the render request. It passes the immutable print job to `src/pdf-preview/IsolatedPaginationHost.ts`, which runs Paged.js in a disposable iframe and returns the paginated artifact. Once the artifact is committed, `src/preview/navigation/CommittedPreviewIndex.ts` maps manifest entries to the rendered pages using Paged.js references like `data-ref` and `data-split-from`.
 
 This is the core of the current navigation pipeline:
 
@@ -76,5 +77,7 @@ The navigation design is built around the committed preview state:
 
 - Keep source-to-preview metadata in memory unless there is a strong new requirement to serialize it.
 - Keep the committed preview index build isolated to the render completion path.
+- Treat pagination as cancellable work: a stale request must destroy its iframe before a newer request can run.
+- Keep timeout and progress behavior in `IsolatedPaginationHost`; callers should consume structured outcomes rather than recreate lifecycle logic.
 - If page layout behavior changes, verify both the manifest ranges and the committed page mapping.
 - If a future feature needs additional navigation anchors, extend the compiler manifest first and keep the preview DOM clean.

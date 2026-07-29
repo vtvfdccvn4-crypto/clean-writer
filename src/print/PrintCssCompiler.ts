@@ -3,47 +3,15 @@ import type { PrintLayoutSettings } from './PrintLayoutSettings';
 
 /** Compiles the isolated stylesheet for the immutable print-layout snapshot. */
 export function compilePrintCss(layout: PrintLayoutSettings): string {
+  const marginBoxes = marginBoxCss(layout);
+  const marginStyles = marginStyleCss(layout);
   return `
     @page {
       size: ${layout.paper.widthMm}mm ${layout.paper.heightMm}mm;
       margin: ${layout.paper.marginsMm.top}mm ${layout.paper.marginsMm.right}mm ${layout.paper.marginsMm.bottom}mm ${layout.paper.marginsMm.left}mm;
-      @top-left { content: ""; }
-      @top-center { content: ""; }
-      @top-right { content: ""; }
-      @bottom-left { content: ""; }
-      @bottom-center { content: ""; }
-      @bottom-right { content: ""; }
+      ${marginBoxes}
     }
-    .pagedjs_margin-top {
-      grid-template-columns: minmax(0, 1fr) ${cssDimension(layout.header.centerWidth)} minmax(0, 1fr) !important;
-    }
-    .pagedjs_margin-bottom {
-      grid-template-columns: minmax(0, 1fr) ${cssDimension(layout.footer.centerWidth)} minmax(0, 1fr) !important;
-    }
-    .pagedjs_margin-content.clear-writer-print-margin-content::after,
-    .pagedjs_margin-content.clear-writer-print-margin-content::before {
-      content: none !important;
-    }
-    .pagedjs_margin-content.clear-writer-print-margin-content {
-      overflow: hidden;
-    }
-    .pagedjs_margin-content.clear-writer-print-margin-content > img {
-      display: block;
-      box-sizing: border-box;
-      flex: 0 1 auto;
-      min-width: 0;
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-    }
-    .pagedjs_page.clear-writer-print-no-header .pagedjs_margin-top,
-    .pagedjs_page.clear-writer-print-no-header .pagedjs_margin-top * {
-      visibility: hidden !important;
-    }
-    .pagedjs_page.clear-writer-print-no-footer .pagedjs_margin-bottom,
-    .pagedjs_page.clear-writer-print-no-footer .pagedjs_margin-bottom * {
-      visibility: hidden !important;
-    }
+    ${marginStyles}
     ${typographyCss('p', layout.typography.paragraph)}
     ${typographyCss('h1', layout.typography.h1)}
     ${typographyCss('h2', layout.typography.h2)}
@@ -62,11 +30,88 @@ export function compilePrintCss(layout: PrintLayoutSettings): string {
     ${layout.customStyles.map(customStyleCss).join('\n')}
     ${layout.customBlockStyles.map(style => customBlockStyleCss(style, layout.typography.paragraph)).join('\n')}
     ${layout.toc ? tocCss(layout.toc) : ''}
+    ${layout.showGuidelines ? guidelineCss() : ''}
     .clear-writer-print-content [data-print-break-before="true"] {
       break-before: page;
       page-break-before: always;
     }
   `;
+}
+
+/** Non-printing visual boundaries used while inspecting paginated previews. */
+function guidelineCss(): string {
+  return `
+    @media screen {
+      .pagedjs_page_content {
+        outline: 1px dashed color-mix(in srgb, #2563eb 58%, transparent);
+        outline-offset: -1px;
+      }
+      .pagedjs_margin-top-left, .pagedjs_margin-top-center, .pagedjs_margin-top-right,
+      .pagedjs_margin-bottom-left, .pagedjs_margin-bottom-center, .pagedjs_margin-bottom-right {
+        outline: 1px dashed color-mix(in srgb, #d97706 58%, transparent);
+        outline-offset: -1px;
+      }
+    }
+  `;
+}
+
+/** Paged.js only needs margin regions for cells that will receive content. */
+function marginBoxCss(layout: PrintLayoutSettings): string {
+  return marginCells(layout)
+    .filter(([, content]) => content.trim().length > 0)
+    .map(([position]) => `@${position} { content: ""; }`)
+    .join('\n      ');
+}
+
+function marginStyleCss(layout: PrintLayoutSettings): string {
+  const headerHasContent = marginCells(layout).slice(0, 3).some(([, content]) => content.trim().length > 0);
+  const footerHasContent = marginCells(layout).slice(3).some(([, content]) => content.trim().length > 0);
+  if (!headerHasContent && !footerHasContent) return '';
+  return `
+    ${headerHasContent ? `.pagedjs_margin-top {
+      grid-template-columns: minmax(0, 1fr) ${cssDimension(layout.header.centerWidth)} minmax(0, 1fr) !important;
+    }
+    .pagedjs_page.clear-writer-print-no-header .pagedjs_margin-top,
+    .pagedjs_page.clear-writer-print-no-header .pagedjs_margin-top * {
+      visibility: hidden !important;
+    }` : ''}
+    ${footerHasContent ? `.pagedjs_margin-bottom {
+      grid-template-columns: minmax(0, 1fr) ${cssDimension(layout.footer.centerWidth)} minmax(0, 1fr) !important;
+    }
+    .pagedjs_page.clear-writer-print-no-footer .pagedjs_margin-bottom,
+    .pagedjs_page.clear-writer-print-no-footer .pagedjs_margin-bottom * {
+      visibility: hidden !important;
+    }` : ''}
+    .pagedjs_margin-content.clear-writer-print-margin-content::after,
+    .pagedjs_margin-content.clear-writer-print-margin-content::before {
+      content: none !important;
+    }
+    .pagedjs_margin-content.clear-writer-print-margin-content {
+      overflow: hidden;
+    }
+    .pagedjs_margin-content.clear-writer-print-margin-content > img {
+      display: block;
+      box-sizing: border-box;
+      flex: 0 1 auto;
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      line-height: inherit;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }`;
+}
+
+function marginCells(layout: PrintLayoutSettings) {
+  return [
+    ['top-left', layout.header.left.content],
+    ['top-center', layout.header.center.content],
+    ['top-right', layout.header.right.content],
+    ['bottom-left', layout.footer.left.content],
+    ['bottom-center', layout.footer.center.content],
+    ['bottom-right', layout.footer.right.content]
+  ] as const;
 }
 
 function typographyCss(selector: string, style: TypographyStyle): string {
@@ -88,6 +133,8 @@ function listBaseCss(selector: string, style: ListStyle): string {
   return `
     .clear-writer-print-content ${selector} {
       margin: 0;
+      margin-top: ${style.marginTop}pt;
+      margin-bottom: ${style.marginBottom}pt;
       padding-inline-start: ${style.marginLeft}pt;
       list-style: none;
     }
@@ -108,6 +155,11 @@ function listBaseCss(selector: string, style: ListStyle): string {
       grid-row: 1;
       min-width: 0;
       color: ${style.bulletColor || style.color || 'inherit'};
+      align-self: start;
+      display: inline-flex;
+      align-items: center;
+      min-height: 1em;
+      line-height: 1;
     }
     .clear-writer-print-content ${selector} > li > .document-list-content {
       grid-column: 2;
@@ -183,8 +235,6 @@ function imageCss(image: ImageSetup): string {
 function customStyleCss(style: PrintLayoutSettings['customStyles'][number]): string {
   return `
     .clear-writer-print-content .custom-style[data-custom-style-id=${cssString(style.id)}] {
-      font-family: ${cssString(style.fontFamily)};
-      font-size: ${style.fontSize}pt;
       ${style.color ? `color: ${style.color};` : ''}
       font-weight: ${style.isBold ? 'bold' : 'normal'};
       font-style: ${style.isItalic ? 'italic' : 'normal'};

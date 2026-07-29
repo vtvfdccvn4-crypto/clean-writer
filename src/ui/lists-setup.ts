@@ -12,10 +12,14 @@ type OrderedListKey = typeof orderedListKeys[number];
 const cloneListStyle = (style: ListStyle): ListStyle => ({
   fontFamily: style.fontFamily || DEFAULT_LIST_FONT_FAMILY,
   fontSize: style.fontSize ?? 11,
+  color: style.color || '#000000',
   isBold: !!style.isBold,
   isItalic: !!style.isItalic,
   lineHeight: style.lineHeight ?? 1.6,
   bulletIcon: style.bulletIcon || '',
+  bulletColor: style.bulletColor || style.color || '#000000',
+  marginTop: style.marginTop ?? 0,
+  marginBottom: style.marginBottom ?? 0,
   marginLeft: style.marginLeft ?? 20,
   paddingLeft: style.paddingLeft ?? 8
 });
@@ -61,6 +65,8 @@ export function initListsDrawer(onSaveSetup: (setup: ListSetup) => Promise<void>
       lineHeight: readDrawerNumber(`${prefix}-line-height`, 1.6, { min: 0.5, max: 5 }),
       bulletIcon: (document.getElementById(`${prefix}-bullet-icon`) as HTMLSelectElement).value,
       bulletColor: (document.getElementById(`${prefix}-bullet-color`) as HTMLInputElement).value,
+      marginTop: readDrawerNumber(`${prefix}-margin-top`, 0, { integer: true, min: 0, max: 200 }),
+      marginBottom: readDrawerNumber(`${prefix}-margin-bottom`, 0, { integer: true, min: 0, max: 200 }),
       marginLeft: readDrawerNumber(`${prefix}-margin-left`, 20, { integer: true, min: 0, max: 200 }),
       paddingLeft: readDrawerNumber(`${prefix}-padding-left`, 8, { integer: true, min: 0, max: 200 })
     };
@@ -80,6 +86,8 @@ export function initListsDrawer(onSaveSetup: (setup: ListSetup) => Promise<void>
     (document.getElementById(`${prefix}-line-height`) as HTMLInputElement).value = String(config.lineHeight ?? 1.6);
     (document.getElementById(`${prefix}-bullet-icon`) as HTMLInputElement).value = config.bulletIcon || '';
     (document.getElementById(`${prefix}-bullet-color`) as HTMLInputElement).value = config.bulletColor || '#000000';
+    (document.getElementById(`${prefix}-margin-top`) as HTMLInputElement).value = String(config.marginTop ?? 0);
+    (document.getElementById(`${prefix}-margin-bottom`) as HTMLInputElement).value = String(config.marginBottom ?? 0);
     (document.getElementById(`${prefix}-margin-left`) as HTMLInputElement).value = String(config.marginLeft ?? 20);
     (document.getElementById(`${prefix}-padding-left`) as HTMLInputElement).value = String(config.paddingLeft ?? 8);
   }

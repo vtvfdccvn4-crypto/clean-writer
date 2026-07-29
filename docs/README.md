@@ -2,7 +2,7 @@
 
 This folder is the starting point for the Clear Writer documentation set.
 
-Clear Writer is a browser/PWA document authoring app for writing Markdown in a CodeMirror editor, rendering a live paginated preview with Paged.js, and exporting documents to PDF. DOCX export is implemented in the source tree, but the active browser runtime intentionally disables it and marks the button unavailable. Projects are organized as Markdown sections plus project-level settings for page layout, typography, lists, tables, metadata, special headings, custom styles, and editor behavior.
+Clear Writer is a browser/PWA document authoring app for writing Markdown in a CodeMirror editor, rendering a live paginated preview with Paged.js, and preparing PDF previews through the browser print dialog. Projects are organized as Markdown sections plus project-level settings for page layout, typography, lists, tables, metadata, special headings, custom styles, and editor behavior.
 
 ## Documentation Map
 
@@ -10,7 +10,10 @@ Clear Writer is a browser/PWA document authoring app for writing Markdown in a C
 - [Live preview guide](./user/live-preview.md): how the paginated preview and revision-aware preview navigation behave.
 - [Preview navigation architecture](./developer/preview-navigation.md): implementation notes for the revision-aware preview navigation pipeline.
 - [Technology stack and development model](./developer/technology-stack.md): languages, frameworks, plugins, browser runtime boundaries, storage architecture, and development/test tooling.
-- [Exporting and browser PDF print architecture](./user/exporting.md): current PDF/print flow, connected modules, triggers, pagination, hidden iframe printing, telemetry, and validation coverage.
+- [PDF Preview architecture](./user/exporting.md): current isolated PDF/print flow, connected modules, pagination, and promotion limitations.
+- [First release candidate scope](./developer/release-candidate-scope.md): included features, intentional removals, and approval boundary.
+- [GitHub Pages deployment](./developer/deployment.md): staging and production deployment procedure.
+- [Privacy and local data](./user/privacy.md): what the web application stores and transmits.
 
 ## Current App Areas
 
@@ -18,16 +21,21 @@ Clear Writer is a browser/PWA document authoring app for writing Markdown in a C
 - Markdown editor: CodeMirror-based authoring, formatting commands, search, source styling, autosave, draft recovery.
 - Live preview: paginated document preview, heading numbering, table of contents, special headings, image resolution, and revision-aware preview navigation.
 - Settings: page setup, typography, lists, tables, TOC, special headings, project metadata, editor preferences, custom inline styles, custom quote/block styles.
-- Exports: browser PDF export; DOCX export is implemented but unavailable in the active browser runtime.
+- PDF Preview: browser print workflow.
 - Storage: browser OPFS projects and local directory projects when supported by the browser.
 - Runtime: browser/PWA only; there is no Electron or desktop-shell dependency.
 
-## Current Refactor And Cleanup Notes
+## Current Codebase Notes
 
-- **Important scope boundary — Word/DOCX export is deferred.** The DOCX implementation is present in the source tree, but it is not part of the currently approved maintenance or refactor scope. Do not alter, reorganize, enable, extend, or investigate DOCX/Word export code as part of general cleanup work. Treat it as intentionally frozen until a future request explicitly authorizes work on Word/DOCX export. Current export work remains limited to the supported browser PDF/print path unless that future request says otherwise.
 - Preview navigation is revision-aware and uses an in-memory compiler manifest plus the committed Paged.js DOM. It does not add serialized navigation anchors to exported HTML.
-- The project explorer is a compact two-area sidebar for sections and images.
+- The shell is organized around three explicit panel regions: `project-panel`, `task-panel`, and `shared-panel`.
+- Shared app defaults live in `src/ui/styles/global-defaults.css`; shell-specific styling lives in the focused stylesheets under `src/ui/styles/`.
+- The task panel has its own header/content/footer shell, and the shared panel owns the editor/preview split.
+- Project actions are implemented by `src/ui/task-panel-actions.ts`, with section and image interactions in `src/ui/task-explorer.ts` and `src/ui/task-images.ts`.
+- The former `src/ui/sidebar/` and `src/ui/workspace-layout.ts` modules are no longer part of the active tree; do not reintroduce them as documentation or implementation entry points.
 - Release validation is centered on `npm run release:prep`, with focused reruns of browser and PWA smoke checks when diagnosing transient browser timing failures.
+
+The documentation map includes planned guide pages that have not been created yet. Existing pages are listed under Documentation Map above; entries labeled “Planned file (not currently present)” are planning targets, not current files.
 
 ## Maintenance Notes
 

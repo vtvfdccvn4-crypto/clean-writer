@@ -33,6 +33,15 @@ export class ImagePreviewWidget extends WidgetType {
     const container = document.createElement('span');
     container.className = 'cm-image-preview-control';
     container.contentEditable = 'false';
+    container.dataset.imagePreviewDragSource = 'true';
+    container.title = 'Hold and drag to move this image';
+
+    const header = document.createElement('span');
+    header.className = 'cm-image-preview-header';
+    header.textContent = this.alt || this.source.split('/').pop() || 'Image';
+
+    const body = document.createElement('span');
+    body.className = 'cm-image-preview-body';
 
     const image = document.createElement('img');
     image.className = 'cm-image-preview';
@@ -79,11 +88,17 @@ export class ImagePreviewWidget extends WidgetType {
     const controls = document.createElement('span');
     controls.className = 'cm-image-preview-controls';
     controls.append(label, alignmentControls);
-    container.append(image, controls);
+    const footer = document.createElement('span');
+    footer.className = 'cm-image-preview-footer';
+    footer.append(controls);
+    body.append(image);
+    container.append(header, body, footer);
     return container;
   }
 
-  ignoreEvent(): boolean {
-    return true;
+  ignoreEvent(event: Event): boolean {
+    // CodeMirror needs the pointer gesture plus its native drag events to
+    // move the Markdown line represented by this widget.
+    return !event.type.startsWith('pointer') && !event.type.startsWith('drag');
   }
 }

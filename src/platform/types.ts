@@ -1,10 +1,5 @@
 import type {
   FileNode,
-  PageSetup,
-  TypographySetup,
-  ListSetup,
-  TableSetup,
-  ProjectMetadata,
   ProjectSettingsMutation,
   ProjectHealthReport,
   ProjectSettingsData,
@@ -61,66 +56,11 @@ export interface WorkspaceRepository {
 }
 
 export interface AssetResolver {
-  preloadImages(paths: string[]): Promise<void>;
+  /** Stops scheduling work when the caller no longer needs the resolved assets. */
+  preloadImages(paths: string[], signal?: AbortSignal): Promise<void>;
   resolveSync(path: string): string;
   release(url: string): void;
   releaseAll(): void;
-}
-
-export type ExportResult =
-  | { status: 'saved' }
-  | { status: 'cancelled' }
-  | { status: 'failed'; error?: string };
-
-export interface ExportSupport {
-  readonly docx: boolean;
-  readonly pdf: boolean;
-}
-
-export interface PdfExportDocument {
-  readonly html: string;
-  /** Generated Paged.js geometry bound to this exact paginated DOM. */
-  readonly paginationCss: string;
-  readonly pageSetup: PageSetup;
-  readonly isPaginated: true;
-}
-
-export interface DocumentExportService {
-  readonly support: ExportSupport;
-  preparePdfExport?(): Window | null;
-  saveDocx(data: Uint8Array, suggestedName: string): Promise<ExportResult>;
-  exportPdf(
-    html: string,
-    pageSetup: PageSetup,
-    typographySetup: TypographySetup,
-    listSetup: ListSetup,
-    tableSetup: TableSetup,
-    projectMetadata: ProjectMetadata,
-    projectPath: string | null,
-    exportWindow?: Window | null,
-    paginationCss?: string
-  ): Promise<boolean>;
-}
-
-export interface PdfPaginationPayload {
-  requestId: string;
-  html: string;
-  pageSetup: PageSetup;
-  typographySetup: TypographySetup;
-  listSetup: ListSetup;
-  tableSetup: TableSetup;
-  projectMetadata: ProjectMetadata;
-  projectPath: string | null;
-}
-
-export interface PaginationTransport {
-  onExecutePagination(callback: (payload: PdfPaginationPayload) => void): void;
-  sendPaginationResult(result: {
-    requestId: string;
-    ok: boolean;
-    pageCount?: number;
-    error?: string;
-  }): void;
 }
 
 export interface AppLifecycle {
@@ -131,7 +71,5 @@ export interface AppLifecycle {
 export interface Platform {
   workspaceRepository: WorkspaceRepository;
   assetResolver: AssetResolver;
-  exportService: DocumentExportService;
-  paginationTransport: PaginationTransport;
   appLifecycle: AppLifecycle;
 }

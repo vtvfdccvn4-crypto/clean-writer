@@ -9,6 +9,17 @@ import { createServer } from 'vite';
 const root = path.resolve(import.meta.dirname, '..');
 const projectArgument = readArgument('--project');
 const sampleCount = positiveInteger(readArgument('--samples'), 3);
+const scaleMode = process.argv.includes('--scale');
+const contentProfileMode = process.argv.includes('--content-profile');
+const layoutProfileMode = process.argv.includes('--layout-profile');
+const requestedScalePages = positiveInteger(readArgument('--pages'), null);
+const requestedContentPages = readArgument('--content-pages');
+const requestedLayoutPages = positiveInteger(readArgument('--layout-pages'), 260);
+const outputArgument = readArgument('--output');
+const evaluationTimeoutMs = positiveInteger(
+  process.env.CLEAR_WRITER_PROFILE_TIMEOUT_MS,
+  scaleMode ? 150_000 : 180_000
+);
 const serverPort = await reservePort();
 const browserDebugPort = await reservePort();
 const fixturePath = '/test/fixtures/pagination-profile.html';
@@ -29,25 +40,28 @@ const viteServer = await createServer({
 
 let browserProcess;
 let browserSession;
+let scenarios = [];
+let browserVersion = {};
 
 try {
   await viteServer.listen();
 
   const { compileMarkdown } = await viteServer.ssrLoadModule('/src/compiler/index.ts');
   const { buildFullDocumentMarkdown } = await viteServer.ssrLoadModule('/src/preview/document-rendering/index.ts');
-  const scenarios = await buildScenarios(buildFullDocumentMarkdown, compileMarkdown);
+  scenarios = await buildScenarios(buildFullDocumentMarkdown, compileMarkdown);
 
   browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir);
-  const browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`);
+  browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`);
   const target = await createBrowserTarget(browserDebugPort, `http://127.0.0.1:${serverPort}${fixturePath}`);
   browserSession = await connectToTarget(target.webSocketDebuggerUrl);
   await waitForProfilerReady(browserSession);
 
-  const results = await browserSession.evaluate(
-    `window.__RUN_PAGINATION_PROFILE__(${JSON.stringify({ samples: sampleCount, scenarios })})`
+  const profile = await browserSession.evaluate(
+    `window.__RUN_PAGINATION_PROFILE__(${JSON.stringify({ samples: sampleCount, scenarios })})`,
+    evaluationTimeoutMs
   );
 
-  process.stdout.write(`${JSON.stringify({
+  const report = {
     generatedAt: new Date().toISOString(),
     runtime: process.version,
     browser: {
@@ -55,19 +69,88 @@ try {
       userAgent: browserVersion.UserAgent
     },
     samples: sampleCount,
-    scenarios: results
-  }, null, 2)}\n`);
+    profile: layoutProfileMode ? 'layout-ablation' : contentProfileMode ? 'content-classification' : scaleMode ? 'scale' : 'standard',
+    scenarios: profile.scenarios,
+    cancellation: profile.cancellation
+  };
+  await writeReport(report);
+  if (scaleMode && (profile.scenarios.some(result => result.passed !== true) || profile.cancellation?.passed !== true)) {
+    process.exitCode = 1;
+  }
+} catch (error) {
+  const report = {
+    generatedAt: new Date().toISOString(),
+    runtime: process.version,
+    browser: { executable: browserExecutable, userAgent: browserVersion.UserAgent ?? null },
+    samples: sampleCount,
+    evaluationTimeoutMs,
+    scenarios: scenarios.map(scenario => ({ name: scenario.name, expectedMinimumPages: scenario.expectedMinimumPages })),
+    failure: {
+      phase: 'browser-evaluation',
+      message: error instanceof Error ? error.message : String(error)
+    }
+  };
+  await writeReport(report);
+  process.exitCode = 1;
 } finally {
   await closeQuietly(browserSession);
   if (browserProcess && !browserProcess.killed) {
     browserProcess.kill('SIGTERM');
-    await once(browserProcess, 'exit').catch(() => undefined);
+    await Promise.race([once(browserProcess, 'exit'), delay(1_000)]).catch(() => undefined);
+    if (browserProcess.exitCode === null) browserProcess.kill('SIGKILL');
   }
   await viteServer.close();
   await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => undefined);
 }
 
 async function buildScenarios(buildFullDocumentMarkdown, compileMarkdown) {
+  if (layoutProfileMode) {
+    const variants = ['baseline', 'all-margin-boxes', 'no-margin-boxes', 'minimal-page-css', 'no-forced-break-css'];
+    return Promise.all(variants.map(variant => compileScenario(
+      `layout-${variant}-${requestedLayoutPages}-pages`,
+      {
+        ...representativeScenario(requestedLayoutPages),
+        expectedMinimumPages: variant === 'baseline' || variant === 'no-margin-boxes' ? requestedLayoutPages : 1,
+        layoutVariant: variant
+      },
+      buildFullDocumentMarkdown,
+      compileMarkdown
+    )));
+  }
+  if (contentProfileMode) {
+    const pageTargets = requestedContentPages
+      ? requestedContentPages.split(',').map(value => positiveInteger(value.trim(), null)).filter(value => value !== null)
+      : [50, 260];
+    const contentKinds = ['text', 'headings', 'tables', 'images', 'mixed'];
+    return Promise.all(contentKinds.flatMap(kind => pageTargets.map(pageTarget => compileScenario(
+      `content-${kind}-${pageTarget}-pages`,
+      contentScenario(kind, pageTarget),
+      buildFullDocumentMarkdown,
+      compileMarkdown
+    ))));
+  }
+  if (scaleMode) {
+    const pageTargets = requestedScalePages ? [requestedScalePages] : [50, 100, 200, 300];
+    const scaleScenarios = await Promise.all(pageTargets.map(pageTarget => compileScenario(
+      `scale-${pageTarget}-pages`,
+      scaleScenario(pageTarget),
+      buildFullDocumentMarkdown,
+      compileMarkdown
+    )));
+    if (requestedScalePages) return scaleScenarios;
+    return [...scaleScenarios, await compileScenario(
+      'representative-240-pages',
+      representativeScenario(240),
+      buildFullDocumentMarkdown,
+      compileMarkdown
+    ), await compileScenario(
+      'representative-260-pages',
+      representativeScenario(260),
+      buildFullDocumentMarkdown,
+      compileMarkdown
+    )];
+  }
+
   const scenarios = [
     await compileScenario('small', syntheticScenario(5, 12), buildFullDocumentMarkdown, compileMarkdown),
     await compileScenario('medium', syntheticScenario(15, 18), buildFullDocumentMarkdown, compileMarkdown),
@@ -84,6 +167,38 @@ async function buildScenarios(buildFullDocumentMarkdown, compileMarkdown) {
   return scenarios;
 }
 
+function contentScenario(kind, pageTarget) {
+  const sentinel = `CONTENT_${kind.toUpperCase()}_PAGE_${pageTarget}`;
+  return {
+    expectedMinimumPages: pageTarget,
+    sentinel,
+    blocks: Array.from({ length: pageTarget }, (_, sectionIndex) => ({
+      path: `Content/${kind}/Section ${String(sectionIndex + 1).padStart(3, '0')}.md`,
+      pageBreak: sectionIndex > 0,
+      markdown: contentMarkdown(kind, sectionIndex + 1, pageTarget, sectionIndex === pageTarget - 1 ? sentinel : '')
+    }))
+  };
+}
+
+function contentMarkdown(kind, sectionNumber, pageTarget, sentinel) {
+  const text = `This ${kind} workload measures pagination cost for section ${sectionNumber} in the ${pageTarget}-page content classification fixture.`;
+  const headingContent = Array.from({ length: 6 }, (_, index) => `### Heading ${sectionNumber}.${index + 1}\n\n${text}`).join('\n\n');
+  const tableContent = [
+    '| Property | Owner | Status | Notes |',
+    '| --- | --- | --- | --- |',
+    ...Array.from({ length: 8 }, (_, index) => `| Item ${index + 1} | Team ${index % 3 + 1} | Verified | ${text} |`)
+  ].join('\n');
+  const image = '<img alt="Content profile image" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'60\'%3E%3Crect width=\'120\' height=\'60\' fill=\'%23263a5b\'/%3E%3C/svg%3E">';
+  const imageContent = `${text}\n\n${image}\n\n${text}`;
+  const mixedContent = `${text}\n\n${headingContent}\n\n${tableContent}\n\n${image}`;
+  const body = kind === 'text' ? `${text}\n\n${text}\n\n${text}`
+    : kind === 'headings' ? headingContent
+      : kind === 'tables' ? tableContent
+        : kind === 'images' ? imageContent
+          : mixedContent;
+  return [`# Content profile ${kind} ${sectionNumber}`, '', body, '', sentinel].filter(Boolean).join('\n');
+}
+
 async function compileScenario(name, scenario, buildFullDocumentMarkdown, compileMarkdown) {
   const sections = scenario.blocks.map((block, index) => ({
     path: block.path,
@@ -92,7 +207,76 @@ async function compileScenario(name, scenario, buildFullDocumentMarkdown, compil
   }));
   const markdown = buildFullDocumentMarkdown(sections, scenario.blocks);
   const html = await compileMarkdown(markdown);
-  return { name, html };
+  return {
+    name,
+    html,
+    expectedMinimumPages: scenario.expectedMinimumPages,
+    sentinel: scenario.sentinel,
+    layoutVariant: scenario.layoutVariant
+  };
+}
+
+function scaleScenario(pageTarget) {
+  const sentinel = `SCALE_SENTINEL_PAGE_${pageTarget}`;
+  return {
+    expectedMinimumPages: pageTarget,
+    sentinel,
+    blocks: Array.from({ length: pageTarget }, (_, sectionIndex) => ({
+      path: `Scale ${String(sectionIndex + 1).padStart(3, '0')}.md`,
+      pageBreak: sectionIndex > 0,
+      markdown: scaleMarkdown(sectionIndex + 1, pageTarget, sectionIndex === pageTarget - 1 ? sentinel : '')
+    }))
+  };
+}
+
+function scaleMarkdown(sectionNumber, pageTarget, sentinel) {
+  return [
+    `# Scale section ${sectionNumber}`,
+    '',
+    `This deterministic pagination section is part of the ${pageTarget}-page regression workload.`,
+    '',
+    'The content is intentionally compact so each section occupies one physical page.',
+    '',
+    'Validation text: pagination, layout, headers, footers, and final-page preservation.',
+    '',
+    sentinel
+  ].filter(Boolean).join('\n');
+}
+
+function representativeScenario(pageTarget) {
+  const sentinel = `REPRESENTATIVE_SENTINEL_PAGE_${pageTarget}`;
+  return {
+    expectedMinimumPages: pageTarget,
+    sentinel,
+    blocks: Array.from({ length: pageTarget }, (_, sectionIndex) => ({
+      path: `Representative/Chapter ${String(sectionIndex + 1).padStart(3, '0')}.md`,
+      pageBreak: sectionIndex > 0,
+      markdown: representativeMarkdown(sectionIndex + 1, pageTarget, sectionIndex === pageTarget - 1 ? sentinel : '')
+    }))
+  };
+}
+
+function representativeMarkdown(sectionNumber, pageTarget, sentinel) {
+  return [
+    `# Chapter ${sectionNumber}: Project delivery controls`,
+    '',
+    `This section belongs to the representative ${pageTarget}-page project document and verifies the PDF preview's real authoring structures.`,
+    '',
+    '## Delivery checklist',
+    '',
+    '- Confirm scope, dependencies, and ownership.',
+    '- Record decisions and actions for the release review.',
+    '- Preserve page headers, footers, images, and final-page content.',
+    '',
+    '| Control | Owner | Status |',
+    '| --- | --- | --- |',
+    `| Review ${sectionNumber} | Delivery team | Complete |`,
+    '| PDF preview | Quality team | Verified |',
+    '',
+    '<img alt="Representative inline image" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'12\'%3E%3Crect width=\'24\' height=\'12\' fill=\'%23263a5b\'/%3E%3C/svg%3E">',
+    '',
+    sentinel
+  ].filter(Boolean).join('\n');
 }
 
 function syntheticScenario(sectionCount, paragraphCount) {
@@ -174,10 +358,17 @@ function launchHeadlessBrowser(executable, debugPort, userDataDir) {
 
 async function detectBrowserExecutable() {
   const candidates = [
+    process.env.CLEAR_WRITER_BROWSER,
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/microsoft-edge'
   ];
   for (const candidate of candidates) {
+    if (!candidate) continue;
     try {
       await fs.access(candidate);
       return candidate;
@@ -185,7 +376,7 @@ async function detectBrowserExecutable() {
       // Try the next browser.
     }
   }
-  throw new Error('No supported headless browser was found. Install Microsoft Edge or Google Chrome.');
+  throw new Error('No supported headless browser was found. Set CLEAR_WRITER_BROWSER or install Edge, Chrome, or Chromium.');
 }
 
 async function createBrowserTarget(debugPort, url) {
@@ -241,16 +432,20 @@ async function connectToTarget(webSocketUrl) {
   await send('Runtime.enable');
 
   return {
-    async evaluate(expression) {
-      const result = await send('Runtime.evaluate', {
+    async evaluate(expression, timeoutMs = 30_000) {
+      const result = send('Runtime.evaluate', {
         expression,
         awaitPromise: true,
         returnByValue: true
       });
-      if (result.exceptionDetails) {
-        throw new Error(result.exceptionDetails.text || 'Runtime evaluation failed.');
+      const timeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`Browser evaluation timed out after ${timeoutMs}ms.`)), timeoutMs);
+      });
+      const evaluated = await Promise.race([result, timeout]);
+      if (evaluated.exceptionDetails) {
+        throw new Error(evaluated.exceptionDetails.text || 'Runtime evaluation failed.');
       }
-      return result.result?.value;
+      return evaluated.result?.value;
     },
     async close() {
       if (socket.readyState === WebSocket.OPEN) {
@@ -281,6 +476,15 @@ function readArgument(name) {
 function positiveInteger(value, fallback) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function writeReport(report) {
+  const serialized = `${JSON.stringify(report, null, 2)}\n`;
+  process.stdout.write(serialized);
+  if (!outputArgument) return;
+  const outputPath = path.resolve(root, outputArgument);
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(outputPath, serialized, 'utf8');
 }
 
 function delay(ms) {

@@ -48,9 +48,8 @@ test('compiles paper geometry and body typography from the frozen print snapshot
   assert.match(css, /size: 216mm 279mm/);
   assert.match(css, /margin: 18mm 17mm 16mm 15mm/);
   assert.match(css, /@top-left \{ content: ""; \}/);
-  assert.match(css, /@bottom-right \{ content: ""; \}/);
-  assert.match(css, /@top-(?:left|center|right)\s*\{/);
-  assert.match(css, /@bottom-(?:left|center|right)\s*\{/);
+  assert.doesNotMatch(css, /@top-center\s*\{/);
+  assert.doesNotMatch(css, /@bottom-(?:left|center|right)\s*\{/);
   assert.doesNotMatch(css, /Document CW-42/);
   assert.match(css, /font-size: 29pt/);
   assert.match(css, /color: #123456/);
@@ -65,7 +64,8 @@ test('compiles paper geometry and body typography from the frozen print snapshot
   assert.match(css, /clear-writer-print-image-block/);
   assert.match(css, /max-width: 100%/);
   assert.match(css, /custom-style\[data-custom-style-id="quote"\]/);
-  assert.match(css, /font-family: "Georgia"/);
+  assert.match(css, /color: #654321/);
+  assert.match(css, /font-style: italic/);
   assert.match(css, /custom-block-style\[data-custom-block-id="callout"\]/);
   assert.match(css, /font-family: "Cambria"/);
   assert.match(css, /line-height: 1\.6/);
@@ -96,4 +96,41 @@ test('does not import preview defaults or browser-level page breaks', () => {
   assert.doesNotMatch(css, /break-after:\s*page/);
   assert.doesNotMatch(css, /page-break-after/);
   assert.doesNotMatch(css, /paged-stage\.is-live-preview/);
+  assert.doesNotMatch(css, /@(top|bottom)-(left|center|right)\s*\{/);
+});
+
+test('includes page and margin guidelines only when page setup enables them', () => {
+  const input = {
+    pageSetup: structuredClone(defaults.DEFAULT_PAGE_SETUP),
+    typographySetup: structuredClone(defaults.DEFAULT_TYPOGRAPHY_SETUP),
+    listSetup: structuredClone(defaults.DEFAULT_LIST_SETUP),
+    tableSetup: structuredClone(defaults.DEFAULT_TABLE_SETUP),
+    imageSetup: structuredClone(defaults.DEFAULT_IMAGE_SETUP),
+    projectMetadata: structuredClone(defaults.DEFAULT_PROJECT_METADATA),
+    customStyles: [], customBlockStyles: [], sections: []
+  };
+
+  const disabled = compilePrintCss(createPrintLayoutSettings(input));
+  input.pageSetup.showGuidelines = true;
+  const enabled = compilePrintCss(createPrintLayoutSettings(input));
+
+  assert.doesNotMatch(disabled, /dashed color-mix/);
+  assert.match(enabled, /@media screen\s*\{\s*\.pagedjs_page_content\s*\{\s*outline: 1px dashed color-mix/s);
+  assert.match(enabled, /\.pagedjs_margin-top-left/);
+});
+
+test('margin images inherit their cell vertical alignment', () => {
+  const layout = createPrintLayoutSettings({
+    pageSetup: structuredClone(defaults.DEFAULT_PAGE_SETUP),
+    typographySetup: structuredClone(defaults.DEFAULT_TYPOGRAPHY_SETUP),
+    listSetup: structuredClone(defaults.DEFAULT_LIST_SETUP),
+    tableSetup: structuredClone(defaults.DEFAULT_TABLE_SETUP),
+    imageSetup: structuredClone(defaults.DEFAULT_IMAGE_SETUP),
+    projectMetadata: structuredClone(defaults.DEFAULT_PROJECT_METADATA),
+    customStyles: [], customBlockStyles: [], sections: []
+  });
+  const css = compilePrintCss(layout);
+  const imageRule = css.match(/\.pagedjs_margin-content\.clear-writer-print-margin-content > img\s*\{([^}]*)\}/s)?.[1] ?? '';
+
+  assert.doesNotMatch(imageRule, /align-self/);
 });

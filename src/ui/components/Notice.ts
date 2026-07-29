@@ -30,19 +30,6 @@ export function showNotice(message: string, type: NoticeType = 'info'): void {
   renderNotice(container, message, type);
 }
 
-export function dismissAllNotices(): void {
-  const container = document.getElementById('notice-container');
-  if (!container) return;
-  
-  activeNotices.forEach(notice => {
-    notice.classList.add('removing');
-    setTimeout(() => notice.remove(), 300);
-  });
-  
-  activeNotices = [];
-  noticeQueue = [];
-}
-
 function renderNotice(container: HTMLElement, message: string, type: NoticeType): void {
   const notice = document.createElement('div');
   notice.className = `notice notice-${type}`;

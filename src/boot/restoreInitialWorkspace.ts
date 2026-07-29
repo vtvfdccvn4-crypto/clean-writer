@@ -1,7 +1,7 @@
-import { projectSession } from '../services/ProjectSessionStore';
 import { state } from '../state';
 import type { Platform } from '../platform/types';
 import type { EditorManager } from '../ui/editor-manager';
+import { openProjectWithRecovery } from '../ui/project-opening';
 
 function shouldRestoreLastWorkspace(): boolean {
   return new URLSearchParams(window.location.search).get('restoreLastWorkspace') === 'true';
@@ -19,9 +19,8 @@ export async function restoreInitialWorkspace(platform: Platform, editorManager:
   }
 
   if (projectRef) {
-    const session = await platform.workspaceRepository.open(projectRef);
-    await projectSession.activate(projectRef, session);
-  } else {
-    editorManager.renderEmptyWorkspace();
+    const opened = await openProjectWithRecovery(platform, projectRef);
+    if (opened) return;
   }
+  editorManager.renderEmptyWorkspace();
 }

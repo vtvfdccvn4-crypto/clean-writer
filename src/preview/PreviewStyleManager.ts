@@ -81,6 +81,7 @@ export function applyLiveDocumentStyle(setup: PageSetup): void {
       max-width: none;
       min-height: max(100%, ${paperHeight}mm);
       padding: ${marginTop}mm ${marginRight}mm ${marginBottom}mm ${marginLeft}mm;
+      ${setup.showGuidelines ? 'outline: 1px dashed color-mix(in srgb, #2563eb 58%, transparent); outline-offset: -1px;' : 'outline: none;'}
     }
     .paged-stage.is-live-preview .table-of-contents { margin-bottom: 2em; }
     .paged-stage.is-live-preview .toc-list { list-style: none; padding-left: 0; }

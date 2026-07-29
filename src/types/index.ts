@@ -103,6 +103,8 @@ export interface ListStyle {
   lineHeight: number;
   bulletIcon: string;
   bulletColor?: string;
+  marginTop: number;
+  marginBottom: number;
   marginLeft: number; // pt from the content edge to the marker
   paddingLeft: number; // pt between the marker and list-item text
 }
@@ -193,6 +195,7 @@ export interface FileNode {
 
 export interface EditorSetup {
   lineWrapping: boolean;
+  spellcheck: boolean;
   linkUnderline: boolean;
   fontSize: string;
   headingBold: boolean;
@@ -223,6 +226,7 @@ export type ProjectPathSettingKey = 'pageBreaks' | 'hiddenHeaders' | 'hiddenFoot
 
 export type ProjectSettingsMutation =
   | { type: 'patch'; values: ProjectSettingsPatch }
+  | { type: 'set-order'; order: string[] }
   | { type: 'append-order'; path: string }
   | { type: 'replace-path'; oldPath: string; newPath: string }
   | { type: 'remove-path'; path: string }

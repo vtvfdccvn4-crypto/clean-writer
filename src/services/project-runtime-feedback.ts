@@ -15,13 +15,6 @@ export function buildRecoveryPromptMessage(report: ProjectHealthReport): string 
   return `${summary} Clear Writer can rebuild a fresh settings file and keep a backup of the current one when possible.`;
 }
 
-export function buildRecoverySuccessMessage(report: ProjectHealthReport): string {
-  const backup = report.backupPath
-    ? ` A backup was saved as ${report.backupPath}.`
-    : '';
-  return `Project settings were recovered successfully.${backup}`;
-}
-
 export function buildProjectHealthFailureMessage(report: ProjectHealthReport): string {
   const summary = summarizeProjectHealth(report);
   return `This folder could not be opened as a Clear Writer project. ${summary}`;

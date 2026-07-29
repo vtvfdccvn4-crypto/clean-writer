@@ -40,6 +40,9 @@ export function initWritingWorkflow(editorManager: EditorManager): () => void {
     } else if (modifier && event.shiftKey && key === 'r') {
       event.preventDefault();
       document.getElementById('btn-open-project-review')?.click();
+    } else if (modifier && event.shiftKey && key === 'i') {
+      event.preventDefault();
+      document.getElementById('btn-task-refresh-project')?.click();
     } else if (event.altKey && event.key === 'ArrowUp') {
       event.preventDefault();
       void navigateSection(-1);

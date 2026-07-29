@@ -18,10 +18,11 @@ The preview uses a committed preview index built from the same compilation pass 
 1. The editor emits selection-only updates, not general typing events.
 2. The editor manager records the current document revision and passes it to the preview.
 3. The compiler creates an in-memory manifest of source blocks while generating HTML.
-4. The preview renderer sends that manifest into the exact pagination pass.
-5. After Paged.js finishes, the renderer builds a committed index from the final page DOM using Paged.js's own transient references.
-6. The navigation coordinator only reveals a target when the committed preview revision matches the editor revision that requested it.
-7. The preview viewport scrolls the selected block near the top with a small inset, so the selection is visible without forcing a centered jump.
+4. `PreviewController` creates an immutable PDF preview job containing the compiled HTML, print CSS, margins, and resolved assets.
+5. `IsolatedPaginationHost` paginates that job in a disposable, hidden iframe and returns the completed artifact with diagnostics.
+6. After the artifact is committed, the preview builds an index from the final page DOM using Paged.js's own transient references.
+7. The navigation coordinator only reveals a target when the committed preview revision matches the editor revision that requested it.
+8. The preview viewport scrolls the selected block near the top with a small inset, so the selection is visible without forcing a centered jump.
 
 That design keeps the HTML output clean and makes navigation resilient to rerenders, page splits, and image-induced pagination changes.
 
@@ -30,7 +31,9 @@ That design keeps the HTML output clean and makes navigation resilient to rerend
 - `src/editor/createEditor.ts` only calls the selection callback when the selection changes and the document text has not changed.
 - `src/ui/editor-manager.ts` passes the current editor revision into the preview navigation path.
 - `src/compiler/index.ts` compiles the document and returns both HTML and an in-memory manifest describing source ranges.
-- `src/preview/RenderEngine.ts` forwards that manifest into the committed preview pass after Paged.js completes.
+- `src/preview/PreviewController.ts` schedules isolated renders and commits only the newest completed artifact.
+- `src/pdf-preview/IsolatedPaginationHost.ts` owns iframe creation, cancellation, size-aware timeout budgets, progress, diagnostics, and cleanup.
+- `src/pdf-preview/PdfPreviewJobFactory.ts` creates the immutable print job consumed by the isolated host.
 - `src/preview/navigation/CommittedPreviewIndex.ts` maps the compiler manifest to the committed page DOM using Paged.js references such as `data-ref` and `data-split-from`.
 - `src/preview/navigation/PreviewNavigationCoordinator.ts` queues or discards requests until the preview revision and editor revision match.
 - `src/preview/PreviewViewport.ts` positions the target block near the top of the viewport instead of centering it.

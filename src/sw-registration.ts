@@ -1,4 +1,5 @@
 const CLEAR_WRITER_CACHE_PREFIX = 'clear-writer-shell-';
+declare const __CLEAR_WRITER_BUILD_ID__: string;
 
 async function unregisterDevelopmentServiceWorker(): Promise<void> {
   const baseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
@@ -39,7 +40,12 @@ export function registerServiceWorker(): void {
     return;
   }
 
-  const serviceWorkerUrl = new URL('sw.js', import.meta.env.BASE_URL).toString();
+  // Vite's configured base is intentionally relative (`./`) so the app can
+  // be deployed from any directory. Resolve it against the document before
+  // constructing a URL; a relative string alone is not a valid URL base.
+  const baseUrl = new URL(import.meta.env.BASE_URL, window.location.href);
+  const serviceWorkerUrl = new URL('sw.js', baseUrl);
+  serviceWorkerUrl.searchParams.set('v', __CLEAR_WRITER_BUILD_ID__);
   void navigator.serviceWorker.register(serviceWorkerUrl, { updateViaCache: 'none' }).catch(error => {
     console.warn('[Clear Writer] Service worker registration failed:', error);
   });

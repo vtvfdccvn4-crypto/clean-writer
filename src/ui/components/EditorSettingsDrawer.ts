@@ -39,6 +39,7 @@ export const editorSettingsDrawerContentTemplate = (): string => `
         <div class="drawer-card-head">
           <span>Editing assists</span>
         </div>
+        ${renderDrawerControl('Spell checking', renderDrawerSwitchControl('editor-spellcheck', 'Spell checking'))}
         ${renderDrawerControl('Special characters', renderDrawerSwitchControl('editor-special-characters', 'Show special characters'))}
         ${renderDrawerControl('Bracket matching', renderDrawerSwitchControl('editor-bracket-matching', 'Bracket matching'))}
         ${renderDrawerControl('Auto-close brackets', renderDrawerSwitchControl('editor-close-brackets', 'Auto-close brackets'))}

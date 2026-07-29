@@ -1,4 +1,5 @@
 import { state } from '/src/state.ts';
+import { projectSession } from '/src/services/ProjectSessionStore.ts';
 import { click, waitFor } from './helpers/smoke-dom.ts';
 
 declare global {
@@ -39,14 +40,11 @@ async function run() {
   await click('#btn-modal-new-opfs-confirm');
 
   await waitFor('opfs project ref', () => state.current.projectRef?.kind === 'opfs' ? state.current.projectRef : null);
-  await waitFor('project explorer ready', () => document.querySelector('#section-list .tree-root-drop-zone') ? true : null);
+  await waitFor('project explorer ready', () => document.querySelector('#task-explorer-view:not(.hidden)') ? true : null);
   const projectId = state.current.projectRef?.id;
   if (!projectId) throw new Error('Missing OPFS project id.');
 
-  await click('#btn-new-section');
-  const sectionInput = await waitFor('section input', () => document.querySelector<HTMLInputElement>('.inline-input'));
-  sectionInput.value = 'SavedDraftState';
-  sectionInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await projectSession.createSection('sections/SavedDraftState.md', '# Saved Draft State');
   await waitFor('section active', () => state.current.activeFile === 'sections/SavedDraftState.md' ? true : null);
   await waitFor('editor rendered', () => document.querySelector('.cm-content') ? true : null);
 
@@ -59,10 +57,10 @@ async function run() {
 
   localStorage.setItem(`cw-draft:${projectId}:sections/SavedDraftState.md`, 'stale raw draft should not override saved content');
 
-  await click('#btn-close-project');
+  await click('#btn-task-close-project');
   await waitFor('project closed', () => state.current.projectRef === null ? true : null);
 
-  await click('#btn-open');
+  await click('#btn-task-open-project');
   await click('.recent-item-btn');
   await waitFor('project reopened', () => state.current.projectRef?.id === projectId ? true : null);
   await waitFor('tree restored', () => state.current.sections.some(section => section.path === 'sections/SavedDraftState.md') ? true : null);

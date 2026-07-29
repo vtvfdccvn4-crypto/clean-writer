@@ -17,6 +17,7 @@ export function setupEditorSettingsDrawer(onSave: (setup: EditorSetup) => Promis
   const foldGlyphSelect = document.getElementById('editor-fold-gutter-glyph') as HTMLSelectElement | null;
   const switches: Array<[string, keyof EditorSetup]> = [
     ['editor-line-wrapping', 'lineWrapping'],
+    ['editor-spellcheck', 'spellcheck'],
     ['editor-link-underline', 'linkUnderline'],
     ['editor-heading-bold', 'headingBold'],
     ['editor-strong-bold', 'strongBold'],

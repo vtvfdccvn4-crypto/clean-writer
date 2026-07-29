@@ -1,32 +1,41 @@
 import { state } from '../state';
 import { getPathChain, isDescendantPath, normalizeExplorerPath, replacePathPrefix } from '../utils/path-utils';
+import { calculateSectionMove } from '../platform/section-order';
 import { sortSectionsByHierarchy } from '../utils/tree-utils';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { WorkspaceSession, SectionPlacement } from '../platform/types';
-import type { ProjectHealthReport } from '../types';
+import type { ProjectHealthReport, ProjectSnapshot } from '../types';
 import type { ImageSetup } from '../types';
+import type { WorkspaceRef } from '../platform/types';
 import { resetImagePresentation } from '../images/resetImagePresentation';
 
 type PathFlagKey = 'pageBreaks' | 'hiddenHeaders' | 'hiddenFooters' | 'numberedHeadings' | 'tocSections';
 
 // Project reads can overlap during fast navigation. Only the newest request
 // may publish, preventing a slower response from restoring stale state.
-let latestProjectRead = 0;
+let latestProjectSnapshotLoad = 0;
+let latestProjectTreeRead = 0;
 
 export const ProjectService = {
+  /** Loads and publishes the current project's snapshot for existing callers. */
   async loadProjectSnapshot(session: WorkspaceSession): Promise<void> {
-    const readId = ++latestProjectRead;
     const projectRef = state.current.projectRef;
     if (!projectRef) return;
+    const readId = ++latestProjectSnapshotLoad;
+    const snapshot = await this.loadProjectSnapshotCandidate(session, projectRef);
+    if (readId !== latestProjectSnapshotLoad || state.current.projectRef !== projectRef) return;
+    state.commitProjectSnapshot(snapshot);
+  },
 
+  /** Reads a candidate project without changing global application state. */
+  async loadProjectSnapshotCandidate(session: WorkspaceSession, projectRef: WorkspaceRef): Promise<ProjectSnapshot> {
     // ARCHITECTURE QA NOTE: this coarse timing is meant for trend comparisons
     // across snapshot-flow changes, not for sub-millisecond profiling.
     const started = performance.now();
     let loaded = false;
     try {
       const { sections, images, settings } = await readProjectSnapshot(session);
-      if (readId !== latestProjectRead || state.current.projectRef !== projectRef) return;
-      state.commitProjectSnapshot({
+      const snapshot: ProjectSnapshot = {
         projectRef,
         sections,
         images,
@@ -39,10 +48,10 @@ export const ProjectService = {
         customStyles: settings.customStyles,
         customBlockStyles: settings.customBlockStyles,
         editorSetup: settings.editorSetup
-      });
+      };
       loaded = true;
+      return snapshot;
     } catch (e) {
-      if (readId !== latestProjectRead || state.current.projectRef !== projectRef) return;
       console.error('Failed to load project snapshot', e);
       throw e;
     } finally {
@@ -55,7 +64,7 @@ export const ProjectService = {
   },
 
   async refreshProjectTree(session: WorkspaceSession, activeFile: string | null = state.current.activeFile): Promise<void> {
-    const readId = ++latestProjectRead;
+    const readId = ++latestProjectTreeRead;
     const projectRef = state.current.projectRef;
     if (!projectRef) {
       state.setProjectTree([], []);
@@ -67,10 +76,10 @@ export const ProjectService = {
     const started = performance.now();
     try {
       const { sections, images } = await readProjectSnapshot(session);
-      if (readId !== latestProjectRead || state.current.projectRef !== projectRef) return;
+      if (readId !== latestProjectTreeRead || state.current.projectRef !== projectRef) return;
       state.setProjectTree(sections, images, activeFile);
     } catch (e) {
-      if (readId !== latestProjectRead || state.current.projectRef !== projectRef) return;
+      if (readId !== latestProjectTreeRead || state.current.projectRef !== projectRef) return;
       console.error('Failed to refresh project tree', e);
       throw e;
     } finally {
@@ -169,6 +178,15 @@ export const ProjectService = {
     const { activeFile } = state.current;
     try {
       const normalizedSource = normalizeExplorerPath(sourcePath);
+      const entries = await session.listSections();
+      const settings = await session.readSettings();
+      const calculated = calculateSectionMove(entries, settings.order, normalizedSource, targetPath, placement);
+      if (!calculated) return false;
+      if (calculated.kind === 'reorder') {
+        await session.mutateSettings({ type: 'set-order', order: calculated.order });
+        await this.refreshProjectTree(session, activeFile);
+        return true;
+      }
       const result = await session.moveSection(normalizedSource, targetPath, placement);
       if (!result.success || !result.newPath) return false;
 
@@ -181,6 +199,22 @@ export const ProjectService = {
       return true;
     } catch(err) {
       console.error('Failed to move section', err);
+      return false;
+    }
+  },
+
+  async reorderSection(session: WorkspaceSession, sourcePath: string, targetPath: string, placement: Extract<SectionPlacement, 'before' | 'after'>): Promise<boolean> {
+    const { activeFile } = state.current;
+    try {
+      const entries = await session.listSections();
+      const settings = await session.readSettings();
+      const calculated = calculateSectionMove(entries, settings.order, sourcePath, targetPath, placement);
+      if (!calculated || calculated.kind !== 'reorder') return false;
+      await session.mutateSettings({ type: 'set-order', order: calculated.order });
+      await this.refreshProjectTree(session, activeFile);
+      return true;
+    } catch (error) {
+      console.error('Failed to reorder section', error);
       return false;
     }
   },

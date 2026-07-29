@@ -8,22 +8,56 @@ Clear Writer is a browser/PWA Markdown writing app. It uses CodeMirror for sourc
 
 Primary source references:
 
-- `src/main.ts`: application entry point and worker/app boot switch.
+- `src/main.ts`: application entry point and isolated PDF-preview/app boot switch.
 - `src/boot/app.ts`: runtime wiring for the app layout, editor, preview, settings, project loading, service worker, and exports.
-- `src/ui/components/AppShell.ts`: three-pane application layout.
-- `src/ui/components/ProjectExplorer.ts`: compact project explorer controls, sections tree, and image browser.
-- `src/ui/components/EditorPanel.ts`: CodeMirror editor toolbar and document tools.
-- `src/ui/components/PreviewPanel.ts`: live preview and export controls.
+- `src/ui/components/AppShell.ts`: shell layout and top-level panel composition.
+- `src/ui/components/EditorPanel.ts`: task-panel content and editor/document tools.
+- `src/ui/components/PreviewPanel.ts`: shared-panel content and live preview/export controls.
 - `src/types/index.ts`: canonical data types for settings, projects, state, and workspace references.
 - `src/config/defaults.ts`: default document, editor, and project settings.
 
-## Current Refactor And Cleanup Summary
+## Current Architecture And Cleanup Summary
 
 - Preview navigation is revision-aware: editor selection requests carry a revision, the compiler returns an in-memory source manifest, and the committed Paged.js DOM is indexed after pagination completes.
 - Rendered preview/export HTML stays clean because source-to-preview navigation does not depend on serialized navigation anchors.
-- PDF export is validated through durable export snapshots, forced pagination, the browser print service, and release smoke coverage.
-- The project explorer uses the current compact sections/images layout.
+- Preview and PDF Preview compile immutable jobs and paginate them through the shared cancellable `IsolatedPaginationHost` before committing the result or invoking the browser print dialog.
+- Pagination uses size-aware budgets, progress diagnostics, structured stale/degraded outcomes, and disposable iframe cleanup.
+- The UI shell is organized into explicit `project-panel`, `task-panel`, and `shared-panel` regions with per-shell styles.
+- Shared defaults are consolidated in `src/ui/styles/global-defaults.css`; shell-specific styling is kept in focused stylesheets under `src/ui/styles/`.
+- The task panel contains the section/image explorer and project actions, while the shared panel contains the editor and preview split.
+- Legacy `src/ui/sidebar/`, `src/ui/workspace-layout.ts`, and `src/editor/section-templates.ts` files were removed from the active tree and have no current source references.
 - Release validation uses `npm run release:prep`; targeted browser and PWA smoke reruns are appropriate when diagnosing transient headless-browser timing failures.
+
+## Refactor Notes
+
+### Shell And Panel Refactor
+
+The current cleanup is reorganizing the visible app shell into explicit regions:
+
+- `project-panel`: the left activity rail.
+- `task-panel`: the editor/task surface.
+- `shared-panel`: the preview/shared surface.
+
+This refactor is also reducing cross-shell coupling by:
+
+- keeping only base defaults in `src/ui/styles/global-defaults.css`,
+- moving shell-specific rules into dedicated component stylesheets,
+- avoiding DOM click chaining between unrelated UI areas when direct callbacks are available.
+
+Source map:
+
+- `src/ui/components/AppShell.ts`
+- `src/ui/components/EditorPanel.ts`
+- `src/ui/components/PreviewPanel.ts`
+- `src/ui/styles/activity-bar.css`
+- `src/ui/styles/editor.css`
+- `src/ui/styles/preview.css`
+- `src/ui/styles/workspace.css`
+- `src/ui/styles/global-defaults.css`
+
+Current documentation:
+
+- `docs/developer/shell-refactor.md`
 
 ## Recommended Documentation Set
 
@@ -38,7 +72,6 @@ Should cover:
 - Markdown authoring with a live paginated preview.
 - Project-based writing with multiple sections.
 - Browser/PWA runtime expectations.
-- Export targets: browser PDF; DOCX implementation exists in source but is disabled in the active browser runtime.
 - Settings-driven document styling, metadata, and special-heading behavior.
 - Browser storage versus local folder projects.
 
@@ -50,7 +83,7 @@ Source map:
 - `public/manifest.webmanifest` for PWA metadata.
 - `public/sw.js` and `src/sw-registration.ts` for service worker behavior.
 
-Suggested file:
+Current documentation:
 
 - `docs/user/product-overview.md`
 
@@ -69,18 +102,17 @@ Should cover:
 - Creating folders and Markdown section files.
 - Switching between full-document preview and single-section editing.
 - Adding images and inserting image references.
-- Exporting PDF and recognizing that DOCX is unavailable in the browser runtime.
 
 Source map:
 
 - `package.json` scripts.
-- `src/ui/components/ProjectExplorer.ts` for new/open/save/close controls.
-- `src/ui/sidebar/SidebarController.ts` and related sidebar files for section/image interactions.
+- `src/ui/components/TaskPanel.ts` and `src/ui/task-panel-actions.ts` for project controls.
+- `src/ui/task-explorer.ts` and `src/ui/task-images.ts` for section/image interactions.
 - `src/ui/project-flow-modal.ts` for project creation and opening flow.
 - `src/ui/editor-manager.ts` for full-document mode and section editing behavior.
 - `src/services/ProjectService.ts` for project operations.
 
-Suggested file:
+Planned file (not currently present):
 
 - `docs/user/getting-started.md`
 
@@ -108,11 +140,11 @@ Source map:
 - `src/platform/LocalDirectoryWorkspace.ts`: local folder behavior and project health recovery.
 - `src/platform/OPFSWorkspace.ts`: browser storage project behavior.
 - `src/editor/DraftRecoveryStore.ts`: draft recovery.
-- `src/ui/sidebar/*`: visible project tree interactions.
+- `src/ui/task-explorer.ts` and `src/ui/task-images.ts`: visible project tree interactions.
 - `src/ui/project-review.ts` and `src/services/project-review.ts`: project review behavior.
 - `src/ui/components/SpecialHeadingsDrawer.ts` and `src/ui/special-headings-setup.ts`: special heading controls.
 
-Suggested file:
+Planned file (not currently present):
 
 - `docs/user/projects-and-workspaces.md`
 
@@ -126,6 +158,7 @@ Should cover:
 
 - CodeMirror editor basics.
 - Toolbar commands: H1, H2, H3, bold, italic, link, unordered list, ordered list, quote, inline code, code block.
+- Selection wrapping shortcuts in the editor: typing `*` with text selected wraps the selection in asterisks, matching the Markdown italic command behavior.
 - Find and replace.
 - Project-wide search.
 - Document outline.
@@ -142,6 +175,7 @@ Source map:
 - `src/ui/components/EditorPanel.ts`: toolbar controls.
 - `src/editor/createEditor.ts`: CodeMirror extensions and editor options.
 - `src/editor/markdown-commands.ts`: toolbar command behavior.
+- `src/editor/extensions/editorBehavior.ts`: editor keybindings and selection wrapping behavior.
 - `src/editor/writing-statistics.ts`: word count and reading time.
 - `src/ui/document-outline.ts`: outline behavior.
 - `src/ui/project-search.ts` and `src/services/project-search.ts`: project search.
@@ -151,7 +185,7 @@ Source map:
 - `src/compiler/rehype-plugins/*`: post-Markdown HTML transforms.
 - `src/preview/specialHeadings.ts`: special heading rendering.
 
-Suggested file:
+Planned file (not currently present):
 
 - `docs/user/markdown-editing.md`
 
@@ -179,7 +213,8 @@ Should cover:
 Source map:
 
 - `src/preview/PreviewController.ts`: exact render scheduling.
-- `src/preview/RenderEngine.ts`: Paged.js render lifecycle.
+- `src/pdf-preview/IsolatedPaginationHost.ts`: isolated Paged.js lifecycle, cancellation, budgets, progress, diagnostics, and cleanup.
+- `src/pdf-preview/PdfPreviewJobFactory.ts`: immutable print-job assembly.
 - `src/preview/PagedJsAdapter.ts`: Paged.js integration.
 - `src/preview/PreviewViewport.ts`: responsive preview zoom and viewport controls.
 - `src/preview/CssGenerator.ts`: dynamic page, typography, list, and table CSS.
@@ -189,7 +224,7 @@ Source map:
 - `src/images/imageSources.ts`: image fallback and source resolution.
 - `src/perf/preview-metrics.ts`: preview metrics.
 
-Suggested file:
+Current documentation:
 
 - `docs/user/live-preview.md`
 - `docs/developer/preview-navigation.md`
@@ -230,9 +265,11 @@ Should cover:
   - Font size, Markdown token styling, line wrapping, line numbers, folding controls.
   - Active-line highlight, special characters, bracket matching, close brackets, autocompletion, indentation.
   - Multiple selections, rectangular selection, matching-text highlight.
+  - Note: matching-text highlight only highlights repeated text in the editor; it does not control the asterisk selection-wrapping shortcut.
 - Custom inline styles:
   - Named opening/closing delimiter pairs.
-  - Font overrides for matched inline content.
+  - Color, bold, and italic styling for matched inline content.
+  - Font family and font size are not applied to inline custom-style matches.
 - Custom quote/block styles:
   - Named prefixes, optional glyphs, font overrides, line height, margins.
 
@@ -252,7 +289,7 @@ Source map:
 - `src/services/SettingsService.ts`: settings persistence.
 - `src/services/project-settings.ts`: settings normalization, validation, migration, schema version.
 
-Suggested file:
+Planned file (not currently present):
 
 - `docs/reference/settings.md`
 
@@ -294,7 +331,7 @@ Source map:
 - `src/utils/path-utils.ts`: path normalization.
 - `src/platform/section-order.ts`: move/order behavior.
 
-Suggested file:
+Planned file (not currently present):
 
 - `docs/reference/project-format.md`
 
@@ -306,32 +343,25 @@ Purpose: explain export behavior, limits, and how to validate output.
 
 Should cover:
 
-- PDF export flow:
+- PDF Preview flow:
   - Flush current document.
   - Compile durable snapshot.
-  - Force paginated preview render.
-  - Send paginated HTML, page setup, typography, list, table, and metadata settings to browser export service.
-  - Hidden iframe print target with popup fallback.
-  - Cache, telemetry, and cleanup behavior.
-- DOCX export flow:
-  - Compile durable snapshot.
-  - Apply heading numbering and TOC transforms.
-  - Convert HTML blocks to DOCX elements.
-  - Resolve images.
-  - Generate headers and footers.
-- What carries over into DOCX: headings, paragraphs, lists, images, tables, TOC, custom blocks, page setup, metadata.
-- Known differences between paginated preview, PDF, and DOCX.
+  - Compile print HTML and CSS through `src/print`.
+  - Paginate in the isolated `?pdf-preview=true` route.
+  - Materialise headers, footers, and resolved images.
+  - Transfer the completed artifact to the browser print target.
 
 Source map:
 
-- `src/boot/app.ts`: export button event handlers.
+- `src/boot/setupPdfPreview.ts`: PDF Preview button event handler.
 - `src/services/ExportSnapshotService.ts`: durable export snapshot generation.
-- `src/platform/BrowserExportService.ts`: browser save/export implementation.
-- `src/platform/pdf-print-css.ts`: print CSS support.
-- `src/services/ExportDocxService.ts`: DOCX conversion.
-- `test/export-docx.test.cjs`, `test/export-snapshot.test.cjs`, `test/browser-export-service.test.cjs`, `test/pdf-print-css.test.cjs`: export tests.
+- `src/print/PrintDocumentCompiler.ts`: normalises logical page-break markers.
+- `src/print/PrintCssCompiler.ts`: compiles the isolated print stylesheet.
+- `src/pdf-preview/IsolatedPdfPreviewPipeline.ts`: isolated print target and frame protocol.
+- `src/boot/pdf-preview-frame.ts`: isolated Paged.js route.
+- `src/pdf-preview/PdfPreviewMarginRenderer.ts`: header/footer materialisation.
 
-Suggested file:
+Current documentation:
 
 - `docs/user/exporting.md`
 
@@ -344,15 +374,14 @@ Purpose: describe the internal architecture and where changes belong.
 Should cover:
 
 - Boot sequence:
-  - `src/main.ts` selects app boot, worker boot, or isolated export-frame boot based on the URL query.
+  - `src/main.ts` selects app boot or the isolated PDF-preview route based on the URL query.
   - `src/boot/app.ts` renders the app layout and wires services.
-  - `src/boot/worker.ts` handles worker-mode pagination plumbing.
 - State model:
   - `state` as an evented immutable snapshot store.
   - App state events and UI listeners.
   - Local editor preferences in localStorage.
 - Workspace abstraction:
-  - `Platform`, `WorkspaceRepository`, `WorkspaceSession`, `AssetResolver`, `DocumentExportService`.
+  - `Platform`, `WorkspaceRepository`, `WorkspaceSession`, `AssetResolver`.
   - OPFS and local directory implementations.
 - Editor architecture:
   - CodeMirror setup through compartments.
@@ -369,7 +398,6 @@ Source map:
 
 - `src/main.ts`
 - `src/boot/app.ts`
-- `src/boot/worker.ts`
 - `src/state.ts`
 - `src/platform/types.ts`
 - `src/platform/runtime.ts`
@@ -381,7 +409,7 @@ Source map:
 - `src/ui/components/Notice.ts`
 - `src/services/project-runtime-feedback.ts`
 
-Suggested file:
+Current documentation:
 
 - `docs/developer/architecture.md`
 
@@ -399,7 +427,6 @@ Should cover:
 - Paged.js preview pagination and browser print PDF export.
 - Browser/PWA runtime, OPFS, IndexedDB, File System Access API, and service worker behavior.
 - Workspace adapter contracts and shared project-path utilities.
-- DOCX implementation status and the current browser-runtime disablement.
 - Unit, browser smoke, performance, PWA, and release-preparation checks.
 
 Source map:
@@ -416,7 +443,7 @@ Source map:
 - `scripts/verify-pagedjs-patch.mjs`
 - `test/*`
 
-Suggested file:
+Current documentation:
 
 - `docs/developer/technology-stack.md`
 
@@ -451,7 +478,7 @@ Source map:
 - `test/fixtures/*`.
 - `dist-web/` as generated web output.
 
-Suggested file:
+Planned file (not currently present):
 
 - `docs/developer/build-test-release.md`
 
@@ -459,7 +486,7 @@ Suggested file:
 
 ### `src/boot`
 
-Owns application and worker startup. The app boot renders the app layout, creates the editor manager, initializes the in-app settings panels and sidebar, binds export controls, registers lifecycle protections, and opens/restores projects.
+Owns application and worker startup. The app boot renders the app layout, creates the editor manager, initializes settings and task-panel controls, binds export controls, registers lifecycle protections, and opens/restores projects.
 
 Documentation ownership:
 
@@ -487,7 +514,7 @@ Documentation ownership:
 
 ### `src/editor`
 
-Owns CodeMirror setup, editor theme, commands, bindings, custom style highlighting, drag/drop, save queue, draft recovery, headings, templates, and writing statistics.
+Owns CodeMirror setup, editor theme, commands, bindings, custom style highlighting, drag/drop, save queue, draft recovery, headings, and writing statistics.
 
 Documentation ownership:
 
@@ -537,7 +564,6 @@ Documentation ownership:
 
 ### `src/services`
 
-Owns project operations, settings persistence, settings schema normalization, export snapshots, DOCX export, project search/review, and runtime feedback.
 
 Documentation ownership:
 
@@ -548,7 +574,7 @@ Documentation ownership:
 
 ### `src/ui`
 
-Owns DOM setup for settings panels, sidebar, project flow modal, keyboard shortcuts, project metadata, page/list/table/TOC setup, special headings, search, review, outline, and reusable UI components.
+Owns DOM setup for settings panels, task explorer, project flow modal, keyboard shortcuts, project metadata, page/list/table/TOC setup, special headings, search, review, outline, and reusable UI components.
 
 Documentation ownership:
 
@@ -614,7 +640,7 @@ Primary source:
 - `src/platform/DirectoryHandleCatalogue.ts`
 - `src/platform/OPFSCatalogue.ts`
 - `src/services/ProjectService.ts`
-- `src/ui/components/ProjectExplorer.ts`
+- `src/ui/components/TaskPanel.ts`
 
 ### Editor Features
 
@@ -639,7 +665,6 @@ Primary source:
 - `src/editor/DraftRecoveryStore.ts`
 - `src/ui/components/EditorPanel.ts`
 - `src/ui/WelcomeController.ts`
-- `src/ui/ExportOrchestrationController.ts`
 
 ### Preview Features
 
@@ -658,7 +683,8 @@ Primary source:
 Primary source:
 
 - `src/preview/PreviewController.ts`
-- `src/preview/RenderEngine.ts`
+- `src/pdf-preview/IsolatedPaginationHost.ts`
+- `src/pdf-preview/PdfPreviewJobFactory.ts`
 - `src/preview/PreviewViewport.ts`
 - `src/preview/CssGenerator.ts`
 - `src/preview/document-rendering/*`
@@ -691,24 +717,19 @@ Primary source:
 
 ### Export Features
 
-- PDF export where supported by the browser export service.
-- DOCX export implementation through the `docx` package, currently unavailable in the active browser runtime.
-- Durable snapshot generation before export.
+- Browser PDF Preview.
+- Durable snapshot generation before preview.
 - Image preloading and resolution.
 - Header/footer rendering.
-- TOC, special heading, and heading numbering transforms before DOCX conversion.
-- Background iframe pagination, stale-render retry, printable-page validation, and performance metrics for PDF.
+- Isolated iframe pagination and browser print handoff.
 
 Primary source:
 
 - `src/boot/app.ts`
 - `src/services/ExportSnapshotService.ts`
-- `src/services/ExportDocxService.ts`
-- `src/ui/ExportOrchestrationController.ts`
-- `src/ui/BackgroundExportPaginator.ts`
-- `src/boot/export-pagination-frame.ts`
-- `src/platform/BrowserExportService.ts`
-- `src/platform/pdf-print-css.ts`
+- `src/boot/setupPdfPreview.ts`
+- `src/pdf-preview/IsolatedPdfPreviewPipeline.ts`
+- `src/boot/pdf-preview-frame.ts`
 
 ## Settings Data Map
 
@@ -731,7 +752,6 @@ Related UI:
 - TOC panel.
 - Special headings panel.
 - Preview renderer.
-- PDF and DOCX export.
 
 ### `TypographySetup`
 
@@ -747,7 +767,6 @@ Related UI:
 - Typography panel.
 - Editor Markdown appearance for heading/link/strong/emphasis styling.
 - Preview CSS.
-- DOCX conversion.
 
 ### `ListSetup`
 
@@ -766,7 +785,6 @@ Related UI:
 - Lists panel.
 - Remark list marker plugin.
 - Preview CSS.
-- DOCX conversion.
 
 ### `TableSetup`
 
@@ -782,7 +800,6 @@ Related UI:
 - Tables panel.
 - Remark table style plugin.
 - Preview CSS.
-- DOCX conversion.
 
 ### `ProjectMetadata`
 
@@ -803,7 +820,6 @@ Related UI:
 - Project metadata panel.
 - Metadata substitution plugin.
 - Header/footer text substitution.
-- DOCX document properties.
 
 ### `CustomStyle`
 
@@ -838,7 +854,6 @@ Related UI:
 - Block glyph picker.
 - CodeMirror custom block style extension.
 - Markdown compiler custom block styles plugin.
-- DOCX custom block conversion.
 
 ### `EditorSetup`
 
@@ -927,7 +942,6 @@ Commands from `package.json`:
 - Decide whether docs should be split by audience under `docs/user`, `docs/reference`, and `docs/developer`.
 - Decide whether screenshots are required for the first user-guide pass.
 - Document exact browser support once tested against target browsers.
-- Capture known PDF/DOCX fidelity differences after visual QA.
 - Decide whether `dist-web` should be documented as release output only or excluded from docs references entirely.
 
 ## Suggested Writing Order

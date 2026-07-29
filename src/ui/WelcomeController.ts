@@ -1,18 +1,28 @@
 import type { WorkspaceRepository } from '../platform/types';
+import type { WorkspaceRef } from '../platform/types';
 
 export interface WelcomeControllerDependencies {
   welcomeContainer: HTMLElement;
   workspaceRepository: WorkspaceRepository;
+  onNewDocument: () => Promise<void> | void;
+  onOpenDocument: () => Promise<void> | void;
+  onOpenRecent: (ref: WorkspaceRef) => Promise<void> | void;
 }
 
 /** Owns the standalone welcome screen shown when no project is open. */
 export class WelcomeController {
   private readonly welcomeContainer: HTMLElement;
   private readonly workspaceRepository: WorkspaceRepository;
+  private readonly onNewDocument: () => Promise<void> | void;
+  private readonly onOpenDocument: () => Promise<void> | void;
+  private readonly onOpenRecent: (ref: WorkspaceRef) => Promise<void> | void;
 
   constructor(dependencies: WelcomeControllerDependencies) {
     this.welcomeContainer = dependencies.welcomeContainer;
     this.workspaceRepository = dependencies.workspaceRepository;
+    this.onNewDocument = dependencies.onNewDocument;
+    this.onOpenDocument = dependencies.onOpenDocument;
+    this.onOpenRecent = dependencies.onOpenRecent;
   }
 
   destroy(): void {
@@ -49,10 +59,10 @@ export class WelcomeController {
     `;
 
     this.welcomeContainer.querySelector('#empty-canvas-open-folder')?.addEventListener('click', () => {
-      document.getElementById('btn-open')?.click();
+      void this.onOpenDocument();
     });
     this.welcomeContainer.querySelector('#empty-canvas-new-project')?.addEventListener('click', () => {
-      document.getElementById('btn-new')?.click();
+      void this.onNewDocument();
     });
     void this.populateRecents();
   }
@@ -81,7 +91,7 @@ export class WelcomeController {
         kind.textContent = entry.ref.kind === 'directory' ? 'Local folder' : 'Browser storage';
         button.append(name, kind);
         button.addEventListener('click', () => {
-          document.dispatchEvent(new CustomEvent('clear-writer-open-recent', { detail: { ref: entry.ref } }));
+          void this.onOpenRecent(entry.ref);
         });
         recentList.append(button);
       }

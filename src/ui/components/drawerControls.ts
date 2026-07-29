@@ -1,22 +1,5 @@
 import { renderFontFamilyOptions } from '../../config/font-families';
 
-export function renderDrawerSwitch(id: string, label: string, className = ''): string {
-  const classes = ['drawer-switch', className].filter(Boolean).join(' ');
-  const isVisibilityControl = /^(show|display)\b/i.test(label);
-  const enabledLabel = isVisibilityControl ? 'Show' : 'On';
-  const disabledLabel = isVisibilityControl ? 'Hide' : 'Off';
-  return `
-    <label class="${classes}">
-      <span class="drawer-switch-label">${label}</span>
-      <span class="drawer-switch-ui">
-        <input type="checkbox" id="${id}" aria-label="${label}">
-        <span class="drawer-switch-option drawer-switch-option--enabled" aria-hidden="true">${enabledLabel}</span>
-        <span class="drawer-switch-option drawer-switch-option--disabled" aria-hidden="true">${disabledLabel}</span>
-      </span>
-    </label>
-  `;
-}
-
 export function renderDrawerSwitchControl(
   id: string,
   ariaLabel: string,
@@ -130,15 +113,6 @@ export function readDrawerNumber(
   const parsed = options.integer ? Number.parseInt(input.value, 10) : Number.parseFloat(input.value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(options.max ?? Number.POSITIVE_INFINITY, Math.max(options.min ?? Number.NEGATIVE_INFINITY, parsed));
-}
-
-export function renderDrawerToggleButton(id: string, glyph: string, ariaLabel: string, className = ''): string {
-  const classes = ['drawer-toggle-button', className].filter(Boolean).join(' ');
-  return `
-    <button id="${id}" class="${classes}" type="button" aria-pressed="false" aria-label="${ariaLabel}">
-      <span class="drawer-toggle-button-glyph" aria-hidden="true">${glyph}</span>
-    </button>
-  `;
 }
 
 export function getDrawerToggleButtonState(target: DrawerToggleTarget): boolean {

@@ -34,8 +34,18 @@ export class LivePreviewIndex {
       target.entry.range.startLine <= line && target.entry.range.endLine >= line
     );
     if (containing.length > 0) return chooseBestTarget(containing);
+    const following = this.targets.filter(target => target.entry.range.startLine > line);
+    if (following.length > 0) {
+      return [...following].sort((left, right) =>
+        left.entry.range.startLine - right.entry.range.startLine
+      )[0]!;
+    }
     const preceding = this.targets.filter(target => target.entry.range.startLine <= line);
     return preceding.length > 0 ? chooseBestTarget(preceding) : null;
+  }
+
+  public getTargets(): readonly CommittedPreviewTarget[] {
+    return this.targets;
   }
 }
 
@@ -59,8 +69,10 @@ function chooseBestTarget(targets: readonly CommittedPreviewTarget[]): Committed
   return [...targets].sort((left, right) => {
     const leftSpan = left.entry.range.endLine - left.entry.range.startLine;
     const rightSpan = right.entry.range.endLine - right.entry.range.startLine;
-    return leftSpan === rightSpan
-      ? right.entry.priority - left.entry.priority
-      : leftSpan - rightSpan;
+    if (leftSpan !== rightSpan) return leftSpan - rightSpan;
+    if (left.entry.range.startLine !== right.entry.range.startLine) {
+      return right.entry.range.startLine - left.entry.range.startLine;
+    }
+    return right.entry.priority - left.entry.priority;
   })[0]!;
 }

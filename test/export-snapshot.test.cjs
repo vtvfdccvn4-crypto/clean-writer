@@ -84,3 +84,49 @@ test('full-document snapshot bounds concurrent section reads', async () => {
   assert.equal(maxActiveReads, 4);
   assert.match(html, /sections\/section-9\.md/);
 });
+
+test('full-document snapshot reports section-read and asset-preload phases', async () => {
+  const phases = [];
+  await compileExportSnapshot({
+    session: { readSection: async () => '# Timed section' },
+    assetResolver: { preloadImages: async () => {}, resolveSync: path => path },
+    isFullDocMode: true,
+    activeFile: null,
+    sections: [{ path: 'sections/timed.md', isDir: false }],
+    onPhase: (phase, durationMs) => phases.push({ phase, durationMs })
+  }, { compile: async markdown => markdown });
+
+  assert.deepEqual(phases.map(phase => phase.phase), ['snapshot-load', 'asset-preload']);
+  assert.ok(phases.every(phase => phase.durationMs >= 0));
+});
+
+test('cancelled export does not preload assets or compile after a section read', async () => {
+  const controller = new AbortController();
+  let preloads = 0;
+  let compilations = 0;
+
+  await assert.rejects(() => compileExportSnapshot({
+    session: {
+      readSection: async () => {
+        controller.abort();
+        return '# Cancelled section';
+      }
+    },
+    assetResolver: {
+      preloadImages: async () => { preloads += 1; },
+      resolveSync: path => path
+    },
+    isFullDocMode: false,
+    activeFile: 'sections/cancelled.md',
+    sections: [{ path: 'sections/cancelled.md', isDir: false }],
+    signal: controller.signal
+  }, {
+    compile: async markdown => {
+      compilations += 1;
+      return markdown;
+    }
+  }), error => error?.name === 'AbortError');
+
+  assert.equal(preloads, 0);
+  assert.equal(compilations, 0);
+});

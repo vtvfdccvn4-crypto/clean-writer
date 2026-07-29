@@ -31,11 +31,12 @@ export function generateListCss(setup: ListSetup): string {
   const buildUnorderedListCss = (selector: string, config: ListStyle) => `
     ${content} ${selector} {
       margin-left: 0 !important;
-      /* List settings own marker geometry, while surrounding paragraph or
-         heading styles own vertical rhythm. Reset the UA list margins so they
-         do not silently stack with the configured spacing. */
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
+      /* Keep list spacing on the list itself. This is important for a list
+         that is the only (or first/last) block in a section: selectors based
+         on sibling position make its configured margins disappear in the
+         single-section preview. */
+      margin-top: ${points(config.marginTop, 0)}pt !important;
+      margin-bottom: ${points(config.marginBottom, 0)}pt !important;
       padding-inline-start: ${points(config.marginLeft, 20)}pt !important;
       list-style: none !important;
     }
@@ -53,6 +54,10 @@ export function generateListCss(setup: ListSetup): string {
       grid-column: 1;
       grid-row: 1;
       min-width: 0;
+      align-self: start;
+      display: inline-flex;
+      align-items: center;
+      line-height: inherit;
     }
 
     ${content} ${selector} > li > .document-list-marker::before {
@@ -81,10 +86,10 @@ export function generateListCss(setup: ListSetup): string {
   const buildOrderedListCss = (selector: string, config: ListStyle, delimiter: '.' | ')') => `
     ${content} ${selector} {
       margin-left: 0 !important;
-      /* See the unordered-list rule: vertical spacing belongs to surrounding
-         document blocks, never to browser-default list margins. */
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
+      /* See the unordered-list rule: configured spacing must also survive
+         when this is the first or last block in a section preview. */
+      margin-top: ${points(config.marginTop, 0)}pt !important;
+      margin-bottom: ${points(config.marginBottom, 0)}pt !important;
       padding-inline-start: ${points(config.marginLeft, 20)}pt !important;
       list-style: none !important;
       counter-reset: document-ordered-list calc(attr(start type(<integer>), 1) - 1);
@@ -104,10 +109,18 @@ export function generateListCss(setup: ListSetup): string {
       grid-column: 1;
       grid-row: 1;
       min-width: 0;
+      align-self: start;
+      display: inline-flex;
+      align-items: center;
+      line-height: inherit;
     }
 
     ${content} ${selector} > li > .document-list-marker::before {
       content: counter(document-ordered-list, ${counterStyle(config.bulletIcon)}) "${delimiter}";
+    }
+
+    ${content} ${selector} > li > .document-list-marker.is-materialized::before {
+      content: none;
     }
 
     ${content} ${selector} > li > .document-list-content {

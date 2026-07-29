@@ -1,6 +1,7 @@
 import {
-  buildFullDocumentMarkdown,
+  buildFullDocumentPreviewInput,
   renderDocumentSection,
+  type DocumentPreviewSourceSegment,
   type DocumentSectionInput
 } from '../preview/document-rendering';
 import type { FileNode } from '../types';
@@ -15,10 +16,16 @@ export interface ExportSnapshotInput {
   activeFile: string | null;
   sections: FileNode[];
   currentMarkdown?: string;
+  signal?: AbortSignal;
+  onPhase?: (phase: 'snapshot-load' | 'asset-preload', durationMs: number) => void;
 }
 
-export interface ExportSnapshotDependencies {
-  compile(markdown: string, assetResolver: AssetResolver): Promise<string>;
+export interface ExportSnapshotDependencies<T = string> {
+  compile(
+    markdown: string,
+    assetResolver: AssetResolver,
+    sourceSegments?: readonly DocumentPreviewSourceSegment[]
+  ): Promise<T>;
 }
 
 export function scanMarkdownForImages(markdown: string): string[] {
@@ -59,27 +66,32 @@ export function scanCustomBlockStyleIcons(): string[] {
  * Builds export HTML from an explicit document snapshot rather than preview
  * cache state. Callers must flush the editor before supplying currentMarkdown.
  */
-export async function compileExportSnapshot(
+export async function compileExportSnapshot<T = string>(
   input: ExportSnapshotInput,
-  dependencies: ExportSnapshotDependencies
-): Promise<string> {
-  const { session, assetResolver, isFullDocMode, activeFile, sections, currentMarkdown } = input;
+  dependencies: ExportSnapshotDependencies<T>
+): Promise<T> {
+  const { session, assetResolver, isFullDocMode, activeFile, sections, currentMarkdown, signal } = input;
+  throwIfAborted(signal);
 
   if (isFullDocMode || !activeFile) {
     const files = sections.filter(section => !section.isDir);
     const results: Array<PromiseSettledResult<DocumentSectionInput>> = new Array(files.length);
     let nextIndex = 0;
+    const snapshotStartedAt = performance.now();
     const readNext = async () => {
       while (true) {
+        throwIfAborted(signal);
         const index = nextIndex++;
         if (index >= files.length) return;
         const fileNode = files[index];
         try {
+          const markdown = await session.readSection(fileNode.path);
+          throwIfAborted(signal);
           results[index] = {
             status: 'fulfilled',
             value: {
               path: fileNode.path,
-              markdown: await session.readSection(fileNode.path),
+              markdown,
               pageBreak: fileNode.pageBreak
             }
           };
@@ -88,7 +100,12 @@ export async function compileExportSnapshot(
         }
       }
     };
-    await Promise.all(Array.from({ length: Math.min(4, files.length) }, () => readNext()));
+    try {
+      await Promise.all(Array.from({ length: Math.min(4, files.length) }, () => readNext()));
+    } finally {
+      input.onPhase?.('snapshot-load', performance.now() - snapshotStartedAt);
+    }
+    throwIfAborted(signal);
     const failures = results
       .map((result, index) => result.status === 'rejected' ? `${files[index].path}: ${String(result.reason)}` : null)
       .filter((message): message is string => Boolean(message));
@@ -100,24 +117,39 @@ export async function compileExportSnapshot(
     for (const result of results) {
       if (result.status === 'fulfilled') blocks.push(result.value);
     }
-    const markdown = buildFullDocumentMarkdown(sections, blocks);
+    const document = buildFullDocumentPreviewInput(sections, blocks);
     
-    // Preload images asynchronously
-    const imagePaths = scanMarkdownForImages(markdown);
-    await assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()]);
+    const assetPreloadStartedAt = performance.now();
+    try {
+      const imagePaths = scanMarkdownForImages(document.markdown);
+      await assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()], signal);
+    } finally {
+      input.onPhase?.('asset-preload', performance.now() - assetPreloadStartedAt);
+    }
 
-    return dependencies.compile(markdown, assetResolver);
+    throwIfAborted(signal);
+    return dependencies.compile(document.markdown, assetResolver, document.sourceSegments);
   }
 
   const markdown = currentMarkdown ?? await session.readSection(activeFile);
+  throwIfAborted(signal);
   const markdownToCompile = renderDocumentSection({ path: activeFile, markdown }, sections, 0);
 
-  // Preload images asynchronously
-  const imagePaths = scanMarkdownForImages(markdownToCompile);
-  await assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()]);
+  const assetPreloadStartedAt = performance.now();
+  try {
+    const imagePaths = scanMarkdownForImages(markdownToCompile);
+    await assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()], signal);
+  } finally {
+    input.onPhase?.('asset-preload', performance.now() - assetPreloadStartedAt);
+  }
 
+  throwIfAborted(signal);
   return dependencies.compile(
     markdownToCompile,
     assetResolver
   );
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('Export snapshot was cancelled.', 'AbortError');
 }

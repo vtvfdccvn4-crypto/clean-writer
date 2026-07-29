@@ -1,6 +1,6 @@
 import { EditorView } from 'codemirror';
 import { Compartment, EditorState } from '@codemirror/state';
-import { keymap } from '@codemirror/view';
+import { dropCursor, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { searchKeymap, openSearchPanel } from '@codemirror/search';
 
@@ -13,6 +13,8 @@ import { imagePasteExtension } from './extensions/imagePasteExtension';
 import type { PastedImageResult } from './extensions/imagePasteExtension';
 import { markdownAppearanceExtension } from './extensions/markdownAppearance';
 import { markdownLanguageExtension } from './extensions/markdown';
+import { imageDropExtension } from './extensions/imageDropExtension';
+import { imageBlockPointerDragExtension } from './extensions/imageBlockPointerDrag';
 import { state as appState } from '../state';
 import type { EditorSetup } from '../types';
 import { parseEditorMarkdownImages, withImageAlignmentAttribute, withImageWidthAttribute } from './markdown/parseMarkdownImage';
@@ -122,6 +124,9 @@ export function createEditor(
       imagePreviews.of(callbacks.resolveImageSource
         ? imagePreviewExtension(callbacks.resolveImageSource, editImagePresentation)
         : []),
+      dropCursor(),
+      imageBlockPointerDragExtension(),
+      imageDropExtension(),
       ...(callbacks.onImageFile ? [imagePasteExtension(callbacks.onImageFile)] : []),
       updateListener
     ]

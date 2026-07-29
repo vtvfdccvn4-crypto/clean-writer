@@ -3,23 +3,18 @@ import { RangeSetBuilder } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 
 import type { CustomBlockStyle, CustomStyle, EditorSetup, SpecialHeadingDefinition } from '../../types';
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegExp } from '../../utils/regex';
 
 function toStyleText(parts: Array<string | undefined>): string {
   return parts.filter(Boolean).join('; ');
 }
 
-type TextStyle = Pick<CustomStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic'>
+type TextStyle = Pick<CustomStyle, 'color' | 'isBold' | 'isItalic'>
   & Partial<Pick<CustomBlockStyle, 'lineHeight'>>;
 
 function textStyleAttributes(style: TextStyle): { style: string } {
   return {
     style: toStyleText([
-      style.fontFamily ? `font-family: ${style.fontFamily}` : undefined,
-      style.fontSize ? `font-size: ${style.fontSize}pt` : undefined,
       style.color ? `color: ${style.color}` : undefined,
       style.isBold ? 'font-weight: bold' : undefined,
       style.isItalic ? 'font-style: italic' : undefined,

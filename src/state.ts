@@ -109,6 +109,17 @@ class AppState extends EventTarget {
     this.emit(APP_STATE_EVENTS.projectSnapshotChanged);
   }
 
+  /** Publishes a fully loaded project in one observable state transition. */
+  activateProjectSnapshot(snapshot: ProjectSnapshot) {
+    this.replaceProject({
+      ...snapshot,
+      activeFile: null,
+      isFullDocMode: true
+    });
+    this.emit(APP_STATE_EVENTS.projectChanged);
+    this.emit(APP_STATE_EVENTS.projectSnapshotChanged);
+  }
+
   setProjectTree(sections: FileNode[], images: FileNode[], activeFile: string | null = this.data.activeFile) {
     this.replaceProject({
       sections,

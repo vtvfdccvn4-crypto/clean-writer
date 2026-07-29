@@ -47,8 +47,6 @@ export const customStylesPlugin: Plugin<[], Root> = () => {
 
           const innerText = earliestMatch[2];
           const cssProps = [];
-          if (matchedStyle.fontFamily) cssProps.push(`font-family: ${matchedStyle.fontFamily}`);
-          if (matchedStyle.fontSize) cssProps.push(`font-size: ${matchedStyle.fontSize}pt`);
           if (matchedStyle.color) cssProps.push(`color: ${matchedStyle.color}`);
           if (matchedStyle.isBold) cssProps.push(`font-weight: bold`);
           if (matchedStyle.isItalic) cssProps.push(`font-style: italic`);

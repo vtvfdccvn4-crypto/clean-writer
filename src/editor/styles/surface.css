@@ -5,18 +5,24 @@
   --cm-surface-radius: 8px;
 }
 
-/* CodeMirror shell only. Text layout and content styles stay at CodeMirror defaults. */
+/* CodeMirror shell and base text font. */
 .cm-editor {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   height: 100%;
-  font-family: "Google Sans Code", var(--font-mono);
+  font-family: "Courier Prime", var(--font-mono);
   font-size: var(--editor-font-size, 10pt);
   overflow: hidden;
   background-color: var(--cm-surface-background);
   border: 1px solid var(--cm-surface-border);
   border-radius: var(--cm-surface-radius);
+}
+
+.cm-editor .cm-content,
+.cm-editor .cm-line,
+.cm-editor .cm-gutterElement {
+  font-family: "Courier Prime", var(--font-mono) !important;
 }
 
 .cm-editor:focus-within {

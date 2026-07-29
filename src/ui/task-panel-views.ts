@@ -1,0 +1,107 @@
+import { state } from '../state';
+import type { EditorManager } from './editor-manager';
+import { renderTaskExplorer } from './task-explorer';
+import { renderTaskImages } from './task-images';
+import type { AssetResolver } from '../platform/types';
+
+type TaskPanelView = 'explorer' | 'images' | 'outline' | null;
+const OUTLINE_ACTIVATED_EVENT = 'clear-writer-task-outline-activated';
+
+export function initTaskPanelViews(editorManager: EditorManager, assetResolver: AssetResolver): void {
+  const explorerButton = document.getElementById('btn-activity-explorer');
+  const imagesButton = document.getElementById('btn-activity-images');
+  const outlineButton = document.getElementById('btn-activity-outline');
+  const explorerView = document.getElementById('task-explorer-view');
+  const explorerContent = document.getElementById('task-explorer-content');
+  const explorerEmpty = document.getElementById('task-explorer-empty');
+  const imagesView = document.getElementById('task-images-view');
+  const imagesContent = document.getElementById('task-images-content');
+  const imagesEmpty = document.getElementById('task-images-empty');
+  const outlineView = document.querySelector<HTMLElement>('#task-panel .outline-section');
+  const footer = document.querySelector<HTMLElement>('#task-panel .task-footer');
+  const taskPanel = document.getElementById('task-panel');
+  const taskPanelResizer = document.getElementById('task-panel-resizer');
+  const workspace = document.querySelector<HTMLElement>('.workspace');
+  const title = document.getElementById('task-panel-title');
+
+  if (!explorerButton || !imagesButton || !outlineButton || !explorerView || !explorerContent || !explorerEmpty || !imagesView || !imagesContent || !imagesEmpty || !outlineView || !footer) return;
+  let activeView: TaskPanelView = null;
+  let panelVisible = true;
+
+  const setPressed = (button: HTMLElement, pressed: boolean) => {
+    button.classList.toggle('is-active', pressed);
+    button.setAttribute('aria-pressed', String(pressed));
+  };
+  const setTitle = (text: string) => { if (title) title.textContent = text; };
+  const hideAll = () => {
+    explorerView.classList.add('hidden');
+    imagesView.classList.add('hidden');
+    outlineView.classList.add('hidden');
+    footer.classList.add('hidden');
+    footer.setAttribute('aria-hidden', 'true');
+    setPressed(explorerButton, false);
+    setPressed(imagesButton, false);
+    setPressed(outlineButton, false);
+  };
+  const renderActiveView = () => {
+    if (activeView === 'explorer') renderTaskExplorer(explorerContent, explorerEmpty, editorManager);
+    if (activeView === 'images') renderTaskImages(imagesContent, imagesEmpty, assetResolver);
+  };
+  const setPanelVisible = (visible: boolean) => {
+    panelVisible = visible;
+    taskPanel?.classList.toggle('hidden', !visible);
+    taskPanelResizer?.classList.toggle('hidden', !visible);
+    workspace?.classList.toggle('task-panel-hidden', !visible);
+    if (!visible) hideAll();
+    else if (activeView) { hideAll(); renderActiveView(); }
+  };
+  const showView = (view: TaskPanelView) => {
+    activeView = view;
+    setPanelVisible(true);
+    hideAll();
+    if (view === 'explorer') {
+      setTitle('Project tree');
+      explorerView.classList.remove('hidden');
+      setPressed(explorerButton, true);
+      renderTaskExplorer(explorerContent, explorerEmpty, editorManager);
+    } else if (view === 'images') {
+      setTitle('Images');
+      imagesView.classList.remove('hidden');
+      setPressed(imagesButton, true);
+      renderTaskImages(imagesContent, imagesEmpty, assetResolver);
+    } else if (view === 'outline') {
+      setTitle('Document outline');
+      outlineView.classList.remove('hidden');
+      footer.classList.remove('hidden');
+      footer.setAttribute('aria-hidden', 'false');
+      setPressed(outlineButton, true);
+      document.dispatchEvent(new CustomEvent(OUTLINE_ACTIVATED_EVENT));
+    }
+  };
+  const hideView = () => { activeView = null; setPanelVisible(false); setTitle('Tasks'); };
+
+  explorerButton.addEventListener('click', () => activeView === 'explorer' && panelVisible ? hideView() : showView('explorer'));
+  imagesButton.addEventListener('click', () => activeView === 'images' && panelVisible ? hideView() : showView('images'));
+  outlineButton.addEventListener('click', () => activeView === 'outline' && panelVisible ? hideView() : showView('outline'));
+  state.onProjectTreeChanged(() => { if (activeView === 'explorer' || activeView === 'images') renderActiveView(); });
+  state.onProjectSnapshotChanged(() => {
+    if (!state.current.projectRef) return;
+    if (activeView !== 'explorer' || !panelVisible) showView('explorer');
+    else renderTaskExplorer(explorerContent, explorerEmpty, editorManager);
+  });
+  state.onProjectChanged(() => {
+    if (state.current.projectRef) return;
+    activeView = null;
+    panelVisible = true;
+    hideAll();
+    setTitle('Tasks');
+    workspace?.classList.remove('task-panel-hidden');
+    taskPanel?.classList.remove('hidden');
+    taskPanelResizer?.classList.remove('hidden');
+    explorerContent.innerHTML = '';
+    imagesContent.innerHTML = '';
+    explorerEmpty.classList.remove('hidden');
+    imagesEmpty.classList.remove('hidden');
+  });
+  if (state.current.projectRef) showView('explorer');
+}

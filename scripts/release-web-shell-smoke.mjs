@@ -34,7 +34,8 @@ try {
   assert(index.includes('theme-color'), 'Production shell does not define a theme color.');
   assert(index.includes("frame-src 'self'"), 'Production shell blocks the same-origin PDF pagination frame.');
   assert(!index.includes('localhost:5274'), 'Development server URL leaked into production HTML.');
-  assert(serviceWorker.includes('clear-writer-shell-v3'), 'Service worker cache version is missing.');
+  assert(/CACHE_BUSTER\s*=/.test(serviceWorker) && serviceWorker.includes("|| 'v3'"), 'Service worker cache version is missing.');
+  assert(serviceWorker.includes('clear-writer-shell-${CACHE_BUSTER}'), 'Service worker cache naming is missing.');
   assert(serviceWorker.includes('self.addEventListener(\'fetch\''), 'Service worker fetch handler is missing.');
 
   console.log(JSON.stringify({ ok: true, manifest: true, serviceWorker: true, productionShell: true, port }, null, 2));

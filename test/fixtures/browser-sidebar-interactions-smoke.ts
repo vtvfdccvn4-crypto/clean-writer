@@ -1,4 +1,5 @@
 import { state } from '/src/state.ts';
+import { projectSession } from '/src/services/ProjectSessionStore.ts';
 import { click, waitFor } from './helpers/smoke-dom.ts';
 
 declare global {
@@ -22,15 +23,9 @@ async function resetBrowserStorage(): Promise<void> {
   }
 }
 
-async function createItem(button: string, name: string, template?: string): Promise<void> {
-  await click(button);
-  const row = await waitFor(`inline input for ${name}`, () => document.querySelector<HTMLElement>('.tree-inline-create'));
-  const templateSelect = row.querySelector<HTMLSelectElement>('.section-template-select');
-  if (templateSelect && template) templateSelect.value = template;
-  const input = row.querySelector<HTMLInputElement>('.inline-input');
-  if (!input) throw new Error(`Missing inline input for ${name}.`);
-  input.value = name;
-  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+function explorerItem(label: string): HTMLElement | null {
+  return Array.from(document.querySelectorAll<HTMLElement>('.task-explorer-item'))
+    .find(item => item.querySelector('.task-explorer-item-label')?.textContent === label) ?? null;
 }
 
 async function run(): Promise<void> {
@@ -47,49 +42,51 @@ async function run(): Promise<void> {
   await click('#btn-modal-new-opfs-confirm');
   await waitFor('OPFS project', () => state.current.projectRef?.kind === 'opfs' ? true : null);
 
-  await createItem('#btn-new-folder', 'Archive');
+  await projectSession.createFolder('sections/Archive');
   await waitFor('Archive folder', () => state.current.sections.some(section => section.path === 'sections/Archive' && section.isDir) ? true : null);
-  await createItem('#btn-new-section', 'One', 'chapter');
+  await projectSession.createSection('sections/One.md', '# Chapter One\n\n');
   await waitFor('One section active', () => state.current.activeFile === 'sections/One.md' ? true : null);
-  await createItem('#btn-new-section', 'Two');
+  await projectSession.createSection('sections/Two.md', '# Two\n\n');
   await waitFor('Two section active', () => state.current.activeFile === 'sections/Two.md' ? true : null);
 
-  await click('.tree-row[data-path="sections/One.md"]');
+  (await waitFor('One explorer item', () => explorerItem('One.md'))).click();
   await waitFor('One section selected', () => state.current.activeFile === 'sections/One.md' ? true : null);
   const editorManager = (window as any).__CLEAR_WRITER_EDITOR_MANAGER__;
   const oneEditor = await waitFor('One editor', () => editorManager?.getEditorView?.()?.getValue?.().includes('# Chapter') ? editorManager.getEditorView() : null);
   oneEditor.setValue('Saved while switching sections');
   await waitFor('One marked unsaved', () => oneEditor.hasUnsavedChanges?.() ? true : null);
   await waitFor('One saved before switch', () => document.getElementById('editor-status')?.textContent === 'Saved' ? true : null);
-  await click('.tree-row[data-path="sections/Two.md"]');
+  const twoItem = await waitFor('Two explorer item', () => explorerItem('Two.md'));
+  twoItem.click();
   await waitFor('Two selected after save', () => state.current.activeFile === 'sections/Two.md' ? true : null);
-  await click('.tree-row[data-path="sections/One.md"]');
+  (await waitFor('One explorer item after switch', () => explorerItem('One.md'))).click();
   const savedOnSwitch = await waitFor('One content persisted after switch', () => (
     state.current.activeFile === 'sections/One.md' && editorManager.getEditorView()?.getValue() === 'Saved while switching sections'
   ) ? true : null);
 
-  await click('.tree-row[data-path="sections/One.md"] .btn-page-break-toggle');
+  const pageBreakButton = await waitFor('One page break action', () => explorerItem('One.md')?.querySelector<HTMLButtonElement>('[aria-label="Add page break"]'));
+  pageBreakButton.click();
   const pageBreakEnabled = await waitFor('page break enabled', () => state.current.sections.find(section => section.path === 'sections/One.md')?.pageBreak === true ? true : null);
 
-  const sourceRow = document.querySelector<HTMLElement>('.tree-row[data-path="sections/One.md"]');
-  const folderRow = document.querySelector<HTMLElement>('.tree-row[data-path="sections/Archive"]');
+  const sourceRow = explorerItem('One.md');
+  const folderRow = explorerItem('Archive');
   if (!sourceRow || !folderRow) throw new Error('Could not find sidebar rows for drag-and-drop.');
   const transfer = new DataTransfer();
   sourceRow.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
-  folderRow.classList.add('drag-over-center');
-  folderRow.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  const folderRect = folderRow.getBoundingClientRect();
+  folderRow.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientY: folderRect.top + folderRect.height / 2, dataTransfer: transfer }));
+  folderRow.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientY: folderRect.top + folderRect.height / 2, dataTransfer: transfer }));
   const movedIntoFolder = await waitFor('section moved into folder', () => state.current.sections.some(section => section.path === 'sections/Archive/One.md') ? true : null);
 
-  if (!document.querySelector<HTMLButtonElement>('.tree-row[data-path="sections/Archive"] .btn-toggle-folder')) {
-    throw new Error('Could not find Archive folder toggle.');
-  }
-  await click('.tree-row[data-path="sections/Archive"] .btn-toggle-folder');
+  let archiveItem = await waitFor('Archive explorer item', () => explorerItem('Archive'));
+  archiveItem.click();
   const folderCollapsed = await waitFor('folder collapsed', () => (
-    document.querySelector<HTMLButtonElement>('.tree-row[data-path="sections/Archive"] .btn-toggle-folder')?.getAttribute('aria-expanded') === 'false'
+    explorerItem('Archive')?.parentElement?.querySelector('.task-explorer-children') === null
   ) ? true : null);
-  await click('.tree-row[data-path="sections/Archive"] .btn-toggle-folder');
+  archiveItem = await waitFor('Archive explorer item after collapse', () => explorerItem('Archive'));
+  archiveItem.click();
   const folderExpanded = await waitFor('folder expanded', () => (
-    document.querySelector<HTMLButtonElement>('.tree-row[data-path="sections/Archive"] .btn-toggle-folder')?.getAttribute('aria-expanded') === 'true'
+    explorerItem('Archive')?.parentElement?.querySelector('.task-explorer-children') !== null
   ) ? true : null);
 
   window.__HARNESS_RESULT__ = { ok: true, savedOnSwitch, pageBreakEnabled, movedIntoFolder, folderCollapsed, folderExpanded };

@@ -191,6 +191,7 @@ export class OPFSWorkspaceSession implements WorkspaceSession {
     const settings = await this.getSettings();
     const move = calculateSectionMove(entries, settings.order, sourceName, targetName, placement);
     if (!move) return { success: false };
+    if (move.source === move.destination) return { success: false };
     let sourceDeleted = false;
     const sourcePath = resolveSectionPath(move.source);
     const destinationPath = resolveSectionPath(move.destination);
@@ -203,6 +204,9 @@ export class OPFSWorkspaceSession implements WorkspaceSession {
       writeSettings: value => this.writeSettingsSnapshot(value),
       applyFilesystem: async () => {
         await copyEntry(sourceFile ?? sourceDir!, destinationParent, destinationPath.split('/').pop()!);
+        const copiedFile = await getFile(this.projectDir, destinationPath, false);
+        const copiedDir = copiedFile ? null : await getDirectory(this.projectDir, destinationPath, false);
+        if (!copiedFile && !copiedDir) throw new Error('The moved section was not written to its destination.');
         if (!await deleteEntry(this.projectDir, sourcePath)) throw new Error('Unable to remove the original entry.');
         sourceDeleted = true;
       },

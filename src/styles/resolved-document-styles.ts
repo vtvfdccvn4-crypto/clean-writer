@@ -3,7 +3,7 @@ import { DEFAULT_BODY_FONT_FAMILY, DEFAULT_HEADER_FOOTER_FONT_FAMILY, DEFAULT_LI
 
 export type ResolvedTocStyle = Required<Pick<TocStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'isAllCaps'>>;
 export type ResolvedTypographyStyle = Required<Pick<TypographySetup['paragraph'], 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'lineHeight' | 'marginTop' | 'marginBottom'>>;
-export type ResolvedListStyle = Required<Pick<ListStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'lineHeight' | 'bulletIcon' | 'bulletColor' | 'marginLeft' | 'paddingLeft'>>;
+export type ResolvedListStyle = Required<Pick<ListStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'lineHeight' | 'bulletIcon' | 'bulletColor' | 'marginTop' | 'marginBottom' | 'marginLeft' | 'paddingLeft'>>;
 export type ResolvedHeaderFooterCell = Required<Pick<HeaderFooterCell, 'content' | 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic'>> & Pick<HeaderFooterCell, 'horizontalAlign' | 'verticalAlign'>;
 export type ResolvedTableStyle = Required<TableStyle>;
 export type ResolvedSpecialHeadingStyle = Required<Pick<SpecialHeadingDefinition, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'isAllCaps' | 'lineHeight' | 'marginTop' | 'marginBottom'>>;
@@ -35,6 +35,8 @@ export function resolveListStyle(style: Partial<ListStyle> | undefined, fallback
     lineHeight: style?.lineHeight ?? 1.6,
     bulletIcon: style?.bulletIcon ?? '•',
     bulletColor: hexOr(style?.bulletColor, hexOr(style?.color, '#000000')),
+    marginTop: style?.marginTop ?? 0,
+    marginBottom: style?.marginBottom ?? 0,
     marginLeft: style?.marginLeft ?? 20,
     paddingLeft: style?.paddingLeft ?? 8
   };

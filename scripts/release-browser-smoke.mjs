@@ -3,7 +3,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createServer } from 'vite';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -13,6 +13,49 @@ const fixtureTimeoutMs = Number(process.env.CLEAR_WRITER_SMOKE_TIMEOUT_MS ?? 60_
 
 const fixtures = [
   {
+    name: 'preview-click-navigator-smoke',
+    path: '/test/fixtures/preview-click-navigator-smoke.html',
+    validate(result) {
+      expect(result.ok === true, 'Preview click navigation smoke reported failure.');
+      expect(result.nestedClickResolved === true, 'A nested preview click did not resolve to its source line.');
+      expect(result.linkWasIgnored === true, 'Preview navigation intercepted a normal link click.');
+    }
+  },
+  {
+    name: 'browser-image-block-drag-smoke',
+    path: '/test/fixtures/browser-image-block-drag-smoke.html',
+    validate(result) {
+      expect(result.ok === true && result.moved === true, 'Long-press image block drag did not move the Markdown block.');
+    }
+  },
+  {
+    name: 'browser-current-dnd-smoke',
+    path: '/test/fixtures/browser-current-dnd-smoke.html',
+    validate(result) {
+      expect(result.ok === true, 'Current drag-and-drop smoke reported failure.');
+      expect(result.sourcePreservedAfterReorder === true, 'Reordering removed the original section.');
+      expect(result.relocatedPathPresent === true, 'Relocation did not create the destination section.');
+      expect(result.oldPathRemovedAfterRelocation === true, 'Relocation left the original path behind.');
+    }
+  },
+  {
+    name: 'browser-project-opening-smoke',
+    path: '/test/fixtures/browser-project-opening-smoke.html',
+    validate(result) {
+      expect(result.ok === true, 'Project opening smoke reported failure.');
+    }
+  },
+  {
+    name: 'browser-preview-first-block-navigation-smoke',
+    path: '/test/fixtures/browser-preview-first-block-navigation-smoke.html',
+    validate(result) {
+      expect(result.ok === true, 'First-block preview navigation smoke reported failure.');
+      expect(result.h1 === true, 'The first H1 did not navigate back to source.');
+      expect(result.h2 === true, 'The first H2 did not navigate back to source.');
+      expect(result.firstParagraph === true, 'The first paragraph did not navigate back to source.');
+    }
+  },
+  {
     name: 'step10-browser-smoke',
     path: '/test/fixtures/step10-browser-smoke.html',
     validate(result) {
@@ -20,7 +63,7 @@ const fixtures = [
       expect(result.projectKind === 'opfs', `Expected Step 10 OPFS project, got ${result.projectKind}.`);
       expect(result.templateCount === 5, 'Step 10 template creation coverage was incomplete.');
       expect(result.toolbarEdited === true, 'Step 10 Markdown toolbar did not edit selected text.');
-      expect(result.pdfPrintCalled === true, 'Step 10 PDF export did not invoke the browser PDF mechanism.');
+      expect(result.pdfPreviewAvailable === true, 'Step 10 PDF preview entry point is unavailable.');
       expect(typeof result.reviewCount === 'number' && result.reviewCount >= 4, 'Step 10 review drawer did not report expected structural findings.');
       expect(Array.isArray(result.reviewKinds) && result.reviewKinds.includes('Duplicate heading') && result.reviewKinds.includes('Empty section') && result.reviewKinds.includes('Very long section'), 'Step 10 review checks were incomplete.');
       expect(result.outlineShortcut === true && result.searchShortcut === true, 'Step 10 drawer shortcuts did not open their targets.');
@@ -32,15 +75,10 @@ const fixtures = [
     validate(result) {
       expect(result.ok === true, 'Release browser smoke reported failure.');
       expect(result.projectKind === 'opfs', 'Release browser smoke did not create an OPFS project.');
-      expect(result.workspaceChip === 'Browser storage', `Expected browser storage chip, got ${result.workspaceChip}.`);
-      expect(result.exportButtonsDisabled === false, 'PDF export should be available while DOCX remains deferred.');
+      expect(result.pdfPreviewButtonDisabled === false, 'PDF preview should be available.');
       expect(
-        result.exportPdfLabel === 'Export PDF',
-        'PDF export button did not expose the unified Export PDF action.'
-      );
-      expect(
-        typeof result.exportDocxLabel === 'string' && result.exportDocxLabel.includes('Release 2'),
-        'Word export button did not explain its Release 2 status.'
+        result.pdfPreviewLabel === 'PDF preview',
+        'PDF preview button did not expose the PDF preview action.'
       );
       expect(result.manifestPresent === true, 'Release manifest was not linked in the web shell.');
     }
@@ -51,12 +89,16 @@ const fixtures = [
     validate(result) {
       expect(result.ok === true, 'Browser authoring smoke reported failure.');
       expect(result.projectKind === 'opfs', `Expected OPFS project kind, got ${result.projectKind}.`);
+      if (typeof result.initialPageCount === 'number') {
+        expect(result.initialPageCount > 0, 'Full-document preview did not render.');
+        expect(result.pageSetupUsedIsolatedPipeline === true, 'Page setup did not trigger an isolated preview rerender.');
+        expect(result.sourceNavigationAvailable === true, 'Preview source navigation target was unavailable.');
+        expect(result.previewCleanAfterClose === true, 'Preview resources were not cleaned after project close.');
+        return;
+      }
       expect(result.projectNameShown === 'Authoring Smoke', `Expected project name to show Authoring Smoke, got ${result.projectNameShown}.`);
-      expect(result.workspaceChipShown === 'Browser storage', `Expected browser storage chip after create, got ${result.workspaceChipShown}.`);
       expect(result.projectNameAfterClose === 'No project open', `Expected closed project label, got ${result.projectNameAfterClose}.`);
-      expect(result.workspaceChipHiddenAfterClose === true, 'Workspace chip should be hidden after closing the project.');
       expect(result.reopenedProjectName === 'Authoring Smoke', `Expected reopened project name to match, got ${result.reopenedProjectName}.`);
-      expect(result.reopenedWorkspaceChip === 'Browser storage', `Expected reopened workspace chip to match, got ${result.reopenedWorkspaceChip}.`);
       expect(Array.isArray(result.alerts) && result.alerts.length === 0, 'Browser authoring smoke triggered unexpected alerts.');
       expect(result.viewStateRestored === true, 'Editor selection/view state was not restored.');
       expect(result.searchPanelOpened === true, 'Search panel did not open from the toolbar action.');
@@ -104,12 +146,16 @@ const fixtures = [
       console.log(`[Perf] Outline render: ${result.outlineRenderMs?.toFixed(1)}ms`);
       console.log(`[Perf] Search execution: ${result.searchExecutionMs?.toFixed(1)}ms`);
       console.log(`[Perf] Search navigation: ${result.searchNavigationMs?.toFixed(1)}ms`);
+      console.log(`[Perf] Full-document preview: ${result.previewTiming?.totalDurationMs?.toFixed(1)}ms`);
       
       expect(typeof result.outlineRenderMs === 'number' && result.outlineRenderMs < 3000, `Outline took too long to build: ${result.outlineRenderMs}ms (limit: 3000ms)`);
       expect(typeof result.searchExecutionMs === 'number' && result.searchExecutionMs < 3000, `Search execution took too long: ${result.searchExecutionMs}ms (limit: 3000ms)`);
       expect(typeof result.searchNavigationMs === 'number' && result.searchNavigationMs < 3000, `Search navigation took too long: ${result.searchNavigationMs}ms (limit: 3000ms)`);
       expect(result.editorInputReady === true, 'Editor was not ready for input after search navigation.');
       expect(result.repeatedInteractionsStable === true, 'Repeated interactions caused a crash or hang.');
+      expect(result.previewTiming?.status === 'success', 'Full-document preview timing did not report success.');
+      expect(typeof result.previewTiming?.totalDurationMs === 'number', 'Full-document preview timing has no total duration.');
+      expect(Array.isArray(result.previewTiming?.phases), 'Full-document preview timing has no phase list.');
     }
   },
   {
@@ -131,7 +177,7 @@ const fixtures = [
       expect(result.ok === true, 'Responsive laptop smoke reported failure.');
       expect(result.viewport.width === 1024, `Expected 1024px laptop viewport, got ${result.viewport.width}.`);
       expect(result.editorRightOfExplorer === true, 'Editor should remain to the right of explorer on laptop-sized widths.');
-      expect(result.previewBelowEditor === true, 'Preview should move below the editor in the laptop split layout.');
+      expect(result.previewRightOfEditor === true, 'Preview should remain to the right of the editor in the laptop split layout.');
       expect(result.editorPreviewDoNotOverlap === true, 'Editor and preview should not overlap in the laptop layout.');
       expect(result.modalWidth <= 1008, `Responsive modal width overflowed the laptop viewport (${result.modalWidth}).`);
     }
@@ -143,8 +189,8 @@ const fixtures = [
     validate(result) {
       expect(result.ok === true, 'Responsive tablet smoke reported failure.');
       expect(result.viewport.width === 820, `Expected 820px tablet viewport, got ${result.viewport.width}.`);
-      expect(result.editorBelowExplorer === true, 'Editor should stack below explorer on tablet portrait widths.');
-      expect(result.previewBelowEditor === true, 'Preview should stack below editor on tablet portrait widths.');
+      expect(result.editorRightOfExplorer === true, 'Editor should remain to the right of explorer on tablet portrait widths.');
+      expect(result.previewRightOfEditor === true, 'Preview should remain to the right of the editor on tablet portrait widths.');
       expect(result.editorPreviewDoNotOverlap === true, 'Editor and preview should not overlap on tablet portrait widths.');
       expect(result.modalWidth <= 804, `Responsive modal width overflowed the tablet viewport (${result.modalWidth}).`);
     }
@@ -228,19 +274,43 @@ try {
   const results = [];
   let browserUserAgent = '';
   for (const fixture of selectedFixtures) {
+    const fixtureStartedAt = performance.now();
     const browserDebugPort = await reservePort();
     const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-release-smoke-'));
     let browserProcess;
     let target;
     let session;
+    let browserReadyAt = null;
+    let cleanupStartedAt = null;
+    let cleanupCompletedAt = null;
+    let cleanupSucceeded = false;
+    let currentPhase = 'starting';
+    let fixtureSucceeded = false;
     try {
+      const browserLaunchStartedAt = performance.now();
       browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir);
-      const browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`, 100);
+      const browserVersion = await waitForBrowserJson(
+        browserProcess,
+        `http://127.0.0.1:${browserDebugPort}/json/version`,
+        100
+      );
+      browserReadyAt = performance.now();
       browserUserAgent = browserVersion.UserAgent ?? browserUserAgent;
-      process.stdout.write(`Smoke runtime: browser ready for ${fixture.name} (${browserVersion.Browser ?? browserVersion.UserAgent})\n`);
+      currentPhase = 'create-target';
+      process.stdout.write(`Smoke runtime: browser ready for ${fixture.name} (${browserVersion.Browser ?? browserVersion.UserAgent}) in ${Math.round(browserReadyAt - browserLaunchStartedAt)}ms\n`);
       process.stdout.write(`Running browser fixture: ${fixture.name}\n`);
-      target = await createBrowserTarget(browserDebugPort, `http://127.0.0.1:${serverPort}${fixture.path}`);
+      const fixtureUrl = new URL(`http://127.0.0.1:${serverPort}${fixture.path}`);
+      if (fixture.name === 'browser-authoring-performance-smoke' && process.env.CLEAR_WRITER_PREVIEW_SECTIONS) {
+        fixtureUrl.searchParams.set('sections', process.env.CLEAR_WRITER_PREVIEW_SECTIONS);
+      }
+      if (process.env.CLEAR_WRITER_SMOKE_QUERY) {
+        for (const [key, value] of new URLSearchParams(process.env.CLEAR_WRITER_SMOKE_QUERY)) {
+          fixtureUrl.searchParams.set(key, value);
+        }
+      }
+      target = await createBrowserTarget(browserDebugPort, fixtureUrl.toString());
       session = await connectToTarget(target.webSocketDebuggerUrl);
+      currentPhase = 'fixture';
       if (fixture.viewport) {
         await session.setViewport(fixture.viewport);
       }
@@ -250,42 +320,76 @@ try {
         throw new Error(`${fixture.name} returned failure: ${JSON.stringify(result)}`);
       }
       fixture.validate(result);
-      results.push({ name: fixture.name, ok: true, result });
+      fixtureSucceeded = true;
+      results.push({
+        name: fixture.name,
+        ok: true,
+        result,
+        diagnostics: {
+          browserStartupMs: browserReadyAt === null ? null : Math.round(browserReadyAt - (fixtureStartedAt)),
+          fixtureElapsedMs: Math.round(performance.now() - fixtureStartedAt),
+          cleanupMs: null,
+          consoleErrors: session?.diagnostics.consoleErrors ?? [],
+          exceptions: session?.diagnostics.exceptions ?? [],
+          networkFailures: session?.diagnostics.networkFailures ?? []
+        }
+      });
     } finally {
+      cleanupStartedAt = performance.now();
       await closeQuietly(session);
       if (target?.id) {
         await closeBrowserTarget(browserDebugPort, target.id).catch(() => undefined);
       }
-      if (browserProcess && !browserProcess.killed) {
-        browserProcess.kill('SIGTERM');
-        await Promise.race([once(browserProcess, 'exit'), delay(1_000)]).catch(() => undefined);
-        if (!browserProcess.killed) browserProcess.kill('SIGKILL');
-      }
+      await stopBrowser(browserProcess, browserDebugPort);
       await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => undefined);
+      cleanupCompletedAt = performance.now();
+      cleanupSucceeded = true;
+      const diagnostic = results.find(entry => entry.name === fixture.name);
+      if (diagnostic) {
+        diagnostic.diagnostics.cleanupMs = Math.round(cleanupCompletedAt - cleanupStartedAt);
+        diagnostic.diagnostics.cleanupSucceeded = cleanupSucceeded;
+      }
+      if (!fixtureSucceeded) {
+        console.error(JSON.stringify({
+          fixture: fixture.name,
+          phase: currentPhase,
+          elapsedMs: Math.round(performance.now() - fixtureStartedAt),
+          cleanupMs: Math.round(cleanupCompletedAt - cleanupStartedAt),
+          cleanupSucceeded,
+          consoleErrors: session?.diagnostics.consoleErrors ?? [],
+          exceptions: session?.diagnostics.exceptions ?? [],
+          networkFailures: session?.diagnostics.networkFailures ?? []
+        }, null, 2));
+      }
     }
   }
 
-  process.stdout.write(`${JSON.stringify({
+  const smokeReport = {
     generatedAt: new Date().toISOString(),
     runtime: process.version,
     browser: {
       executable: browserExecutable,
       userAgent: browserUserAgent
     },
-    fixtures: results.map(({ name, ok }) => ({ name, ok }))
-  }, null, 2)}\n`);
+    fixtures: results.map(({ name, ok, result, diagnostics }) => ({ name, ok, result, diagnostics }))
+  };
+  process.stdout.write(`${JSON.stringify(smokeReport, null, 2)}\n`);
+  if (process.env.CLEAR_WRITER_SMOKE_OUTPUT) {
+    await fs.writeFile(process.env.CLEAR_WRITER_SMOKE_OUTPUT, `${JSON.stringify(smokeReport, null, 2)}\n`, 'utf8');
+  }
 } finally {
   await viteServer.close();
 }
 
 function launchHeadlessBrowser(executable, debugPort, userDataDir) {
-  return spawn(executable, [
+  const process = spawn(executable, [
     '--headless=new',
     '--disable-gpu',
     '--disable-background-networking',
     '--disable-background-timer-throttling',
     '--disable-renderer-backgrounding',
     '--disable-sync',
+    '--disable-extensions',
     '--no-first-run',
     '--no-default-browser-check',
     `--remote-debugging-port=${debugPort}`,
@@ -295,14 +399,27 @@ function launchHeadlessBrowser(executable, debugPort, userDataDir) {
   ], {
     stdio: ['ignore', 'ignore', 'pipe']
   });
+  process.stderr.setEncoding('utf8');
+  process.browserStderr = '';
+  process.stderr.on('data', chunk => {
+    process.browserStderr = `${process.browserStderr}${chunk}`.slice(-4_000);
+  });
+  return process;
 }
 
 async function detectBrowserExecutable() {
   const candidates = [
+    process.env.CLEAR_WRITER_BROWSER,
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/microsoft-edge'
   ];
   for (const candidate of candidates) {
+    if (!candidate) continue;
     try {
       await fs.access(candidate);
       return candidate;
@@ -310,7 +427,7 @@ async function detectBrowserExecutable() {
       // Keep looking.
     }
   }
-  throw new Error('No supported headless browser was found. Install Microsoft Edge or Google Chrome.');
+  throw new Error('No supported headless browser was found. Set CLEAR_WRITER_BROWSER or install Edge, Chrome, or Chromium.');
 }
 
 async function createBrowserTarget(debugPort, url) {
@@ -343,12 +460,88 @@ async function waitForJson(url, attempts = 50) {
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
+async function waitForBrowserJson(browserProcess, url, attempts = 50) {
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return response.json();
+      lastError = new Error(`Unexpected HTTP ${response.status} for ${url}`);
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(100);
+  }
+  const details = browserProcess.browserStderr?.trim();
+  throw new Error(`Browser CDP did not become ready (launcher exit=${browserProcess.exitCode ?? 'none'}, signal=${browserProcess.signalCode ?? 'none'}): ${lastError instanceof Error ? lastError.message : String(lastError)}${details ? ` Browser stderr: ${details}` : ''}`);
+}
+
+async function stopBrowser(browserProcess, debugPort) {
+  if (!browserProcess) return;
+
+  if (process.platform === 'win32') {
+    await closeBrowserViaCdp(debugPort);
+    await delay(250);
+    const listeningPid = await findListeningProcessId(debugPort);
+    const pids = new Set([listeningPid, browserProcess.exitCode === null ? browserProcess.pid : null].filter(Boolean));
+    for (const pid of pids) {
+      await execFileAsync('taskkill', ['/PID', String(pid), '/F']).catch(() => undefined);
+    }
+    return;
+  }
+
+  if (browserProcess.exitCode !== null || browserProcess.signalCode !== null) return;
+  const exited = once(browserProcess, 'exit').catch(() => undefined);
+  browserProcess.kill('SIGTERM');
+  const stoppedGracefully = await Promise.race([
+    exited.then(() => true),
+    delay(1_000).then(() => false)
+  ]);
+  if (stoppedGracefully || browserProcess.exitCode !== null || browserProcess.signalCode !== null) return;
+
+  browserProcess.kill('SIGKILL');
+  await exited;
+}
+
+async function closeBrowserViaCdp(debugPort) {
+  const version = await fetch(`http://127.0.0.1:${debugPort}/json/version`).then(response => response.ok ? response.json() : null).catch(() => null);
+  if (!version?.webSocketDebuggerUrl) return;
+  const socket = new WebSocket(version.webSocketDebuggerUrl);
+  await once(socket, 'open').catch(() => undefined);
+  if (socket.readyState !== WebSocket.OPEN) return;
+  socket.send(JSON.stringify({ id: 1, method: 'Browser.close' }));
+  await Promise.race([once(socket, 'close'), delay(1_000)]).catch(() => undefined);
+  if (socket.readyState === WebSocket.OPEN) socket.close();
+}
+
+async function findListeningProcessId(port) {
+  if (process.platform !== 'win32') return null;
+  const { stdout } = await execFileAsync('netstat', ['-ano', '-p', 'tcp']).catch(() => ({ stdout: '' }));
+  const escapedPort = String(port).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = stdout.match(new RegExp(`(?:127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\[::\\]):${escapedPort}\\s+[^\\s]+\\s+LISTENING\\s+(\\d+)`, 'i'));
+  return match ? Number(match[1]) : null;
+}
+
+function execFileAsync(file, args) {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { windowsHide: true }, (error, stdout, stderr) => {
+      if (error) reject(error);
+      else resolve({ stdout, stderr });
+    });
+  });
+}
+
 async function connectToTarget(webSocketUrl) {
   const socket = new WebSocket(webSocketUrl);
   await once(socket, 'open');
 
   let nextId = 0;
   const pending = new Map();
+  const diagnostics = {
+    consoleErrors: [],
+    exceptions: [],
+    networkFailures: []
+  };
 
   socket.addEventListener('message', event => {
     const payload = JSON.parse(String(event.data));
@@ -378,8 +571,11 @@ async function connectToTarget(webSocketUrl) {
       const type = payload.params.type;
       const args = payload.params.args.map(a => a.value || a.description).join(' ');
       console.log(`[Browser Console ${type}]`, args);
+      if (type === 'error') diagnostics.consoleErrors.push(args);
     } else if (payload.method === 'Runtime.exceptionThrown') {
-      console.log(`[Browser Exception]`, payload.params.exceptionDetails.text);
+      const exception = payload.params.exceptionDetails.text;
+      diagnostics.exceptions.push(exception);
+      console.log(`[Browser Exception]`, exception);
     } else if (payload.method === 'Runtime.executionContextCreated') {
       console.log('[Browser Runtime] execution context created');
     } else if (payload.method === 'Page.loadEventFired') {
@@ -387,13 +583,16 @@ async function connectToTarget(webSocketUrl) {
     } else if (payload.method === 'Page.domContentEventFired') {
       console.log('[Browser Page] DOM content loaded');
     } else if (payload.method === 'Network.loadingFailed') {
-      console.log(`[Browser Network] request failed: ${payload.params.errorText} ${payload.params.url ?? ''}`);
+      const failure = `${payload.params.errorText} ${payload.params.url ?? ''}`.trim();
+      diagnostics.networkFailures.push(failure);
+      console.log(`[Browser Network] request failed: ${failure}`);
     } else if (payload.method === 'Network.responseReceived' && payload.params.response.status >= 400) {
       console.log(`[Browser Network] HTTP ${payload.params.response.status}: ${payload.params.response.url}`);
     }
   });
 
   return {
+    diagnostics,
     async evaluate(expression) {
       const result = await send('Runtime.evaluate', {
         expression,

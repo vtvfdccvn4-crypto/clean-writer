@@ -1,5 +1,4 @@
-import { RenderEngine } from '../../src/preview/RenderEngine';
-import type { PageSetup } from '../../src/types';
+import { paginateIsolated } from './helpers/isolated-pagination.ts';
 
 declare global {
   interface Window {
@@ -7,37 +6,20 @@ declare global {
   }
 }
 
-const pageSetup: PageSetup = {
-  paperWidth: 210,
-  paperHeight: 297,
-  marginTop: 20,
-  marginBottom: 20,
-  marginLeft: 18,
-  marginRight: 18
-};
-
 async function run() {
-  const stage = document.getElementById('stage')!;
-  const engine = new RenderEngine(stage, {
-    renderTimeoutMs: 120_000,
-    unthrottledPagination: true
-  });
-
-  await engine.runRender('<p>Pagination budget warmup.</p>', pageSetup, null, null);
-  await nextFrame();
-  await document.fonts.ready;
-
   const html = buildFivePageWorkload();
   const started = performance.now();
-  await engine.runRender(html, pageSetup, null, null);
+  const outcome = await paginateIsolated(html);
   const elapsedMs = performance.now() - started;
-  const pageCount = stage.querySelectorAll('.pagedjs_page').length;
+  const pageCount = outcome.status === 'success' ? outcome.result.pageCount : 0;
 
   window.__HARNESS_RESULT__ = {
-    ok: true,
+    ok: outcome.status === 'success',
     pageCount,
     elapsedMs,
-    hasLastSection: stage.textContent?.includes('Budget section 5') ?? false
+    hasLastSection: outcome.status === 'success' && outcome.result.html.includes('Budget section 5'),
+    paginationStatus: outcome.status,
+    diagnostics: outcome.diagnostics
   };
 }
 
@@ -56,12 +38,8 @@ function buildFivePageWorkload() {
       sectionBreak,
       `<h1>Budget section ${index + 1}</h1>`,
       `<p>Controlled pagination workload ${index + 1} keeps the page height consistent and the section small.</p>`,
-      `<p>This verifies the hidden-worker pagination path without letting a single section spill onto an extra page.</p>`,
+      `<p>This verifies the isolated pagination path without letting a single section spill onto an extra page.</p>`,
       `</div>`
     ].join('');
   }).join('\n');
-}
-
-function nextFrame() {
-  return new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 }

@@ -58,22 +58,22 @@ async function run() {
   await click('#btn-modal-new-opfs-confirm');
 
   await waitFor('opfs project ref', () => state.current.projectRef?.kind === 'opfs' ? state.current.projectRef : null);
-  await waitFor('project tree render', () => document.querySelector('#section-list')?.childElementCount ? true : null);
+  await waitFor('project explorer ready', () => document.querySelector('#task-explorer-view:not(.hidden)') ? true : null);
 
   const workspaceStyle = getComputedStyle(document.querySelector('.workspace')!);
   const panelActions = Array.from(document.querySelectorAll<HTMLElement>('.panel-actions'));
-  const projectActions = document.querySelector<HTMLElement>('.project-explorer-actions');
+  const projectActions = document.querySelector<HTMLElement>('#task-panel .task-toolbar');
   const modalWidth = await (async () => {
-    await click('#btn-open');
+    await click('#btn-task-open-project');
     const dialog = await waitFor('open modal dialog', () => document.querySelector<HTMLElement>('.modal-dialog'));
     const width = Math.round(dialog.getBoundingClientRect().width);
     document.getElementById('btn-modal-cancel')?.click();
     return width;
   })();
 
-  const explorer = rectSnapshot('.project-explorer');
-  const editor = rectSnapshot('.editor-pane');
-  const preview = rectSnapshot('.preview-pane');
+  const explorer = rectSnapshot('#task-panel');
+  const editor = rectSnapshot('.shared-editor-pane');
+  const preview = rectSnapshot('#preview-panel');
 
   window.__HARNESS_RESULT__ = {
     ok: true,
@@ -85,6 +85,7 @@ async function run() {
     preview,
     editorBelowExplorer: Boolean(explorer && editor && editor.top >= explorer.bottom - 1),
     previewBelowEditor: Boolean(editor && preview && preview.top >= editor.bottom - 1),
+    previewRightOfEditor: Boolean(editor && preview && preview.left >= editor.right - 1),
     previewRightOfExplorer: Boolean(explorer && preview && preview.left >= explorer.right - 1),
     editorRightOfExplorer: Boolean(explorer && editor && editor.left >= explorer.right - 1),
     editorPreviewDoNotOverlap: nonOverlapping(editor, preview),

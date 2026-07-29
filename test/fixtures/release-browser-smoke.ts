@@ -49,20 +49,21 @@ async function run() {
   await click('#btn-modal-new-opfs-confirm');
 
   await waitFor('opfs project ref', () => state.current.projectRef?.kind === 'opfs' ? state.current.projectRef : null);
-  await waitFor('project tree render', () => document.querySelector('#section-list')?.childElementCount ? true : null);
+  await waitFor('project tree render', () => {
+    const view = document.querySelector('#task-explorer-view:not(.hidden)');
+    const tree = document.querySelector('#task-explorer-content .task-explorer-tree');
+    const empty = document.querySelector('#task-explorer-empty:not(.hidden)');
+    return view && (tree || empty);
+  });
 
-  const exportPdfButton = await waitFor('pdf export button', () => document.getElementById('btn-export-pdf'));
-  const exportDocxButton = await waitFor('docx export button', () => document.getElementById('btn-export-docx'));
+  const pdfPreviewButton = await waitFor('pdf preview button', () => document.getElementById('btn-pdf-preview'));
 
   window.__HARNESS_RESULT__ = {
     ok: true,
     projectKind: state.current.projectRef?.kind,
-    workspaceChip: document.getElementById('workspace-mode-chip')?.textContent?.trim() || '',
-    exportButtonsDisabled: exportPdfButton.hasAttribute('disabled') && exportDocxButton.hasAttribute('disabled'),
-    exportPdfLabel: exportPdfButton.getAttribute('aria-label') || '',
-    exportDocxLabel: exportDocxButton.getAttribute('aria-label') || '',
-    exportPdfTitle: exportPdfButton.getAttribute('title') || '',
-    exportDocxTitle: exportDocxButton.getAttribute('title') || '',
+    pdfPreviewButtonDisabled: pdfPreviewButton.hasAttribute('disabled'),
+    pdfPreviewLabel: pdfPreviewButton.getAttribute('aria-label') || '',
+    pdfPreviewTitle: pdfPreviewButton.getAttribute('title') || '',
     manifestPresent: (await fetch('/manifest.webmanifest')).ok
   };
 }

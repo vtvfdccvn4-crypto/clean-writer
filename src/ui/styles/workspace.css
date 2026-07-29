@@ -24,6 +24,13 @@
   color: inherit;
 }
 
+.app-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -91,6 +98,13 @@
   overflow: hidden;
 }
 
+#project-panel {
+  grid-area: project;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
 .workspace-status-bar {
   display: flex;
   align-items: center;
@@ -123,19 +137,6 @@
   font-size: 10px;
 }
 
-.workspace-status-bar .workspace-mode-chip {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 0;
-  padding: 1px 7px;
-  border-radius: 999px;
-  line-height: 1.2;
-}
-
-.workspace-status-bar .workspace-mode-chip[hidden] {
-  display: none;
-}
-
 .workspace-status-right span + span {
   padding-left: 12px;
 }
@@ -155,36 +156,22 @@
   font-size: 10pt;
 }
 
-.app-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-/* Settings is exposed from the activity bar; retain the original control as
-   the single settings-drawer trigger for compatibility and keyboard access. */
-.app-actions { display: none; }
-
 .workspace {
-  --explorer-width: 304px;
   display: grid;
-  grid-template-columns: 52px var(--explorer-width) 6px minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas: "activity explorer resizer editor preview";
+  --task-panel-width: 380px;
+  --task-panel-resizer-width: 6px;
+  grid-template-columns: 50px var(--task-panel-width) var(--task-panel-resizer-width) minmax(0, 1fr);
+  grid-template-areas: "project task task-resizer shared";
   height: 100%;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
 
-.workspace.is-activity-collapsed {
-  grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas: "activity editor preview";
+.workspace.task-panel-hidden {
+  grid-template-columns: 50px 0 0 minmax(0, 1fr);
+  grid-template-areas: "project task task-resizer shared";
 }
-
-.workspace.is-activity-collapsed .project-explorer,
-.workspace.is-activity-collapsed .explorer-resizer { display: none; }
 
 @media (max-width: 1366px) {
   .app-bar {
@@ -192,28 +179,18 @@
   }
 
   .workspace {
-    grid-template-columns: 52px var(--explorer-width) 6px minmax(0, 1fr) minmax(0, 0.92fr);
-    grid-template-areas: "activity explorer resizer editor preview";
+    grid-template-columns: 50px var(--task-panel-width) var(--task-panel-resizer-width) minmax(0, 1fr);
+    grid-template-areas: "project task task-resizer shared";
   }
-
-  .workspace.is-activity-collapsed {
-    grid-template-columns: 52px minmax(0, 1fr) minmax(0, 0.92fr);
-  }
-
 }
 
 @media (max-width: 1100px) {
   .workspace {
-    grid-template-columns: 52px minmax(220px, 272px) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(220px, 0.8fr);
+    grid-template-columns: 50px var(--task-panel-width) var(--task-panel-resizer-width) minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 0.8fr) minmax(0, 1fr);
     grid-template-areas:
-      "activity explorer editor"
-      "activity explorer preview";
-  }
-
-  .workspace.is-activity-collapsed {
-    grid-template-columns: 52px minmax(0, 1fr);
-    grid-template-areas: "activity editor" "activity preview";
+      "project task task-resizer shared"
+      "project task task-resizer shared";
   }
 
   .app-bar {
@@ -236,31 +213,15 @@
     white-space: nowrap;
   }
 
-  .workspace-mode-chip {
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    max-width: 100%;
-    margin-left: 0;
-  }
-
 }
 
 @media (max-width: 900px) {
   .workspace {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(180px, 0.52fr) minmax(240px, 0.72fr) minmax(280px, 1fr) minmax(240px, 0.82fr);
+    grid-template-columns: 50px var(--task-panel-width) var(--task-panel-resizer-width) minmax(0, 1fr);
+    grid-template-rows: minmax(280px, 1fr) minmax(240px, 0.82fr);
     grid-template-areas:
-      "activity"
-      "explorer"
-      "editor"
-      "preview";
-  }
-
-  .workspace.is-activity-collapsed {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(180px, 0.52fr) minmax(280px, 1fr) minmax(240px, 0.82fr);
-    grid-template-areas: "activity" "editor" "preview";
+      "project task task-resizer shared"
+      "project task task-resizer shared";
   }
 
   .app-layout,

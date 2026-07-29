@@ -2,6 +2,15 @@ import type { FileNode } from '../types';
 import type { SectionPlacement } from './types';
 import { getBaseName, getParentPath, isDescendantPath, normalizeExplorerPath, replacePathPrefix } from '../utils/path-utils';
 
+export type SectionMoveKind = 'reorder' | 'relocate';
+
+export interface CalculatedSectionMove {
+  source: string;
+  destination: string;
+  order: string[];
+  kind: SectionMoveKind;
+}
+
 export function canonicalizeSectionOrder(entries: FileNode[], preferredOrder: string[] = []): string[] {
   const preferredIndex = new Map<string, number>();
   preferredOrder.forEach((entry, index) => {
@@ -63,7 +72,7 @@ export function calculateSectionMove(
   sourcePath: string,
   targetPath: string | null,
   placement: SectionPlacement
-): { source: string; destination: string; order: string[] } | null {
+): CalculatedSectionMove | null {
   const source = normalizeExplorerPath(sourcePath);
   const target = targetPath ? normalizeExplorerPath(targetPath) : null;
   const validPlacements = new Set<SectionPlacement>(['inside', 'before', 'after', 'root']);
@@ -86,6 +95,12 @@ export function calculateSectionMove(
   const destination = destinationParent
     ? `${destinationParent}/${getBaseName(source)}`
     : getBaseName(source);
+
+  // A before/after drop within the same parent changes only display order.
+  // A different parent, an inside drop, or a root transition changes the
+  // persisted filesystem path and is therefore a relocation.
+  const sourceParent = getParentPath(source);
+  const kind: SectionMoveKind = destinationParent === sourceParent ? 'reorder' : 'relocate';
 
   if (destination !== source && entryByPath.has(destination)) return null;
 
@@ -110,5 +125,5 @@ export function calculateSectionMove(
 
   const order = [...remaining];
   order.splice(insertionIndex, 0, ...movedBlock);
-  return { source, destination, order };
+  return { source, destination, order, kind };
 }

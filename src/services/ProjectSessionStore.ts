@@ -10,6 +10,7 @@ import { SettingsService } from './SettingsService';
  */
 export class ProjectSessionStore {
   private session: WorkspaceSession | null = null;
+  private activationGeneration = 0;
 
   getSession(): WorkspaceSession | null {
     return this.session;
@@ -21,10 +22,15 @@ export class ProjectSessionStore {
   }
 
   async activate(ref: WorkspaceRef, session: WorkspaceSession): Promise<void> {
+    const generation = ++this.activationGeneration;
+    const snapshot = await ProjectService.loadProjectSnapshotCandidate(session, ref);
+    if (generation !== this.activationGeneration) return;
+
+    // Both writes are synchronous and happen only after the candidate project
+    // has been read successfully, preserving the previous active project on
+    // any open/snapshot failure.
     this.session = session;
-    state.setProjectRef(ref);
-    await ProjectService.loadProjectSnapshot(session);
-    state.setFullDocMode();
+    state.activateProjectSnapshot(snapshot);
   }
 
   async updateSettings(patch: ProjectSettingsPatch): Promise<void> {
@@ -81,6 +87,10 @@ export class ProjectSessionStore {
     return ProjectService.moveSection(this.requireSession(), source, target, placement);
   }
 
+  async reorderSection(source: string, target: string, placement: Extract<SectionPlacement, 'before' | 'after'>): Promise<boolean> {
+    return ProjectService.reorderSection(this.requireSession(), source, target, placement);
+  }
+
   async uploadImage(filename: string, data: Uint8Array): Promise<boolean> {
     return ProjectService.uploadImage(this.requireSession(), filename, data);
   }
@@ -98,6 +108,7 @@ export class ProjectSessionStore {
   }
 
   close(): void {
+    this.activationGeneration += 1;
     this.session = null;
     state.closeProject();
   }

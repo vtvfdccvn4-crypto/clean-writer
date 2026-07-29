@@ -45,7 +45,7 @@ function editorReviewIconMarkup(): string {
 }
 
 export const editorPanelTemplate = (): string => `
-  <main class="editor-pane pane" aria-label="Markdown editor">
+  <main class="shared-editor-pane pane" aria-label="Markdown editor">
     <div class="editor-toolbar panel-bar panel-header">
       <div class="toolbar-status">
         <span id="active-section-label" class="active-section-label" hidden></span>
@@ -78,6 +78,7 @@ export const editorPanelTemplate = (): string => `
         <button class="toolbar-text-button" type="button" data-markdown-command="quote" title="Quote">Quote</button>
         <button class="toolbar-text-button" type="button" data-markdown-command="inline-code" title="Inline code">Code</button>
         <button class="toolbar-text-button" type="button" data-markdown-command="code-block" title="Code block">Block</button>
+        <button class="toolbar-text-button" type="button" data-markdown-command="page-break" title="Insert page break">PB</button>
         <button id="open-symbol-picker" class="markdown-symbol-button" type="button" aria-label="Symbols" title="Symbols" aria-controls="symbol-picker" aria-expanded="false">
           ${editorSymbolsIconMarkup()}
         </button>
