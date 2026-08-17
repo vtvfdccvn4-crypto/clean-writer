@@ -18,7 +18,7 @@ flowchart LR
   B --> C[Compiler builds HTML + source manifest]
   C --> D[Preview controller stores manifest and revision]
   D --> E[PreviewController creates immutable print job]
-  E --> F[IsolatedPaginationHost paginates disposable iframe]
+  E --> F[Paginated lane uses IsolatedPaginationHost]
   F --> G[Artifact is committed to visible preview]
   G --> H[Committed preview index is built]
   H --> I[Navigation coordinator resolves line to target]
@@ -63,6 +63,15 @@ This is the core of the current navigation pipeline:
 ### 6. Viewport placement
 
 `src/preview/PreviewViewport.ts` scrolls the resolved block near the top of the preview with a small inset instead of centering it. That gives a more predictable reading position and avoids the visual drift that was showing up with deep pagination changes.
+
+### 7. Linked scrolling status
+
+`src/preview/navigation/LinkedScrollController.ts` and
+`LinkedScrollPanes.ts` provide a separate, opt-in semantic synchronization
+primitive for editor and preview panes. The controller has focused unit tests
+for target resolution, relative placement, clamping, and leader suppression,
+but no production caller currently constructs or enables it. It should be
+treated as an extension point, not as a shipped user-facing setting.
 
 ## Current Guarantees
 

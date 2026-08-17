@@ -7,7 +7,12 @@ import type { AssetResolver } from '../platform/types';
 
 const expandedImageNodes = new Set<string>();
 
-export function renderTaskImages(content: HTMLElement, empty: HTMLElement, assetResolver: AssetResolver): void {
+export function renderTaskImages(
+  content: HTMLElement,
+  empty: HTMLElement,
+  assetResolver: AssetResolver,
+  insertImageMarkdown: (markdown: string) => boolean
+): void {
   // `listImages()` also includes the internal assets tree. The Images view is
   // only for user-managed images, with `images/` acting as the implied root.
   const entries = (state.current.images as FileNode[]).filter(entry => {
@@ -60,28 +65,28 @@ export function renderTaskImages(content: HTMLElement, empty: HTMLElement, asset
   const renderNode = (node: ExplorerTreeNode): DocumentFragment => {
     const fragment = document.createDocumentFragment();
     const container = document.createElement('div');
-    container.className = 'task-explorer-node';
+    container.className = 'task-images-node';
 
     if (node.isDir) {
       const item = document.createElement('div');
-      item.className = 'task-explorer-item task-images-folder-item';
+      item.className = 'task-images-folder';
       item.setAttribute('role', 'button');
       item.tabIndex = 0;
       const expanded = expandedImageNodes.has(node.path);
       item.setAttribute('aria-expanded', String(expanded));
       item.setAttribute('aria-label', `Folder ${getBaseName(node.path)}`);
       const glyph = document.createElement('span');
-      glyph.className = 'task-explorer-item-glyph';
+      glyph.className = 'task-images-folder-glyph';
       glyph.textContent = expanded ? '▾' : '▸';
       const label = document.createElement('span');
-      label.className = 'task-explorer-item-label';
+      label.className = 'task-images-folder-label';
       label.textContent = getBaseName(node.path);
       item.append(glyph, label);
 
       const toggle = () => {
         if (expanded) expandedImageNodes.delete(node.path);
         else expandedImageNodes.add(node.path);
-        renderTaskImages(content, empty, assetResolver);
+        renderTaskImages(content, empty, assetResolver, insertImageMarkdown);
       };
       item.addEventListener('click', toggle);
       item.addEventListener('keydown', event => {
@@ -92,7 +97,7 @@ export function renderTaskImages(content: HTMLElement, empty: HTMLElement, asset
       container.append(item);
       if (expanded && node.children.length > 0) {
         const children = document.createElement('div');
-        children.className = 'task-explorer-children';
+        children.className = 'task-images-children';
         children.append(...node.children.map(renderNode));
         container.append(children);
       }
@@ -100,21 +105,25 @@ export function renderTaskImages(content: HTMLElement, empty: HTMLElement, asset
       const image = images.find(entry => entry.path === node.path) ?? node;
       const item = document.createElement('button');
       item.type = 'button';
-      item.className = 'task-images-item image-list-item';
-    item.draggable = true;
-    const path = document.createElement('span');
-    path.className = 'task-images-item-path';
-    path.textContent = getBaseName(image.path);
-    path.title = image.path;
-    item.setAttribute('aria-label', getBaseName(image.path));
-    item.title = image.path;
-    item.append(path);
-    item.addEventListener('mouseenter', () => void showPreview(image));
+      item.className = 'task-images-item';
+      item.draggable = true;
+      const path = document.createElement('span');
+      path.className = 'task-images-item-path';
+      path.textContent = getBaseName(image.path);
+      path.title = image.path;
+      item.setAttribute('aria-label', getBaseName(image.path));
+      item.title = image.path;
+      item.append(path);
+      item.addEventListener('mouseenter', () => void showPreview(image));
+      item.addEventListener('dblclick', event => {
+        event.preventDefault();
+        insertImageMarkdown(buildProjectImageMarkdown(image.path, state.current.imageSetup));
+      });
       item.addEventListener('dragstart', event => {
-      const markdown = buildProjectImageMarkdown(image.path, state.current.imageSetup);
-      event.dataTransfer?.setData('text/x-clear-writer-image-markdown', markdown);
-      event.dataTransfer?.setData('text/x-clear-writer-image-path', image.path);
-      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+        const markdown = buildProjectImageMarkdown(image.path, state.current.imageSetup);
+        event.dataTransfer?.setData('text/x-clear-writer-image-markdown', markdown);
+        event.dataTransfer?.setData('text/x-clear-writer-image-path', image.path);
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
       });
       container.append(item);
     }

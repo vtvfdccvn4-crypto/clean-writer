@@ -1,9 +1,16 @@
+import { materialIcon } from './icon';
+import { toolbarButton } from './toolbarButton';
+
 export const taskPanelTemplate = (): string => `
   <section class="shared-task-pane pane" aria-label="Task panel">
     <div class="task-toolbar panel-bar panel-header">
       <div class="toolbar-status task-toolbar-title">
         <span class="task-toolbar-title-rule" aria-hidden="true"></span>
         <span id="task-panel-title" class="task-toolbar-title-text">Project tree</span>
+      </div>
+      <div id="task-panel-actions" class="task-toolbar-actions hidden" aria-label="Project tree actions">
+        ${toolbarButton({ id: 'btn-task-new-folder', variant: 'icon', ariaLabel: 'New Container', title: 'New Container', icon: materialIcon('home_storage') })}
+        ${toolbarButton({ id: 'btn-task-new-section', variant: 'icon', ariaLabel: 'New Section File', title: 'New Section File', icon: materialIcon('split_scene_down') })}
       </div>
     </div>
     <div class="task-content panel-content">

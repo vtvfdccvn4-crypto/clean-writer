@@ -27,6 +27,19 @@ function setBlockSpacingInputs(style?: CustomBlockStyle) {
   (document.getElementById('cbs-margin-bottom') as HTMLInputElement).value = String(spacing.marginBottom);
 }
 
+function applyStylePreviewTypography(preview: HTMLElement, style: CustomStyle | CustomBlockStyle, spacing?: ReturnType<typeof getBlockSpacing>): void {
+  if (style.fontFamily) preview.style.fontFamily = style.fontFamily;
+  if (style.fontSize) preview.style.fontSize = `${style.fontSize}pt`;
+  if (style.color) preview.style.color = style.color;
+  if (style.isBold) preview.style.fontWeight = 'bold';
+  if (style.isItalic) preview.style.fontStyle = 'italic';
+  if (spacing) {
+    preview.style.lineHeight = String(spacing.lineHeight);
+    preview.style.marginTop = `${spacing.marginTop}pt`;
+    preview.style.marginBottom = `${spacing.marginBottom}pt`;
+  }
+}
+
 function renderStylesList() {
   const container = document.getElementById('custom-styles-list');
   if (!container) return;
@@ -50,11 +63,7 @@ function renderStylesList() {
     const name = document.createElement('strong');
     name.textContent = style.name || 'Unnamed Style';
     const preview = document.createElement('span');
-    if (style.fontFamily) preview.style.fontFamily = style.fontFamily;
-    if (style.fontSize) preview.style.fontSize = `${style.fontSize}pt`;
-    if (style.color) preview.style.color = style.color;
-    if (style.isBold) preview.style.fontWeight = 'bold';
-    if (style.isItalic) preview.style.fontStyle = 'italic';
+    applyStylePreviewTypography(preview, style);
     preview.textContent = `${style.openingPair}text${style.closingPair}`;
     previewContainer.append(name, preview);
 
@@ -90,14 +99,7 @@ function renderBlockStylesList() {
     head.className = 'custom-style-item-head';
 
     const preview = document.createElement('div');
-    if (style.fontFamily) preview.style.fontFamily = style.fontFamily;
-    if (style.fontSize) preview.style.fontSize = `${style.fontSize}pt`;
-    if (style.color) preview.style.color = style.color;
-    if (style.isBold) preview.style.fontWeight = 'bold';
-    if (style.isItalic) preview.style.fontStyle = 'italic';
-    preview.style.lineHeight = String(spacing.lineHeight);
-    preview.style.marginTop = `${spacing.marginTop}pt`;
-    preview.style.marginBottom = `${spacing.marginBottom}pt`;
+    applyStylePreviewTypography(preview, style, spacing);
     const icon = createBlockIcon(activePlatform?.assetResolver, style.icon, 'custom-block-style-list-icon');
     if (icon) preview.appendChild(icon);
     preview.append('Sample paragraph block');
@@ -123,12 +125,12 @@ function createStyleActions(): HTMLElement {
   actions.className = 'custom-style-actions';
   const edit = document.createElement('button');
   edit.type = 'button';
-  edit.className = 'icon-btn edit-btn';
+  edit.className = 'ui-button ui-button--icon-compact edit-btn';
   edit.title = 'Edit';
   edit.textContent = '✎';
   const remove = document.createElement('button');
   remove.type = 'button';
-  remove.className = 'icon-btn delete-btn';
+  remove.className = 'ui-button ui-button--icon-compact delete-btn';
   remove.title = 'Delete';
   remove.textContent = '🗑';
   actions.append(edit, remove);

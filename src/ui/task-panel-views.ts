@@ -1,8 +1,10 @@
 import { state } from '../state';
 import type { EditorManager } from './editor-manager';
-import { renderTaskExplorer } from './task-explorer';
+import { getExplorerCreationParentPath, renderTaskExplorer } from './task-explorer';
 import { renderTaskImages } from './task-images';
 import type { AssetResolver } from '../platform/types';
+import { projectSession } from '../services/ProjectSessionStore';
+import { showNotice } from './components/Notice';
 
 type TaskPanelView = 'explorer' | 'images' | 'outline' | null;
 const OUTLINE_ACTIVATED_EVENT = 'clear-writer-task-outline-activated';
@@ -23,6 +25,9 @@ export function initTaskPanelViews(editorManager: EditorManager, assetResolver: 
   const taskPanelResizer = document.getElementById('task-panel-resizer');
   const workspace = document.querySelector<HTMLElement>('.workspace');
   const title = document.getElementById('task-panel-title');
+  const treeActions = document.getElementById('task-panel-actions');
+  const newFolderButton = document.getElementById('btn-task-new-folder') as HTMLButtonElement | null;
+  const newSectionButton = document.getElementById('btn-task-new-section') as HTMLButtonElement | null;
 
   if (!explorerButton || !imagesButton || !outlineButton || !explorerView || !explorerContent || !explorerEmpty || !imagesView || !imagesContent || !imagesEmpty || !outlineView || !footer) return;
   let activeView: TaskPanelView = null;
@@ -33,6 +38,7 @@ export function initTaskPanelViews(editorManager: EditorManager, assetResolver: 
     button.setAttribute('aria-pressed', String(pressed));
   };
   const setTitle = (text: string) => { if (title) title.textContent = text; };
+  const setTreeActionsVisible = (visible: boolean) => treeActions?.classList.toggle('hidden', !visible);
   const hideAll = () => {
     explorerView.classList.add('hidden');
     imagesView.classList.add('hidden');
@@ -42,10 +48,11 @@ export function initTaskPanelViews(editorManager: EditorManager, assetResolver: 
     setPressed(explorerButton, false);
     setPressed(imagesButton, false);
     setPressed(outlineButton, false);
+    setTreeActionsVisible(false);
   };
   const renderActiveView = () => {
     if (activeView === 'explorer') renderTaskExplorer(explorerContent, explorerEmpty, editorManager);
-    if (activeView === 'images') renderTaskImages(imagesContent, imagesEmpty, assetResolver);
+    if (activeView === 'images') renderTaskImages(imagesContent, imagesEmpty, assetResolver, markdown => editorManager.insertTextAtCursor(markdown));
   };
   const setPanelVisible = (visible: boolean) => {
     panelVisible = visible;
@@ -61,6 +68,7 @@ export function initTaskPanelViews(editorManager: EditorManager, assetResolver: 
     hideAll();
     if (view === 'explorer') {
       setTitle('Project tree');
+      setTreeActionsVisible(true);
       explorerView.classList.remove('hidden');
       setPressed(explorerButton, true);
       renderTaskExplorer(explorerContent, explorerEmpty, editorManager);
@@ -68,7 +76,7 @@ export function initTaskPanelViews(editorManager: EditorManager, assetResolver: 
       setTitle('Images');
       imagesView.classList.remove('hidden');
       setPressed(imagesButton, true);
-      renderTaskImages(imagesContent, imagesEmpty, assetResolver);
+      renderTaskImages(imagesContent, imagesEmpty, assetResolver, markdown => editorManager.insertTextAtCursor(markdown));
     } else if (view === 'outline') {
       setTitle('Document outline');
       outlineView.classList.remove('hidden');
@@ -80,9 +88,32 @@ export function initTaskPanelViews(editorManager: EditorManager, assetResolver: 
   };
   const hideView = () => { activeView = null; setPanelVisible(false); setTitle('Tasks'); };
 
+  const createTreeItem = async (kind: 'folder' | 'section') => {
+    const label = kind === 'folder' ? 'folder' : 'section file';
+    const parentPath = getExplorerCreationParentPath();
+    const name = window.prompt(`New ${label}${parentPath ? ' in selected folder' : ''}`, kind === 'folder' ? 'New folder' : 'New section')?.trim();
+    if (!name) return;
+    const path = parentPath ? `${parentPath}/${name}` : name;
+    const button = kind === 'folder' ? newFolderButton : newSectionButton;
+    if (button) button.disabled = true;
+    try {
+      const created = kind === 'folder'
+        ? await projectSession.createFolder(path)
+        : await projectSession.createSection(path);
+      if (!created) showNotice(`Could not create ${label}. A file or folder with that path may already exist.`, 'error');
+    } catch (error) {
+      console.error(`Failed to create ${label}`, error);
+      showNotice(`Could not create ${label}.`, 'error');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  };
+
   explorerButton.addEventListener('click', () => activeView === 'explorer' && panelVisible ? hideView() : showView('explorer'));
   imagesButton.addEventListener('click', () => activeView === 'images' && panelVisible ? hideView() : showView('images'));
   outlineButton.addEventListener('click', () => activeView === 'outline' && panelVisible ? hideView() : showView('outline'));
+  newFolderButton?.addEventListener('click', () => { void createTreeItem('folder'); });
+  newSectionButton?.addEventListener('click', () => { void createTreeItem('section'); });
   state.onProjectTreeChanged(() => { if (activeView === 'explorer' || activeView === 'images') renderActiveView(); });
   state.onProjectSnapshotChanged(() => {
     if (!state.current.projectRef) return;

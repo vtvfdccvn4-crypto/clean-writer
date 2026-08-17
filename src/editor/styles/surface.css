@@ -1,7 +1,7 @@
 .editor-container {
   --cm-surface-background: Canvas;
   --cm-surface-border: var(--ui-border);
-  --cm-surface-focus: color-mix(in srgb, var(--color-app-chrome) 45%, transparent);
+  --cm-surface-focus: color-mix(in srgb, var(--ui-app-chrome) 45%, transparent);
   --cm-surface-radius: 8px;
 }
 
@@ -11,7 +11,9 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  font-family: "Courier Prime", var(--font-mono);
+  /* CodeMirror chrome uses the application UI face; document text is
+     explicitly restored to the editor face below. */
+  font-family: var(--font-ui);
   font-size: var(--editor-font-size, 10pt);
   overflow: hidden;
   background-color: var(--cm-surface-background);
@@ -23,6 +25,16 @@
 .cm-editor .cm-line,
 .cm-editor .cm-gutterElement {
   font-family: "Courier Prime", var(--font-mono) !important;
+}
+
+.cm-editor .cm-panels,
+.cm-editor .cm-search,
+.cm-editor .cm-tooltip,
+.cm-editor .cm-completionInfo,
+.cm-editor .cm-tooltip-autocomplete,
+.cm-editor .cm-panel input,
+.cm-editor .cm-panel button {
+  font-family: var(--font-ui);
 }
 
 .cm-editor:focus-within {

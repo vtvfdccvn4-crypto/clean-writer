@@ -17,7 +17,9 @@ export function showConfirmDialog(options: ConfirmOptions): Promise<boolean> {
     const cancelLabel = options.cancelLabel || 'Cancel';
     const tone = options.tone || 'default';
 
-    const btnConfirmClass = tone === 'danger' ? 'btn btn-danger' : 'btn btn-primary';
+    const btnConfirmClass = tone === 'danger'
+      ? 'ui-button ui-button--modal ui-button--danger'
+      : 'ui-button ui-button--modal ui-button--primary';
 
     modalHost.innerHTML = '';
 
@@ -47,7 +49,7 @@ export function showConfirmDialog(options: ConfirmOptions): Promise<boolean> {
 
     const btnCancel = document.createElement('button');
     btnCancel.type = 'button';
-    btnCancel.className = 'btn btn-text';
+    btnCancel.className = 'ui-button ui-button--modal';
     btnCancel.id = 'btn-confirm-cancel';
     btnCancel.textContent = cancelLabel;
 

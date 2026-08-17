@@ -15,9 +15,9 @@
   gap: 12px;
   min-width: 0;
   padding: 0 14px;
-  color: var(--color-app-chrome-text);
-  background-color: var(--color-app-chrome);
-  border-bottom: 1px solid var(--color-app-chrome-border);
+  color: var(--ui-app-chrome-text);
+  background-color: var(--ui-app-chrome);
+  border-bottom: 1px solid var(--ui-app-chrome-border);
 }
 
 .app-bar button {
@@ -114,9 +114,9 @@
   padding: 0 12px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-app-chrome-text);
-  background-color: var(--color-app-chrome);
-  border-top: 1px solid var(--color-app-chrome-border);
+  color: var(--ui-app-chrome-text);
+  background-color: var(--ui-app-chrome);
+  border-top: 1px solid var(--ui-app-chrome-border);
 }
 
 .workspace-status-left,
@@ -141,21 +141,6 @@
   padding-left: 12px;
 }
 
-.project-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  margin-left: auto;
-}
-
-.project-actions .icon-button {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  font-size: 10pt;
-}
-
 .workspace {
   display: grid;
   --task-panel-width: 380px;
@@ -177,22 +162,9 @@
   .app-bar {
     padding: 0 12px;
   }
-
-  .workspace {
-    grid-template-columns: 50px var(--task-panel-width) var(--task-panel-resizer-width) minmax(0, 1fr);
-    grid-template-areas: "project task task-resizer shared";
-  }
 }
 
 @media (max-width: 1100px) {
-  .workspace {
-    grid-template-columns: 50px var(--task-panel-width) var(--task-panel-resizer-width) minmax(0, 1fr);
-    grid-template-rows: minmax(220px, 0.8fr) minmax(0, 1fr);
-    grid-template-areas:
-      "project task task-resizer shared"
-      "project task task-resizer shared";
-  }
-
   .app-bar {
     min-height: 44px;
     padding: 4px 10px;
@@ -216,14 +188,6 @@
 }
 
 @media (max-width: 900px) {
-  .workspace {
-    grid-template-columns: 50px var(--task-panel-width) var(--task-panel-resizer-width) minmax(0, 1fr);
-    grid-template-rows: minmax(280px, 1fr) minmax(240px, 0.82fr);
-    grid-template-areas:
-      "project task task-resizer shared"
-      "project task task-resizer shared";
-  }
-
   .app-layout,
   #app-layout {
     grid-template-rows: auto minmax(0, 1fr);

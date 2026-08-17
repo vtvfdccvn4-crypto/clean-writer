@@ -32,6 +32,6 @@ export const tablesDrawerContentTemplate = (): string => `
     <div class="drawer-body">
       ${renderTableStyle('table-1', 'Table style 1')}
       ${renderTableStyle('table-2', 'Table style 2', true)}
-      <button id="btn-apply-tables" class="drawer-primary-button" type="button">Apply settings</button>
+      <button id="btn-apply-tables" class="ui-button ui-button--block" type="button">Apply settings</button>
     </div>
 `;

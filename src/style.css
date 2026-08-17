@@ -1,6 +1,9 @@
 @import './ui/styles/tokens.css';
+@import './ui/styles/buttons.css';
 @import './editor/styles/surface.css';
 @import './editor/styles/imagePreviews.css';
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+@import 'material-symbols/outlined.css';
 /* The application uses Inter Tight for UI and Courier Prime for the editor.
  * Restrict these imports to the shipped Latin subsets; generic Fontsource
  * entries pull every Unicode subset and several unused font families. */
@@ -53,73 +56,6 @@ textarea,
 select,
 input {
   font: inherit;
-}
-
-.text-button,
-.icon-button,
-.secondary-button {
-  border: 0;
-  cursor: pointer;
-}
-
-.text-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--ui-border);
-  border-radius: 8px;
-  font-size: 10pt;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  transition:
-    transform 140ms ease;
-}
-
-.icon-button {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border: 1px solid var(--ui-border);
-  border-radius: 8px;
-  font-size: 10pt;
-  line-height: 1;
-  transition:
-    transform 140ms ease;
-}
-
-.icon-text-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  min-height: 34px;
-  padding: 0 14px 0 12px;
-  border: 1px solid var(--ui-border);
-  border-radius: 10px;
-  font-size: 10pt;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  transition:
-    transform 140ms ease;
-}
-
-.icon-text-button .toolbar-icon {
-  flex-shrink: 0;
-}
-
-.secondary-button {
-  width: 100%;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--ui-border);
-  border-radius: 8px;
-  font-size: 10pt;
-  font-weight: 650;
-  transition:
 }
 
 .empty-canvas {
@@ -272,8 +208,12 @@ body * {
   scrollbar-color: color-mix(in srgb, var(--ui-border-strong) 8%, transparent) transparent;
 }
 
-body:focus-within,
-body *:focus-within {
+.task-explorer-content:hover,
+.task-explorer-content:focus-within,
+.task-images-list:hover,
+.task-images-list:focus-within,
+.document-outline-content:hover,
+.document-outline-content:focus-within {
   scrollbar-color: color-mix(in srgb, var(--ui-border-strong) 18%, transparent) transparent;
 }
 
@@ -296,7 +236,11 @@ body *::-webkit-scrollbar-thumb {
   background-clip: content-box;
 }
 
-body:focus-within::-webkit-scrollbar-thumb,
-body *:focus-within::-webkit-scrollbar-thumb {
+.task-explorer-content:hover::-webkit-scrollbar-thumb,
+.task-explorer-content:focus-within::-webkit-scrollbar-thumb,
+.task-images-list:hover::-webkit-scrollbar-thumb,
+.task-images-list:focus-within::-webkit-scrollbar-thumb,
+.document-outline-content:hover::-webkit-scrollbar-thumb,
+.document-outline-content:focus-within::-webkit-scrollbar-thumb {
   background-color: color-mix(in srgb, var(--ui-border-strong) 18%, transparent);
 }

@@ -11,6 +11,18 @@ function safeMargin(value: string): string {
   return parts.length >= 1 && parts.length <= 4 && parts.every(Boolean) ? parts.join(' ') : '';
 }
 
+type ImageAlignment = 'left' | 'center' | 'right';
+
+function alignedImageMargin(margin: string, align: ImageAlignment | ''): string {
+  if (!align) return margin;
+  const parts = (margin || '0').split(' ').filter(Boolean);
+  const top = parts[0] ?? '0';
+  const bottom = parts.length >= 3 ? parts[2] : top;
+  if (align === 'left') return `${top} auto ${bottom} 0`;
+  if (align === 'right') return `${top} 0 ${bottom} auto`;
+  return top === bottom ? `${top} auto` : `${top} auto ${bottom}`;
+}
+
 export const imageAttributesPlugin: Plugin<[], Root> = () => {
   return (tree: Root) => {
     visit(tree, 'image', (node: any, index: number | undefined, parent: any) => {
@@ -28,7 +40,7 @@ export const imageAttributesPlugin: Plugin<[], Root> = () => {
             const attrRegex = /([a-zA-Z0-9_-]+)(?:=(?:"([^"]*)"|([^ ]*)))?/g;
             let attrMatch;
             let width = '';
-            let align = '';
+            let align: ImageAlignment | '' = '';
             let margin = '';
             
             while ((attrMatch = attrRegex.exec(attrString)) !== null) {
@@ -36,7 +48,7 @@ export const imageAttributesPlugin: Plugin<[], Root> = () => {
               const value = attrMatch[2] !== undefined ? attrMatch[2] : attrMatch[3] !== undefined ? attrMatch[3] : true;
               
               if (key === 'width') width = safeLength(String(value));
-              else if (key === 'align') align = /^(?:left|center|right)$/.test(String(value)) ? String(value) : '';
+              else if (key === 'align') align = /^(?:left|center|right)$/.test(String(value)) ? String(value) as ImageAlignment : '';
               else if (key === 'margin') margin = safeMargin(String(value));
               else node.data.hProperties[key] = value;
             }
@@ -44,19 +56,8 @@ export const imageAttributesPlugin: Plugin<[], Root> = () => {
             let styleStr = '';
             if (width) styleStr += `width: ${width}; max-width: 100%; `;
             
-            if (margin) {
-              if (align === 'center') {
-                const parts = margin.split(' ').filter(Boolean);
-                if (parts.length === 2) {
-                  styleStr += `margin: ${parts[0]} auto; `;
-                } else {
-                  styleStr += `margin: ${margin}; `;
-                }
-              } else {
-                styleStr += `margin: ${margin}; `;
-              }
-            } else if (align === 'center') {
-              styleStr += `margin: 0 auto; `;
+            if (margin || align) {
+              styleStr += `margin: ${alignedImageMargin(margin, align)}; `;
             }
             
             if (align) {
@@ -64,8 +65,6 @@ export const imageAttributesPlugin: Plugin<[], Root> = () => {
               // defaults do not overwrite this image's alignment.
               node.data.hProperties.dataImageAlignment = align;
               styleStr += `display: block; `;
-              if (align === 'left') styleStr += `margin-right: auto; `;
-              if (align === 'right') styleStr += `margin-left: auto; `;
             }
             
             if (styleStr) {

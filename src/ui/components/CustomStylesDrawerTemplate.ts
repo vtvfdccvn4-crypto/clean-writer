@@ -5,7 +5,7 @@ export const customInlineStylesContentTemplate = (): string => `
       <section class="drawer-card">
         <div class="drawer-card-head">
           <span>Inline pairs</span>
-          <button id="cs-add-btn" class="icon-btn" type="button" aria-label="Add inline style" aria-controls="cs-editor-card" aria-expanded="false" title="Add inline style">+</button>
+          <button id="cs-add-btn" class="ui-button ui-button--icon-compact" type="button" aria-label="Add inline style" aria-controls="cs-editor-card" aria-expanded="false" title="Add inline style">+</button>
         </div>
         <div id="custom-styles-list" class="custom-styles-list"></div>
       </section>
@@ -33,8 +33,8 @@ export const customInlineStylesContentTemplate = (): string => `
             colorValue: '#000000',
           })}
           <div class="drawer-grid drawer-grid-2">
-            <button type="submit" class="drawer-primary-button" id="cs-submit-btn">Apply</button>
-            <button type="button" class="drawer-secondary-button" id="cs-cancel-btn">Cancel</button>
+            <button type="submit" class="ui-button ui-button--block" id="cs-submit-btn">Apply</button>
+            <button type="button" class="ui-button ui-button--block" id="cs-cancel-btn">Cancel</button>
           </div>
         </form>
       </section>
@@ -46,7 +46,7 @@ export const customQuoteStylesContentTemplate = (): string => `
       <section class="drawer-card">
         <div class="drawer-card-head">
           <span>Quote styles</span>
-          <button id="cbs-add-btn" class="icon-btn" type="button" aria-label="Add quote style" aria-controls="cbs-editor-card" aria-expanded="false" title="Add quote style">+</button>
+          <button id="cbs-add-btn" class="ui-button ui-button--icon-compact" type="button" aria-label="Add quote style" aria-controls="cbs-editor-card" aria-expanded="false" title="Add quote style">+</button>
         </div>
         <div id="custom-block-styles-list" class="custom-styles-list"></div>
       </section>
@@ -72,7 +72,7 @@ export const customQuoteStylesContentTemplate = (): string => `
                     <img id="cbs-icon-preview" class="block-glyph-preview hidden" alt="" aria-hidden="true">
                     <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="m3 4.5 3 3 3-3Z"></path></svg>
                   </button>
-                  <button id="btn-upload-glyph" class="icon-btn block-glyph-upload-button" type="button" title="Upload new glyph" aria-label="Upload new glyph">+</button>
+                  <button id="btn-upload-glyph" class="ui-button ui-button--icon-compact block-glyph-upload-button" type="button" title="Upload new glyph" aria-label="Upload new glyph">+</button>
                 </div>
                 <span id="cbs-icon-menu" class="block-glyph-menu hidden" role="listbox" aria-label="Available block glyphs"></span>
               </span>`
@@ -103,8 +103,8 @@ export const customQuoteStylesContentTemplate = (): string => `
             </div>
           </section>
           <div class="drawer-grid drawer-grid-2">
-            <button type="submit" class="drawer-primary-button" id="cbs-submit-btn">Apply</button>
-            <button type="button" class="drawer-secondary-button" id="cbs-cancel-btn">Cancel</button>
+            <button type="submit" class="ui-button ui-button--block" id="cbs-submit-btn">Apply</button>
+            <button type="button" class="ui-button ui-button--block" id="cbs-cancel-btn">Cancel</button>
           </div>
         </form>
       </section>

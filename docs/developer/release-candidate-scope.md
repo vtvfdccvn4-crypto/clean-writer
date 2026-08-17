@@ -16,7 +16,7 @@ The release candidate includes the following tested capabilities:
 | Live preview | Incremental document preview, source-to-preview navigation, styles, headings, lists, and tables | `src/compiler/`, `src/preview/`, `src/print/` |
 | PDF workflow | Isolated PDF preview, printable output, page setup, page guides, headers/footers, TOC page numbers, and performance budgets | `src/pdf-preview/`, `src/boot/setupPdfPreview.ts` |
 | Web shell | Relative-path hosting, PWA manifest, service-worker cache versioning, and offline shell validation | `vite.web.config.ts`, `public/sw.js`, `src/sw-registration.ts` |
-| Release safeguards | Unit, performance, bundle-budget, browser, PDF-scale, and production-shell smoke coverage | `test/`, `scripts/`, `package.json` |
+| Release safeguards | Unit, performance, style-contract, bundle-budget, browser, PDF-scale, Paged.js-patch, and production-shell smoke coverage | `test/`, `scripts/`, `package.json` |
 
 ## Intentional removals and replacements
 
@@ -41,7 +41,7 @@ Build and test verification confirms no remaining imports depend on them.
 
 ## Evidence for this scope
 
-The current tree passed the following release checks on 2026-07-29:
+The current tree previously passed the following release checks on 2026-07-29:
 
 - `npm run build`
 - `npm test` (181 passing tests)
@@ -49,6 +49,11 @@ The current tree passed the following release checks on 2026-07-29:
 - `npm run check:bundle` (initial JavaScript chunk 70,315 bytes / 17,060 bytes gzip)
 - `npm run test:browser-smoke`
 - `npm run test:pwa-smoke`
+
+The current handoff baseline additionally passes `npm run typecheck`,
+`npm run check:styles`, and `npm test` with 192 tests passing. The full
+`npm run release:prep` gate has not been rerun as part of this documentation
+audit.
 
 ## Approval boundary
 

@@ -1,6 +1,6 @@
 import type { ListSetup, PageSetup, TableSetup, TypographySetup } from '../state';
 import { generateListCss, generateTableCss, generateTypographyCss } from './CssGenerator';
-import { resolvePageTocStyles, resolveSpecialHeadingStyle } from '../styles/resolved-document-styles';
+import { generateSpecialHeadingCss, generateTocCss } from './css/document-features-css';
 
 /** Shared live/print style application, deliberately independent of Paged.js. */
 export function applyTypographyPreviewStyle(setup: TypographySetup): void {
@@ -36,40 +36,6 @@ export function applyLiveDocumentStyle(setup: PageSetup): void {
   const marginRight = dimension(setup.marginRight, 20, 0, Math.max(0, paperWidth - 40));
   const marginBottom = dimension(setup.marginBottom, 25, 0, Math.max(0, paperHeight - 40));
   const marginLeft = dimension(setup.marginLeft, 20, 0, Math.max(0, paperWidth - 40));
-  const tocStyles = resolvePageTocStyles(setup);
-  const tocLineHeight = Math.min(3, Math.max(0.5, Number(setup.toc?.lineHeight) || 1.2));
-  const specialHeadings = (setup.specialHeadings ?? []).map(item => {
-    const style = resolveSpecialHeadingStyle(item);
-    const id = escapeCssAttributeValue(item.id);
-    return `
-      .paged-stage.is-live-preview .special-heading[data-special-heading-id="${id}"] {
-        font-family: "${style.fontFamily}", serif !important;
-        font-size: ${style.fontSize}pt !important;
-        color: ${style.color} !important;
-        font-weight: ${style.isBold ? 'bold' : 'normal'} !important;
-        font-style: ${style.isItalic ? 'italic' : 'normal'} !important;
-        text-transform: ${style.isAllCaps ? 'uppercase' : 'none'} !important;
-        line-height: ${style.lineHeight} !important;
-        margin-top: ${style.marginTop}pt !important;
-        margin-bottom: ${style.marginBottom}pt !important;
-      }
-    `;
-  }).join('');
-  const tocLevels = [1, 2, 3, 4, 5, 6].map(level => {
-    const style = tocStyles[`h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'];
-    return `
-      .paged-stage.is-live-preview .toc-level-${level} {
-        font-family: "${style.fontFamily}", serif;
-        font-size: ${style.fontSize}pt;
-        color: ${style.color};
-        font-weight: ${style.isBold ? 'bold' : 'normal'};
-        font-style: ${style.isItalic ? 'italic' : 'normal'};
-      }
-      .paged-stage.is-live-preview .toc-level-${level} .toc-label {
-        text-transform: ${style.isAllCaps ? 'uppercase' : 'none'};
-      }
-    `;
-  }).join('');
   replaceDynamicStyle('dynamic-live-document-setup', `
     /* Live editing is continuous, but its sheet geometry matches Page setup.
        The flex item must not shrink: otherwise narrow preview panes silently
@@ -83,20 +49,8 @@ export function applyLiveDocumentStyle(setup: PageSetup): void {
       padding: ${marginTop}mm ${marginRight}mm ${marginBottom}mm ${marginLeft}mm;
       ${setup.showGuidelines ? 'outline: 1px dashed color-mix(in srgb, #2563eb 58%, transparent); outline-offset: -1px;' : 'outline: none;'}
     }
-    .paged-stage.is-live-preview .table-of-contents { margin-bottom: 2em; }
-    .paged-stage.is-live-preview .toc-list { list-style: none; padding-left: 0; }
-    .paged-stage.is-live-preview .toc-item { margin: 0.2em 0; line-height: ${tocLineHeight}; }
-    .paged-stage.is-live-preview .toc-level-1 { margin-left: 0; margin-top: 1em; }
-    .paged-stage.is-live-preview .toc-level-2 { margin-left: 1.5em; }
-    .paged-stage.is-live-preview .toc-level-3 { margin-left: 3em; }
-    .paged-stage.is-live-preview .toc-level-4 { margin-left: 4.5em; }
-    .paged-stage.is-live-preview .toc-level-5 { margin-left: 6em; }
-    .paged-stage.is-live-preview .toc-level-6 { margin-left: 7.5em; }
-    .paged-stage.is-live-preview .toc-link { display: flex; align-items: baseline; gap: 0.4em; text-decoration: none; color: inherit; }
-    .paged-stage.is-live-preview .toc-label { min-width: 0; }
-    .paged-stage.is-live-preview .toc-leader { flex: 1 1 auto; min-width: 1.5em; border-bottom: 1px dotted currentColor; transform: translateY(-0.2em); }
-    ${tocLevels}
-    ${specialHeadings}
+    ${generateTocCss(setup, { scope: '.paged-stage.is-live-preview' })}
+    ${generateSpecialHeadingCss(setup, { scope: '.paged-stage.is-live-preview' })}
   `);
 }
 
@@ -109,10 +63,6 @@ function replaceDynamicStyle(id: string, css: string): void {
   }
   style.setAttribute('data-clear-writer-print-style', '');
   style.textContent = css;
-}
-
-function escapeCssAttributeValue(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 function dimension(value: unknown, fallback: number, min: number, max: number): number {

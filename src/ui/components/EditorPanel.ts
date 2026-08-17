@@ -1,3 +1,5 @@
+import { toolbarButton } from './toolbarButton';
+
 function editorSymbolsIconMarkup(): string {
   return `
     <svg class="toolbar-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -51,37 +53,27 @@ export const editorPanelTemplate = (): string => `
         <span id="active-section-label" class="active-section-label" hidden></span>
       </div>
       <div class="panel-actions">
-        <button id="btn-open-project-search" class="toolbar-icon-button" type="button" aria-label="Search Project" title="Search Project" aria-controls="project-search-drawer" aria-expanded="false">
-          ${editorProjectSearchIconMarkup()}
-        </button>
-        <button id="btn-toggle-print-preview" class="toolbar-icon-button" type="button" aria-label="Show final print preview" title="Show final print preview" aria-pressed="false">
-          ${editorPrintPreviewIconMarkup()}
-        </button>
-        <button id="btn-open-project-review" class="toolbar-icon-button" type="button" aria-label="Project Review" title="Project Review" aria-controls="project-review-drawer" aria-expanded="false">
-          ${editorReviewIconMarkup()}
-        </button>
-        <button id="btn-open-search" class="toolbar-icon-button" type="button" aria-label="Find and Replace" title="Find and Replace">
-          ${editorSearchIconMarkup()}
-        </button>
+        ${toolbarButton({ id: 'btn-open-project-search', variant: 'icon', ariaLabel: 'Search Project', title: 'Search Project', icon: editorProjectSearchIconMarkup(), attributes: { 'aria-controls': 'project-search-drawer', 'aria-expanded': 'false' } })}
+        ${toolbarButton({ id: 'btn-toggle-print-preview', variant: 'icon', ariaLabel: 'Show final print preview', title: 'Show final print preview', icon: editorPrintPreviewIconMarkup(), attributes: { 'aria-pressed': 'false' } })}
+        ${toolbarButton({ id: 'btn-open-project-review', variant: 'icon', ariaLabel: 'Project Review', title: 'Project Review', icon: editorReviewIconMarkup(), attributes: { 'aria-controls': 'project-review-drawer', 'aria-expanded': 'false' } })}
+        ${toolbarButton({ id: 'btn-open-search', variant: 'icon', ariaLabel: 'Find and Replace', title: 'Find and Replace', icon: editorSearchIconMarkup() })}
       </div>
     </div>
     <div class="editor-stage panel-content">
       <div class="markdown-toolbar" role="toolbar" aria-label="Markdown formatting" aria-orientation="vertical">
-        <button class="toolbar-text-button" type="button" data-markdown-command="heading-1" title="Heading 1">H1</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="heading-2" title="Heading 2">H2</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="heading-3" title="Heading 3">H3</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="bold" title="Bold">B</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="italic" title="Italic"><em>I</em></button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="link" title="Link">Link</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="unordered-list" title="Bulleted list">List</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="ordered-list" title="Numbered list">1.</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="quote" title="Quote">Quote</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="inline-code" title="Inline code">Code</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="code-block" title="Code block">Block</button>
-        <button class="toolbar-text-button" type="button" data-markdown-command="page-break" title="Insert page break">PB</button>
-        <button id="open-symbol-picker" class="markdown-symbol-button" type="button" aria-label="Symbols" title="Symbols" aria-controls="symbol-picker" aria-expanded="false">
-          ${editorSymbolsIconMarkup()}
-        </button>
+        ${toolbarButton({ variant: 'text', title: 'Heading 1', content: 'H1', attributes: { 'data-markdown-command': 'heading-1' } })}
+        ${toolbarButton({ variant: 'text', title: 'Heading 2', content: 'H2', attributes: { 'data-markdown-command': 'heading-2' } })}
+        ${toolbarButton({ variant: 'text', title: 'Heading 3', content: 'H3', attributes: { 'data-markdown-command': 'heading-3' } })}
+        ${toolbarButton({ variant: 'text', title: 'Bold', content: 'B', attributes: { 'data-markdown-command': 'bold' } })}
+        ${toolbarButton({ variant: 'text', title: 'Italic', content: '<em>I</em>', attributes: { 'data-markdown-command': 'italic' } })}
+        ${toolbarButton({ variant: 'text', title: 'Link', content: 'Link', attributes: { 'data-markdown-command': 'link' } })}
+        ${toolbarButton({ variant: 'text', title: 'Bulleted list', content: 'List', attributes: { 'data-markdown-command': 'unordered-list' } })}
+        ${toolbarButton({ variant: 'text', title: 'Numbered list', content: '1.', attributes: { 'data-markdown-command': 'ordered-list' } })}
+        ${toolbarButton({ variant: 'text', title: 'Quote', content: 'Quote', attributes: { 'data-markdown-command': 'quote' } })}
+        ${toolbarButton({ variant: 'text', title: 'Inline code', content: 'Code', attributes: { 'data-markdown-command': 'inline-code' } })}
+        ${toolbarButton({ variant: 'text', title: 'Code block', content: 'Block', attributes: { 'data-markdown-command': 'code-block' } })}
+        ${toolbarButton({ variant: 'text', title: 'Insert page break', content: 'PB', attributes: { 'data-markdown-command': 'page-break' } })}
+        ${toolbarButton({ id: 'open-symbol-picker', variant: 'text', classes: ['markdown-symbol-button'], ariaLabel: 'Symbols', title: 'Symbols', icon: editorSymbolsIconMarkup(), attributes: { 'aria-controls': 'symbol-picker', 'aria-expanded': 'false' } })}
       </div>
       <div id="editor-container" class="editor-container">
         <!-- CodeMirror injects here -->

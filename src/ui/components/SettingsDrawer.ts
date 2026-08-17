@@ -53,7 +53,7 @@ export const settingsDrawerTemplate = (): string => `
         <span class="drawer-eyebrow">Document</span>
         <span>Settings</span>
       </div>
-      <button id="btn-close-settings-drawer" class="drawer-close-button" type="button" aria-label="Close settings">✕</button>
+      <button id="btn-close-settings-drawer" class="ui-button ui-button--icon-compact drawer-close-button" type="button" aria-label="Close settings">✕</button>
     </div>
     <div class="settings-drawer-layout">
       <nav class="settings-tab-list" role="tablist" aria-label="Settings sections">

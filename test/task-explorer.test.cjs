@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { before, after, test } = require('node:test');
 const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
@@ -36,4 +38,14 @@ test('explorer placements support sibling ordering and folder moves', () => {
   assert.equal(inside.kind, 'relocate');
   assert.equal(inside.destination, 'sections/Archive/One.md');
   assert.ok(inside.order.includes('sections/Archive/One.md'));
+});
+
+test('task panel resizing batches pointer updates into animation frames', () => {
+  const resizer = fs.readFileSync(path.join(__dirname, '../src/ui/task-panel-resizer.ts'), 'utf8');
+
+  assert.match(resizer, /let resizeFrame: number \| null = null/);
+  assert.match(resizer, /window\.requestAnimationFrame/);
+  assert.match(resizer, /if \(resizeFrame !== null\) return/);
+  assert.match(resizer, /window\.cancelAnimationFrame\(resizeFrame\)/);
+  assert.match(resizer, /flushPendingWidth\(\);\s*window\.removeEventListener\('pointermove'/);
 });

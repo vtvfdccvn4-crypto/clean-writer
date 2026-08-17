@@ -4,7 +4,7 @@ Clear Writer's preview panel renders the document as paginated pages and keeps t
 
 ## What The Preview Does
 
-- Renders the current Markdown as paginated pages through Paged.js.
+- Renders the current Markdown through two presentation lanes: a continuous incremental live renderer for authoring and an isolated Paged.js paginator for physical-page preview.
 - Applies document settings such as paper size, margins, headers, footers, typography, lists, tables, heading numbering, TOC, and special headings.
 - Resolves images through the active workspace or browser storage.
 - Supports both full-document preview and single-section preview while editing a section.
@@ -18,11 +18,12 @@ The preview uses a committed preview index built from the same compilation pass 
 1. The editor emits selection-only updates, not general typing events.
 2. The editor manager records the current document revision and passes it to the preview.
 3. The compiler creates an in-memory manifest of source blocks while generating HTML.
-4. `PreviewController` creates an immutable PDF preview job containing the compiled HTML, print CSS, margins, and resolved assets.
-5. `IsolatedPaginationHost` paginates that job in a disposable, hidden iframe and returns the completed artifact with diagnostics.
-6. After the artifact is committed, the preview builds an index from the final page DOM using Paged.js's own transient references.
-7. The navigation coordinator only reveals a target when the committed preview revision matches the editor revision that requested it.
-8. The preview viewport scrolls the selected block near the top with a small inset, so the selection is visible without forcing a centered jump.
+4. In continuous mode, the incremental renderer reconciles the latest compiled blocks without running Paged.js.
+5. In paginated mode, `PreviewController` creates an immutable print job containing the compiled HTML, print CSS, margins, and resolved assets.
+6. `IsolatedPaginationHost` paginates that job in a disposable iframe and returns the completed artifact with diagnostics.
+7. After a paginated artifact is committed, the preview builds an index from the final page DOM using Paged.js's own transient references.
+8. The navigation coordinator only reveals a target when the committed preview revision matches the editor revision that requested it.
+9. The preview viewport scrolls the selected block near the top with a small inset, so the selection is visible without forcing a centered jump.
 
 That design keeps the HTML output clean and makes navigation resilient to rerenders, page splits, and image-induced pagination changes.
 
@@ -36,6 +37,8 @@ That design keeps the HTML output clean and makes navigation resilient to rerend
 - `src/pdf-preview/PdfPreviewJobFactory.ts` creates the immutable print job consumed by the isolated host.
 - `src/preview/navigation/CommittedPreviewIndex.ts` maps the compiler manifest to the committed page DOM using Paged.js references such as `data-ref` and `data-split-from`.
 - `src/preview/navigation/PreviewNavigationCoordinator.ts` queues or discards requests until the preview revision and editor revision match.
+- `src/preview/navigation/LinkedScrollController.ts` contains opt-in bidirectional semantic scroll synchronization and is currently standalone; it is not enabled by the app shell.
+- `src/preview/navigation/LinkedScrollPanes.ts` adapts CodeMirror and committed preview geometry for that standalone controller.
 - `src/preview/PreviewViewport.ts` positions the target block near the top of the viewport instead of centering it.
 
 ## Practical Result

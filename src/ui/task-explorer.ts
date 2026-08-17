@@ -6,8 +6,18 @@ import { projectSession } from '../services/ProjectSessionStore';
 import { showConfirmDialog } from './confirm-dialog';
 import { showNotice } from './components/Notice';
 import { bindExplorerDragAndDrop, bindExplorerRootDropZone, type ExplorerDropPlacement } from './task-explorer-drag-and-drop';
+import { fontAwesomeIcon, materialIcon } from './components/icon';
 
 const expandedExplorerNodes = new Set<string>();
+let selectedExplorerPath: string | null = null;
+
+/** Returns the directory where a new tree item should be placed. */
+export function getExplorerCreationParentPath(): string | null {
+  if (!selectedExplorerPath) return null;
+  const selected = state.current.sections.find(section => section.path === selectedExplorerPath);
+  if (!selected) return null;
+  return selected.isDir ? selected.path : getParentPath(selected.path);
+}
 
 function findSiblingPath(nodes: ExplorerTreeNode[], path: string, direction: -1 | 1): string | null {
   for (const node of nodes) {
@@ -65,6 +75,7 @@ export function renderTaskExplorer(content: HTMLElement, empty: HTMLElement, edi
     container.className = 'task-explorer-node';
     const item = document.createElement('div');
     item.className = `task-explorer-item ${node.isDir ? 'task-explorer-item--dir' : 'task-explorer-item--file'}`;
+    item.classList.toggle('is-selected', node.path === selectedExplorerPath);
     item.setAttribute('role', 'button');
     item.tabIndex = 0;
     item.setAttribute('aria-label', `${node.isDir ? 'Folder' : 'Section'} ${getBaseName(node.path)}`);
@@ -90,12 +101,18 @@ export function renderTaskExplorer(content: HTMLElement, empty: HTMLElement, edi
     };
     item.addEventListener('click', event => {
       if (event.target instanceof Element && event.target.closest('.task-explorer-item-actions')) return;
+      selectedExplorerPath = node.path;
+      content.querySelectorAll('.task-explorer-item.is-selected').forEach(element => element.classList.remove('is-selected'));
+      item.classList.add('is-selected');
       item.blur();
       void activate();
     });
     item.addEventListener('keydown', event => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
+        selectedExplorerPath = node.path;
+        content.querySelectorAll('.task-explorer-item.is-selected').forEach(element => element.classList.remove('is-selected'));
+        item.classList.add('is-selected');
         void activate();
         return;
       }
@@ -124,7 +141,7 @@ export function renderTaskExplorer(content: HTMLElement, empty: HTMLElement, edi
       rename.className = 'task-explorer-item-action';
       rename.title = 'Rename section';
       rename.setAttribute('aria-label', 'Rename section');
-      rename.textContent = 'R';
+      rename.innerHTML = materialIcon('edit_square');
       rename.addEventListener('click', async event => {
         event.preventDefault();
         event.stopPropagation();
@@ -139,7 +156,7 @@ export function renderTaskExplorer(content: HTMLElement, empty: HTMLElement, edi
       remove.className = 'task-explorer-item-action task-explorer-item-action--danger';
       remove.title = 'Delete section';
       remove.setAttribute('aria-label', 'Delete section');
-      remove.textContent = 'D';
+      remove.innerHTML = fontAwesomeIcon('trash-can');
       remove.addEventListener('click', async event => {
         event.preventDefault();
         event.stopPropagation();
@@ -151,7 +168,7 @@ export function renderTaskExplorer(content: HTMLElement, empty: HTMLElement, edi
       pageBreak.className = `task-explorer-item-action${node.pageBreak ? ' is-active' : ''}`;
       pageBreak.title = node.pageBreak ? 'Remove page break' : 'Add page break';
       pageBreak.setAttribute('aria-label', pageBreak.title);
-      pageBreak.textContent = 'PB';
+      pageBreak.innerHTML = materialIcon('insert_page_break');
       pageBreak.addEventListener('click', async event => {
         event.preventDefault();
         event.stopPropagation();

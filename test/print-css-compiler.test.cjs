@@ -134,3 +134,22 @@ test('margin images inherit their cell vertical alignment', () => {
 
   assert.doesNotMatch(imageRule, /align-self/);
 });
+
+test('centres default print images with unequal vertical margins', () => {
+  const imageSetup = structuredClone(defaults.DEFAULT_IMAGE_SETUP);
+  imageSetup.alignment = 'center';
+  imageSetup.marginTop = 4;
+  imageSetup.marginBottom = 8;
+  const layout = createPrintLayoutSettings({
+    pageSetup: structuredClone(defaults.DEFAULT_PAGE_SETUP),
+    typographySetup: structuredClone(defaults.DEFAULT_TYPOGRAPHY_SETUP),
+    listSetup: structuredClone(defaults.DEFAULT_LIST_SETUP),
+    tableSetup: structuredClone(defaults.DEFAULT_TABLE_SETUP),
+    imageSetup,
+    projectMetadata: structuredClone(defaults.DEFAULT_PROJECT_METADATA),
+    customStyles: [], customBlockStyles: [], sections: []
+  });
+  const css = compilePrintCss(layout);
+
+  assert.match(css, /margin: 4mm auto 8mm/);
+});

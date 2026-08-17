@@ -38,7 +38,6 @@
 .preview-toolbar .panel-actions {
   flex: 1 1 auto;
   justify-content: flex-end;
-  gap: 4px;
 }
 
 .preview-footer-toolbar {
@@ -54,7 +53,7 @@
 }
 
 .preview-page-indicator {
-  color: var(--text-muted, #6b7280);
+  color: var(--ui-text-muted, #6b7280);
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -62,19 +61,6 @@
 
 .preview-footer-toolbar .preview-diagnostics {
   flex-shrink: 0;
-}
-
-.preview-toolbar .toolbar-text-button {
-  width: auto;
-  min-width: 0;
-  width: fit-content;
-  height: 30px;
-  padding: 0 18px 0 14px;
-  justify-content: flex-start;
-}
-
-.preview-toolbar .toolbar-text-button .toolbar-icon {
-  margin-right: 6px;
 }
 
 .preview-toolbar .toolbar-button-label {
@@ -296,10 +282,10 @@
 .preview-diagnostics-panel {
   flex: 0 0 auto;
   margin: 0 0.75rem 0.75rem;
-  border: 1px solid var(--color-border, #d6d9df);
+  border: 1px solid var(--ui-border, #d6d9df);
   border-radius: 0.35rem;
-  background: var(--color-surface-subtle, #f7f8fa);
-  color: var(--color-text, #20242a);
+  background: var(--ui-surface-subtle, #f7f8fa);
+  color: var(--ui-text, #20242a);
   font-size: 0.75rem;
 }
 

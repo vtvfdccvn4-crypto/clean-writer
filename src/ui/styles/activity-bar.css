@@ -9,8 +9,8 @@
   min-width: 50px;
   min-height: 0;
   padding: 4px 0;
-  background: var(--color-app-chrome);
-  border-right: 1px solid var(--color-app-chrome-border);
+  background: var(--ui-app-chrome);
+  border-right: 1px solid var(--ui-app-chrome-border);
 }
 
 .activity-bar-primary {
@@ -30,7 +30,7 @@
   border: 0;
   border-radius: var(--ui-radius-sm);
   background: transparent;
-  color: var(--color-app-chrome-text);
+  color: var(--ui-app-chrome-text);
   cursor: pointer;
 }
 
@@ -39,6 +39,10 @@
   width: 24px;
   height: 24px;
   fill: currentColor;
+}
+
+.activity-bar-button .ui-icon {
+  font-size: 24px;
 }
 
 .activity-bar-button:hover,

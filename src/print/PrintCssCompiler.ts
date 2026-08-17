@@ -216,9 +216,7 @@ function tableCss(styleNumber: 1 | 2, style: TableStyle): string {
 }
 
 function imageCss(image: ImageSetup): string {
-  const horizontalMargins = image.alignment === 'left' ? '0 auto 0 0'
-    : image.alignment === 'right' ? '0 0 0 auto'
-      : '0 auto';
+  const margin = imageMarginCss(image);
   return `
     .clear-writer-print-content .clear-writer-print-image-block {
       margin: 0;
@@ -227,9 +225,17 @@ function imageCss(image: ImageSetup): string {
       display: block;
       max-width: 100%;
       height: auto;
-      margin: ${image.marginTop}mm ${horizontalMargins} ${image.marginBottom}mm;
+      margin: ${margin};
     }
   `;
+}
+
+function imageMarginCss(image: ImageSetup): string {
+  const top = `${image.marginTop}mm`;
+  const bottom = `${image.marginBottom}mm`;
+  if (image.alignment === 'left') return `${top} auto ${bottom} 0`;
+  if (image.alignment === 'right') return `${top} 0 ${bottom} auto`;
+  return image.marginTop === image.marginBottom ? `${top} auto` : `${top} auto ${bottom}`;
 }
 
 function customStyleCss(style: PrintLayoutSettings['customStyles'][number]): string {

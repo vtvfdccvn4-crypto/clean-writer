@@ -6,17 +6,19 @@ import { symbolPickerDrawerTemplate } from './SymbolPickerDrawer';
 import { settingsDrawerTemplate } from './SettingsDrawer';
 import { projectSearchDrawerTemplate } from './ProjectSearchDrawer';
 import { projectReviewDrawerTemplate } from './ProjectReviewDrawer';
+import { materialIcon } from './icon';
+import { toolbarButton } from './toolbarButton';
 
 function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'settings'): string {
   switch (kind) {
     case 'explorer':
-      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h6l1.8 2H20v11H4z"/><path d="M4 7.5h16"/></svg>`;
+      return materialIcon('account_tree');
     case 'images':
-      return `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.5"/><path d="m6 17 4-4 3 3 2-2 3 3"/></svg>`;
+      return materialIcon('photo_library');
     case 'outline':
-      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/><circle cx="3" cy="6" r=".8"/><circle cx="3" cy="12" r=".8"/><circle cx="3" cy="18" r=".8"/></svg>`;
+      return materialIcon('library_books');
     case 'settings':
-      return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8 3.5-.9-.3c-.2-.7-.5-1.4-.9-2l.5-.9-1.5-1.5-.9.5c-.6-.4-1.3-.7-2-.9L15.5 4h-2l-.3.9c-.7.2-1.4.5-2 .9l-.9-.5-1.5 1.5.5.9c-.4.6-.7 1.3-.9 2l-.9.3v2l.9.3c.2.7.5 1.4.9 2l-.5.9 1.5 1.5.9-.5c.6.4 1.3.7 2 .9l.3.9h2l.3-.9c.7-.2 1.4-.5 2-.9l.9.5 1.5-1.5-.5-.9c.4-.6.7-1.3.9-2l.9-.3v-2Z"/></svg>`;
+      return materialIcon('build_circle');
   }
 }
 
@@ -32,21 +34,11 @@ export const appShellTemplate = (): string => `
         </div>
       </div>
       <div class="app-bar-actions" aria-label="Project actions">
-        <button id="btn-task-new-project" class="toolbar-icon-button" type="button" aria-label="New project" title="New project">
-          <span aria-hidden="true">+</span>
-        </button>
-        <button id="btn-task-open-project" class="toolbar-icon-button" type="button" aria-label="Open project" title="Open project">
-          <span aria-hidden="true">⌂</span>
-        </button>
-        <button id="btn-task-close-project" class="toolbar-icon-button" type="button" aria-label="Close project" title="Close project">
-          <span aria-hidden="true">×</span>
-        </button>
-        <button id="btn-task-refresh-project" class="toolbar-icon-button" type="button" aria-label="Refresh project files" title="Refresh project files (Ctrl+Shift+I)">
-          <span aria-hidden="true">↻</span>
-        </button>
-        <button id="btn-project-metadata" class="toolbar-icon-button" type="button" aria-label="Project metadata" title="Project metadata">
-          <span aria-hidden="true">M</span>
-        </button>
+        ${toolbarButton({ id: 'btn-task-new-project', variant: 'icon', ariaLabel: 'New project', title: 'New project', icon: materialIcon('loupe') })}
+        ${toolbarButton({ id: 'btn-task-open-project', variant: 'icon', ariaLabel: 'Open project', title: 'Open project', icon: materialIcon('pending') })}
+        ${toolbarButton({ id: 'btn-task-close-project', variant: 'icon', ariaLabel: 'Close project', title: 'Close project', content: '<span aria-hidden="true">×</span>' })}
+        ${toolbarButton({ id: 'btn-task-refresh-project', variant: 'icon', ariaLabel: 'Refresh project files', title: 'Refresh project files (Ctrl+Shift+I)', icon: materialIcon('rotate_left') })}
+        ${toolbarButton({ id: 'btn-project-metadata', variant: 'icon', ariaLabel: 'Project metadata', title: 'Project metadata', icon: materialIcon('info') })}
       </div>
     </header>
     <div class="screen-host">

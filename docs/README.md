@@ -9,6 +9,7 @@ Clear Writer is a browser/PWA document authoring app for writing Markdown in a C
 - [Documentation map](./DOCUMENTATION_MAP.md): detailed outline of the documentation set, feature inventory, source-code mapping, and recommended writing order.
 - [Live preview guide](./user/live-preview.md): how the paginated preview and revision-aware preview navigation behave.
 - [Preview navigation architecture](./developer/preview-navigation.md): implementation notes for the revision-aware preview navigation pipeline.
+- [Current-state handoff](./developer/current-state-handoff.md): verified baseline, active refactor boundaries, and the safest next steps for another agent.
 - [Technology stack and development model](./developer/technology-stack.md): languages, frameworks, plugins, browser runtime boundaries, storage architecture, and development/test tooling.
 - [PDF Preview architecture](./user/exporting.md): current isolated PDF/print flow, connected modules, pagination, and promotion limitations.
 - [First release candidate scope](./developer/release-candidate-scope.md): included features, intentional removals, and approval boundary.
@@ -20,6 +21,7 @@ Clear Writer is a browser/PWA document authoring app for writing Markdown in a C
 - Project workspace: create, open, save, close, organize sections, manage images.
 - Markdown editor: CodeMirror-based authoring, formatting commands, search, source styling, autosave, draft recovery.
 - Live preview: paginated document preview, heading numbering, table of contents, special headings, image resolution, and revision-aware preview navigation.
+- Live preview also has a continuous incremental-render lane for authoring; physical pagination is isolated and cancellable.
 - Settings: page setup, typography, lists, tables, TOC, special headings, project metadata, editor preferences, custom inline styles, custom quote/block styles.
 - PDF Preview: browser print workflow.
 - Storage: browser OPFS projects and local directory projects when supported by the browser.
@@ -34,6 +36,7 @@ Clear Writer is a browser/PWA document authoring app for writing Markdown in a C
 - Project actions are implemented by `src/ui/task-panel-actions.ts`, with section and image interactions in `src/ui/task-explorer.ts` and `src/ui/task-images.ts`.
 - The former `src/ui/sidebar/` and `src/ui/workspace-layout.ts` modules are no longer part of the active tree; do not reintroduce them as documentation or implementation entry points.
 - Release validation is centered on `npm run release:prep`, with focused reruns of browser and PWA smoke checks when diagnosing transient browser timing failures.
+- `npm run check:styles` enforces the shared UI button/token contract. `LinkedScrollController` and its pane adapters are implemented and unit-tested, but are not wired into the application shell yet.
 
 The documentation map includes planned guide pages that have not been created yet. Existing pages are listed under Documentation Map above; entries labeled “Planned file (not currently present)” are planning targets, not current files.
 

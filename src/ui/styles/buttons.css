@@ -1,0 +1,99 @@
+/* Shared button foundation. Components add one size/layout variant and, when
+   needed, a semantic treatment; no component redefines the button reset. */
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+
+.ui-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ui-brand) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.ui-button--icon {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-color: var(--ui-border);
+  border-radius: 7px;
+  font-size: 9pt;
+}
+
+.ui-button--icon-compact {
+  width: 28px;
+  height: 28px;
+  border-color: var(--ui-border);
+  border-radius: 6px;
+}
+
+.ui-button--text {
+  width: 38px;
+  height: 26px;
+  padding: 0 3px;
+  border-radius: 5px;
+  font: 600 10px var(--font-ui);
+  white-space: nowrap;
+}
+
+.ui-button--icon-text {
+  min-height: 30px;
+  padding: 0 18px 0 14px;
+  border-color: var(--ui-border);
+  border-radius: 8px;
+  gap: 6px;
+  font-size: 10pt;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.ui-button--block {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+}
+
+.ui-button--modal {
+  min-height: 32px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-size: 10pt;
+  font-weight: 600;
+}
+
+.ui-button--modal.ui-button--full {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.ui-button-icon {
+  flex: 0 0 auto;
+}
+
+.ui-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1em;
+  height: 1em;
+  font-size: 18px;
+  line-height: 1;
+  text-align: center;
+}

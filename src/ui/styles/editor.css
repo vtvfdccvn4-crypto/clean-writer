@@ -5,11 +5,6 @@
   min-height: 0;
 }
 
-.editor-toolbar .panel-actions {
-  gap: 4px;
-  min-width: 0;
-}
-
 .markdown-toolbar {
   display: flex;
   flex: 0 0 40px;
@@ -22,30 +17,9 @@
   overflow-y: auto;
 }
 
-.toolbar-text-button {
-  width: 38px;
-  min-width: 0;
-  height: 26px;
-  padding: 0 3px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  display: grid;
-  place-items: center;
-  font: 600 10px var(--font-sans);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
 .markdown-symbol-button {
-  width: 38px;
-  min-width: 0;
-  height: 26px;
-  padding: 0 3px;
-  border: 1px solid transparent;
-  border-radius: 5px;
   display: grid;
   place-items: center;
-  cursor: pointer;
 }
 
 .markdown-symbol-button .toolbar-icon {
@@ -61,7 +35,7 @@
   min-height: 0;
   padding: 2pt;
   overflow: hidden;
-  background-color: var(--color-surface);
+  background-color: var(--ui-surface);
 }
 
 .editor-container {
@@ -79,7 +53,7 @@
   height: 100%;
   place-items: center;
   padding: 24px;
-  color: var(--color-text-muted, currentColor);
+  color: var(--ui-text-muted, currentColor);
   font: 500 12px var(--font-ui);
   text-align: center;
 }

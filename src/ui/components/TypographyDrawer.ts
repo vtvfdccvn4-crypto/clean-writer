@@ -55,6 +55,6 @@ export const typographyDrawerContentTemplate = (): string => `
         </div>
       </section>
 
-      <button id="btn-apply-typography" class="drawer-primary-button" type="button">Apply styles</button>
+      <button id="btn-apply-typography" class="ui-button ui-button--block" type="button">Apply styles</button>
     </div>
 `;

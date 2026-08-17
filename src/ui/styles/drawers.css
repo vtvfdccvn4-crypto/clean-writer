@@ -63,20 +63,6 @@
   line-height: 1.2;
 }
 
-.drawer-close-button,
-.icon-btn {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid var(--ui-border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition:
-    transform 120ms ease;
-}
-
 .drawer-body,
 .drawer-content {
   display: flex;
@@ -224,7 +210,7 @@
   left: 50%;
   right: auto;
   height: auto;
-  background: var(--color-surface);
+  background: var(--ui-surface);
   border: 1px solid var(--ui-border);
   border-radius: 14px;
   box-shadow: 0 28px 60px rgba(0, 0, 0, 0.28);
@@ -257,7 +243,7 @@
   grid-template-columns: 170px minmax(0, 1fr);
   flex: 1 1 auto;
   min-height: 0;
-  background: var(--color-surface);
+  background: var(--ui-surface);
 }
 
 .settings-tab-list {
@@ -267,7 +253,7 @@
   min-width: 0;
   padding: 8px;
   overflow-y: auto;
-  background: var(--color-surface);
+  background: var(--ui-surface);
   border-right: 1px solid var(--ui-border);
 }
 
@@ -494,26 +480,11 @@
   grid-column: 2;
 }
 
-.drawer-primary-button,
-.drawer-secondary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 34px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 10px;
-  cursor: pointer;
-  transition:
-    transform 120ms ease;
-}
-
 .settings-tab-panels {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--color-surface);
+  background: var(--ui-surface);
 }
 
 .settings-tab-panel {
@@ -521,12 +492,12 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--color-surface);
+  background: var(--ui-surface);
 }
 
 .settings-tab-panel > .drawer-body {
   height: 100%;
-  background: var(--color-surface);
+  background: var(--ui-surface);
 }
 
 .checkbox-field {

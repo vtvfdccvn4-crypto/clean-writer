@@ -5,7 +5,7 @@ export const symbolPickerDrawerTemplate = (): string => `
         <span class="drawer-eyebrow">Symbols</span>
         <span>Insert symbol</span>
       </div>
-      <button id="close-symbol-picker" class="drawer-close-button" type="button" aria-label="Close symbol picker">✕</button>
+      <button id="close-symbol-picker" class="ui-button ui-button--icon-compact drawer-close-button" type="button" aria-label="Close symbol picker">✕</button>
     </div>
 
     <div class="drawer-body">
@@ -19,7 +19,7 @@ export const symbolPickerDrawerTemplate = (): string => `
       <section class="drawer-card symbol-picker-section">
         <div class="symbol-picker-section-head">
           <span>Recent</span>
-          <button id="clear-symbol-picker-recents" class="drawer-secondary-button" type="button">Clear</button>
+          <button id="clear-symbol-picker-recents" class="ui-button ui-button--block" type="button">Clear</button>
         </div>
         <div id="symbol-picker-recent" class="symbol-grid" aria-label="Recent symbols"></div>
       </section>

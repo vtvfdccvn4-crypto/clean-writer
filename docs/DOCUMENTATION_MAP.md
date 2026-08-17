@@ -27,6 +27,9 @@ Primary source references:
 - The task panel contains the section/image explorer and project actions, while the shared panel contains the editor and preview split.
 - Legacy `src/ui/sidebar/`, `src/ui/workspace-layout.ts`, and `src/editor/section-templates.ts` files were removed from the active tree and have no current source references.
 - Release validation uses `npm run release:prep`; targeted browser and PWA smoke reruns are appropriate when diagnosing transient headless-browser timing failures.
+- `src/preview/navigation/LinkedScrollController.ts` and `LinkedScrollPanes.ts` are implemented and unit-tested as an opt-in extension point, but are not wired into the shipped UI.
+- `src/preview/css/document-features-css.ts` shares TOC and special-heading CSS generation between live and paginated lanes.
+- `src/ui/styles/buttons.css` and `src/ui/components/toolbarButton.ts` define the shared button foundation; `scripts/check-style-contract.mjs` and `test/style-contract.test.cjs` enforce it.
 
 ## Refactor Notes
 
@@ -932,7 +935,11 @@ Commands from `package.json`:
 | `npm run test:perf` | Run performance tests in `test/*.perf.cjs`. |
 | `npm run test:browser-smoke` | Run release browser smoke script. |
 | `npm run test:pwa-smoke` | Build and run web/PWA smoke script. |
-| `npm run release:prep` | Run tests, perf, browser smoke, and PWA smoke. |
+| `npm run check:styles` | Validate shared UI token/button and responsive-grid style contracts. |
+| `npm run check:bundle` | Enforce the initial JavaScript bundle budget. |
+| `npm run test:pdf-scale` | Run the 50/100/200/300-page pagination scale profile. |
+| `npm run test:pagedjs-patch` | Verify the pinned Paged.js patch is applied. |
+| `npm run release:prep` | Run unit tests, performance tests, PDF scale, browser smoke, and PWA shell smoke. It does not currently invoke `check:styles`, `check:bundle`, or `test:pagedjs-patch`. |
 | `npm run profile:preview` | Profile preview performance. |
 | `npm run profile:pagination` | Profile pagination performance. |
 | `npm run preview` | Preview built `dist-web` output. |

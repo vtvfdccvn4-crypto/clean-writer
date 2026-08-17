@@ -16,6 +16,6 @@ export const imageSettingsDrawerContentTemplate = (): string => `
         ${renderDrawerControl('Bottom margin (mm)', '<input id="image-margin-bottom" type="number" min="0" max="200" step="0.5">')}
       </div>
     </section>
-    <button id="btn-apply-image-settings" class="drawer-primary-button" type="button">Apply settings</button>
+    <button id="btn-apply-image-settings" class="ui-button ui-button--block" type="button">Apply settings</button>
   </div>
 `;

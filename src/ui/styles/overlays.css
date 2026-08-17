@@ -9,6 +9,27 @@
   backdrop-filter: blur(4px);
 }
 
+.project-flow-modal-overlay.is-selection-step .project-flow-modal-name-field,
+.project-flow-modal-overlay.is-selection-step .project-flow-modal-name-submit {
+  display: none;
+}
+
+.project-flow-modal-overlay.is-name-entry-step #btn-modal-new-dir,
+.project-flow-modal-overlay.is-name-entry-step #btn-modal-new-opfs {
+  display: none;
+}
+
+.project-flow-modal-name-field {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.project-flow-modal-name-submit {
+  display: inline-flex;
+  margin-top: 8px;
+}
+
 .modal-dialog {
   display: flex;
   width: 400px;
@@ -57,12 +78,12 @@
   border-radius: 6px;
 }
 
-.modal-option-group .btn,
+.modal-option-group .ui-button--modal,
 .recent-item-btn {
   width: 100%;
 }
 
-.modal-option-group .btn {
+.modal-option-group .ui-button--modal {
   justify-content: flex-start;
 }
 
@@ -72,19 +93,6 @@
   gap: 8px;
   padding: 12px 20px;
   border-top: 1px solid var(--ui-border);
-}
-
-.modal-dialog .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 32px;
-  padding: 0 16px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 10pt;
-  font-weight: 600;
 }
 
 .recent-item-btn {
@@ -167,7 +175,7 @@
     justify-content: stretch;
   }
 
-  .modal-actions .btn {
+  .modal-actions .ui-button--modal {
     flex: 1 1 140px;
   }
 

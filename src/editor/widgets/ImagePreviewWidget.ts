@@ -1,4 +1,5 @@
 import { WidgetType } from '@codemirror/view';
+import { materialIcon } from '../../ui/components/icon';
 
 export class ImagePreviewWidget extends WidgetType {
   private readonly alt: string;
@@ -77,8 +78,14 @@ export class ImagePreviewWidget extends WidgetType {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'cm-image-preview-align-button';
-      button.textContent = alignment === 'left' ? 'Left' : alignment === 'center' ? 'Center' : 'Right';
+      const iconName = alignment === 'left'
+        ? 'align_horizontal_left'
+        : alignment === 'center'
+          ? 'align_horizontal_center'
+          : 'align_horizontal_right';
+      button.innerHTML = materialIcon(iconName);
       button.setAttribute('aria-pressed', String(this.alignment === alignment));
+      button.setAttribute('aria-label', `Align image ${alignment}`);
       button.title = `Align image ${alignment}`;
       button.addEventListener('click', () => this.onEdit({ alignment }));
       alignmentControls.appendChild(button);

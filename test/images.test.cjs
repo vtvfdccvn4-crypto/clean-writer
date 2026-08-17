@@ -70,9 +70,15 @@ test('image attributes apply width and alignment styles to the rendered preview'
   assert.match(html, /data-image-alignment="center"/);
 });
 
+test('centered image attributes stay centered with unequal vertical margins', async () => {
+  const html = await compileMarkdown('![Safe](images/safe.png){align=center margin="4mm 0 8mm"}');
+  assert.match(html, /style="margin: 4mm auto 8mm; display: block;\s*"/);
+  assert.match(html, /data-image-alignment="center"/);
+});
+
 test('image attributes preserve left and right alignment with vertical margins', async () => {
   const html = await compileMarkdown('![Safe](images/safe.png){align=right margin="4mm 0 8mm"}');
-  assert.match(html, /style="margin: 4mm 0 8mm; display: block; margin-left: auto;\s*"/);
+  assert.match(html, /style="margin: 4mm 0 8mm auto; display: block;\s*"/);
   assert.match(html, /data-image-alignment="right"/);
 });
 

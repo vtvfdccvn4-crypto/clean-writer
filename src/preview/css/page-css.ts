@@ -1,6 +1,7 @@
 import type { PageSetup } from '../../state';
-import { resolveHeaderFooterCell, resolvePageTocStyles, resolveSpecialHeadingStyle } from '../../styles/resolved-document-styles';
+import { resolveHeaderFooterCell } from '../../styles/resolved-document-styles';
 import { state } from '../../state';
+import { generateSpecialHeadingCss, generateTocCss } from './document-features-css';
 
 export const resolveMarginContent = (content: string, pageNumber?: number) => {
   const meta = state.current.projectMetadata;
@@ -73,8 +74,6 @@ const renderMarginBox = (box: string, cell?: any) => {
   `;
 };
 
-const escapeCssAttributeValue = (value: string): string => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-
 export function generatePageCss(s: PageSetup): string {
   const shouldShowHeaders = state.current.isFullDocMode;
 
@@ -83,47 +82,6 @@ export function generatePageCss(s: PageSetup): string {
 
   const header = shouldShowHeaders ? (s.header || emptyBox) : emptyBox;
   const footer = shouldShowHeaders ? (s.footer || emptyBox) : emptyBox;
-  const tocLineHeight = typeof s.toc?.lineHeight === 'number' && Number.isFinite(s.toc.lineHeight)
-    ? Math.min(3, Math.max(0.5, s.toc.lineHeight))
-    : 1.2;
-  const tocStyles = resolvePageTocStyles(s);
-  const specialHeadingCss = (s.specialHeadings || []).map(item => {
-    const style = resolveSpecialHeadingStyle(item);
-    const id = escapeCssAttributeValue(item.id);
-    return `
-    .special-heading[data-special-heading-id="${id}"] {
-      break-before: ${item.breakBefore ? 'page' : 'auto'} !important;
-      page-break-before: ${item.breakBefore ? 'always' : 'auto'} !important;
-    }
-    .pagedjs_page_content .special-heading[data-special-heading-id="${id}"] {
-      font-family: "${style.fontFamily}", serif !important;
-      font-size: ${style.fontSize}pt !important;
-      color: ${style.color} !important;
-      font-weight: ${style.isBold ? 'bold' : 'normal'} !important;
-      font-style: ${style.isItalic ? 'italic' : 'normal'} !important;
-      text-transform: ${style.isAllCaps ? 'uppercase' : 'none'} !important;
-      line-height: ${style.lineHeight} !important;
-      margin-top: ${style.marginTop}pt !important;
-      margin-bottom: ${style.marginBottom}pt !important;
-    }
-  `;
-  }).join('');
-  const renderTocLevelStyle = (level: number) => {
-    const style = tocStyles[`h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'];
-    return `
-      .table-of-contents .toc-item.toc-level-${level} {
-        font-family: "${style.fontFamily}", serif;
-        font-size: ${style.fontSize}pt;
-        color: ${style.color};
-        font-weight: ${style.isBold ? 'bold' : 'normal'};
-        font-style: ${style.isItalic ? 'italic' : 'normal'};
-      }
-      .table-of-contents .toc-item.toc-level-${level} .toc-label {
-        text-transform: ${style.isAllCaps ? 'uppercase' : 'none'};
-      }
-    `;
-  };
-
   return `${chapterMarginOverrideCss}
 
     @page {
@@ -195,7 +153,7 @@ export function generatePageCss(s: PageSetup): string {
     .heading-number {
       font: inherit;
     }
-    ${specialHeadingCss}
+    ${generateSpecialHeadingCss(s, { includePageBreaks: true })}
 
     .page-no-header {
       /* Marker class resolved after pagination to avoid page reflow. */
@@ -221,46 +179,6 @@ export function generatePageCss(s: PageSetup): string {
     }
 
     /* Table of Contents */
-    .table-of-contents {
-      margin-bottom: 2em;
-    }
-    .table-of-contents .toc-list {
-      list-style: none;
-      padding-left: 0;
-    }
-    .table-of-contents .toc-item {
-      margin: 0.2em 0;
-      line-height: ${tocLineHeight};
-    }
-    .table-of-contents .toc-item.toc-level-1 { margin-left: 0; margin-top: 1em; }
-    .table-of-contents .toc-item.toc-level-2 { margin-left: 1.5em; }
-    .table-of-contents .toc-item.toc-level-3 { margin-left: 3em; }
-    .table-of-contents .toc-item.toc-level-4 { margin-left: 4.5em; }
-    .table-of-contents .toc-item.toc-level-5 { margin-left: 6em; }
-    .table-of-contents .toc-item.toc-level-6 { margin-left: 7.5em; }
-    ${[1, 2, 3, 4, 5, 6].map(renderTocLevelStyle).join('')}
-    
-    .table-of-contents .toc-link {
-      display: flex;
-      align-items: baseline;
-      gap: 0.4em;
-      text-decoration: none;
-      color: inherit;
-    }
-    .table-of-contents .toc-label {
-      min-width: 0;
-    }
-    .table-of-contents .toc-leader {
-      flex: 1 1 auto;
-      min-width: 1.5em;
-      border-bottom: 1px dotted currentColor;
-      transform: translateY(-0.2em);
-    }
-    .table-of-contents .toc-link::after {
-      content: target-counter(attr(href), page);
-      flex: 0 0 auto;
-      min-width: 2ch;
-      text-align: right;
-    }
+    ${generateTocCss(s, { includePageCounters: true })}
   `;
 }

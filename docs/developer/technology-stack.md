@@ -28,6 +28,7 @@ Clear Writer is a browser/PWA application. It does not use Electron, a desktop s
 - Editor behavior is split between CodeMirror compartments and small command helpers: the Markdown toolbar and the `*` selection-wrapping shortcut reuse `src/editor/markdown-commands.ts`, while `src/editor/extensions/editorBehavior.ts` owns editor preferences such as line numbers, matching-text highlight, bracket matching, and rectangular selection.
 - The UI is built with TypeScript DOM components and CSS. There is no React, Vue, Angular, or other component framework.
 - `@fontsource/inter` and `@fontsource/inter-tight` provide bundled interface fonts.
+- Material Symbols and Font Awesome provide the current icon assets; shared icon and toolbar-button markup is centralized in `src/ui/components/icon.ts` and `src/ui/components/toolbarButton.ts`.
 - DOM updates use focused TypeScript controllers and the existing preview/rendering boundaries; there is no general-purpose DOM morphing dependency.
 
 ## Markdown And Document Pipeline
@@ -88,6 +89,12 @@ Document activation scheduling is isolated in
 serialized explicit navigation, stale activation checks, and the
 `whenDocumentReady(path)` wait boundary. Rendering remains injected from the
 facade during the incremental extraction so editor behavior stays stable.
+
+The preview feature generators in `src/preview/css/document-features-css.ts`
+are shared by live and paginated output, with separate options for page breaks
+and TOC page counters. `src/ui/styles/buttons.css` owns shared button variants,
+and `src/ui/styles/global-defaults.css` owns application UI tokens; the
+`npm run check:styles` contract test guards those boundaries.
 
 The closed-project surface is isolated in `src/ui/WelcomeController.ts`. It
 owns welcome markup, recent workspace lookup, and the New/Open action bridges;

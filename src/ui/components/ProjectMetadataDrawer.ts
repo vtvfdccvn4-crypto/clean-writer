@@ -12,7 +12,7 @@ export const projectMetadataDrawerTemplate = (): string => `
         <span class="drawer-eyebrow">Project</span>
         <span>Metadata</span>
       </div>
-      <button id="btn-close-metadata-drawer" class="drawer-close-button" type="button" aria-label="Close project metadata">✕</button>
+      <button id="btn-close-metadata-drawer" class="ui-button ui-button--icon-compact drawer-close-button" type="button" aria-label="Close project metadata">✕</button>
     </div>
     <div class="drawer-body">
       <section class="drawer-card">
@@ -45,7 +45,7 @@ export const projectMetadataDrawerTemplate = (): string => `
         ${renderField('meta-prod-version', 'Product version', 'Product version')}
       </section>
 
-      <button id="btn-apply-metadata" class="drawer-primary-button" type="button">Apply settings</button>
+      <button id="btn-apply-metadata" class="ui-button ui-button--block" type="button">Apply settings</button>
     </div>
   </div>
 `;
