@@ -4,13 +4,30 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
 let server;
 let compileExportSnapshot;
+let preloadDocumentAssets;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24691 } } });
-  ({ compileExportSnapshot } = await server.ssrLoadModule('/src/services/ExportSnapshotService.ts'));
+  ({ compileExportSnapshot, preloadDocumentAssets } = await server.ssrLoadModule('/src/services/ExportSnapshotService.ts'));
 });
 
 after(async () => server?.close());
+
+test('document asset preloading deduplicates Markdown and HTML image references', async () => {
+  const calls = [];
+  await preloadDocumentAssets([
+    '![First](images/shared.png)',
+    '![Second](images/shared.png)',
+    '<img src="images/shared.png">',
+    '<img src="images/other.png">'
+  ].join('\n'), {
+    preloadImages: async paths => calls.push(paths),
+    resolveSync: path => path,
+    releaseAll() {}
+  });
+
+  assert.deepEqual(calls, [['images/shared.png', 'images/other.png']]);
+});
 
 test('export snapshot preserves sections, page breaks, and current Markdown', async () => {
   const files = new Map([

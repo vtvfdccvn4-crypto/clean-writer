@@ -3,10 +3,11 @@ import { state } from '../state';
 /** Adds per-definition document-wide counters after all sections have been merged. */
 export function applySpecialHeadings(root: ParentNode): void {
   const definitions = state.current.pageSetup.specialHeadings || [];
+  const definitionsById = new Map(definitions.map(definition => [definition.id, definition]));
   const counters = new Map(definitions.map(item => [item.id, item.counterStart - 1]));
   root.querySelectorAll<HTMLElement>('.special-heading[data-special-heading-id]').forEach(heading => {
     const id = heading.dataset.specialHeadingId || '';
-    const definition = definitions.find(item => item.id === id);
+    const definition = definitionsById.get(id);
     if (!definition) return;
     const next = (counters.get(id) ?? definition.counterStart - 1) + 1;
     counters.set(id, next);

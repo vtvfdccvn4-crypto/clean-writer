@@ -46,6 +46,7 @@ export class EditorManager {
   private isFinalPrintPreview = true;
   private canonicalEditTransitionInFlight: Promise<void> | null = null;
   private readonly pageGuides: PageGuideCoordinator;
+  private pageGuideLayoutRevision = 0;
   private readonly isolatedPaginationHost = new IsolatedPaginationHost();
   private readonly pdfPreviewPageGuidePaginator: PdfPreviewPageGuidePaginator;
   private latestCompiledPreview: {
@@ -146,30 +147,30 @@ export class EditorManager {
     state.onPageSetupChanged(() => {
       this.preview.applyPageSetup(state.current.pageSetup);
       this.applyDocumentContentWidth();
-      this.scheduleCanonicalPageBreakGuides();
+      this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onTypographySetupChanged(() => {
       this.preview.applyTypographySetup(state.current.typographySetup);
-      this.scheduleCanonicalPageBreakGuides();
+      this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onListSetupChanged(() => {
       this.preview.applyListSetup(state.current.listSetup);
-      this.scheduleCanonicalPageBreakGuides();
+      this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onTableSetupChanged(() => {
       this.preview.applyTableSetup(state.current.tableSetup);
-      this.scheduleCanonicalPageBreakGuides();
+      this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onImageSetupChanged(() => {
       this.preview.applyImageSetup(state.current.imageSetup);
-      this.scheduleCanonicalPageBreakGuides();
+      this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onProjectMetadataChanged(() => {
-      this.scheduleCanonicalPageBreakGuides();
+      this.scheduleCanonicalPageBreakGuides(true);
       this.activation.request('project metadata change');
     });
-    state.onCustomStylesChanged(() => this.scheduleCanonicalPageBreakGuides());
-    state.onCustomBlockStylesChanged(() => this.scheduleCanonicalPageBreakGuides());
+    state.onCustomStylesChanged(() => this.scheduleCanonicalPageBreakGuides(true));
+    state.onCustomBlockStylesChanged(() => this.scheduleCanonicalPageBreakGuides(true));
 
     // Apply initial defaults
     this.preview.applyPageSetup(state.current.pageSetup);
@@ -349,6 +350,7 @@ export class EditorManager {
     const endJobCreation = timing.start('create-pagination-job');
     const job = createPdfPreviewJob(initialDocument.html, this.capturePrintLayout(), this.platform.assetResolver);
     endJobCreation();
+    this.pageGuides.cancel();
     const renderResult = await this.preview.forceRenderIsolated(
       job,
       initialDocument.html,
@@ -539,6 +541,7 @@ export class EditorManager {
       compiled: initialPreview
     };
 
+    this.pageGuides.cancel();
     await this.preview.forceRenderIsolated(
       createPdfPreviewJob(initialPreview.html, this.capturePrintLayout(), this.platform.assetResolver),
       initialPreview.html,
@@ -716,6 +719,7 @@ export class EditorManager {
       || state.current.activeFile !== activeFile
       || !this.currentEditorView) return;
     if (this.isFinalPrintPreview) {
+      this.pageGuides.cancel();
       await this.preview.forceRenderIsolated(
         createPdfPreviewJob(compiled.html, this.capturePrintLayout(), this.platform.assetResolver),
         compiled.html,
@@ -818,15 +822,21 @@ export class EditorManager {
   }
 
   /** Debounces an isolated print-layout pass without delaying editor feedback. */
-  private scheduleCanonicalPageBreakGuides(): void {
-    if (!this.isFinalPrintPreview) this.pageGuides.schedule();
+  private scheduleCanonicalPageBreakGuides(layoutChanged = false): void {
+    if (layoutChanged) this.pageGuideLayoutRevision += 1;
+    if (!this.isFinalPrintPreview) this.pageGuides.schedule(layoutChanged ? 'layout' : 'typing');
   }
 
   private getPageGuideSnapshot(): PageGuideSnapshot | null {
     const editor = this.currentEditorView;
     const { projectRef, activeFile } = state.current;
     if (!editor || !projectRef || !activeFile || this.isFinalPrintPreview) return null;
-    return { projectId: projectRef.id, documentPath: activeFile, markdown: editor.getValue() };
+    return {
+      projectId: projectRef.id,
+      documentPath: activeFile,
+      markdown: editor.getValue(),
+      layoutRevision: this.pageGuideLayoutRevision
+    };
   }
 
   private async computePageGuides(snapshot: PageGuideSnapshot, signal: AbortSignal): Promise<PageGuideComputation> {
@@ -874,7 +884,8 @@ export class EditorManager {
       && state.current.projectRef?.id === snapshot.projectId
       && state.current.activeFile === snapshot.documentPath
       && this.currentFilePath === snapshot.documentPath
-      && this.currentEditorView?.getValue() === snapshot.markdown;
+      && this.currentEditorView?.getValue() === snapshot.markdown
+      && this.pageGuideLayoutRevision === snapshot.layoutRevision;
   }
 
   private updateSectionStats(markdown: string | null) {

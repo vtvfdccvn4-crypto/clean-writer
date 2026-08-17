@@ -60,6 +60,8 @@ test('isolated PDF preview is exposed through a dedicated button and boot route'
   assert.match(guides, /requestPageGuides/);
   assert.match(host, /status: 'cancelled'/);
   assert.match(host, /PaginationTimeoutError/);
+  assert.match(host, /FRAME_STARTUP_TIMEOUT_MS = 15_000/);
+  assert.match(host, /frame\.removeEventListener\('error', frameError\)/);
   assert.match(host, /estimatePdfPreviewBudget/);
   assert.match(budget, /PRINT_MAX_TIMEOUT_MS = 300_000/);
   assert.match(budget, /estimatedPages/);

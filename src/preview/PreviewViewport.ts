@@ -47,6 +47,13 @@ export class PreviewViewport {
     this.resizeObserver.observe(scrollParent);
   }
 
+  public dispose(): void {
+    if (this.resizeFrame !== null) cancelAnimationFrame(this.resizeFrame);
+    this.resizeFrame = null;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+  }
+
   public scrollToTop() {
     // Document activation is a viewport reset, not user navigation. Smooth
     // scrolling leaves the previous document visibly moving during a render.

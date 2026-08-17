@@ -1,6 +1,6 @@
 import { compilePreviewDocument } from '../compiler';
 import type { CompiledPreview } from '../compiler';
-import { scanCustomBlockStyleIcons, scanMarkdownForImages } from '../services/ExportSnapshotService';
+import { preloadDocumentAssets } from '../services/ExportSnapshotService';
 import { PreviewController } from '../preview';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { AssetResolver } from '../platform/types';
@@ -28,7 +28,6 @@ export class PreviewCoordinator {
   private liveCompileFrame: number | null = null;
   private liveCompileGeneration = 0;
   private liveCompileRunning = false;
-  private readonly preparedPreviewAssets = new Set<string>();
   private readonly incrementalCompiler = new IncrementalPreviewCompiler();
 
   constructor(
@@ -40,7 +39,7 @@ export class PreviewCoordinator {
     paginationHost?: IsolatedPaginationHost
   ) {
     this.assetResolver = assetResolver;
-    this.controller = new PreviewController(stage, assetResolver, {
+    this.controller = new PreviewController(stage, {
       onPreviewSourceClick,
       onPreviewSourceTargetClick,
       createIsolatedJob,
@@ -89,7 +88,6 @@ export class PreviewCoordinator {
 
   clear(): void {
     this.beginRevision();
-    this.preparedPreviewAssets.clear();
     this.incrementalCompiler.reset();
     this.controller.clear();
   }
@@ -98,9 +96,20 @@ export class PreviewCoordinator {
     this.controller.clearVisiblePreview();
   }
 
+  /** Releases scheduled compilation and browser-owned preview resources. */
+  dispose(): void {
+    this.liveCompileGeneration += 1;
+    if (this.liveCompileFrame !== null) window.cancelAnimationFrame(this.liveCompileFrame);
+    this.liveCompileFrame = null;
+    this.pendingLiveCompile?.resolve(null);
+    this.pendingLiveCompile = null;
+    this.incrementalCompiler.reset();
+    this.controller.dispose();
+  }
+
 
   async compileDocument(markdown: string, metricKind: 'single-document-edit' | 'single-document-load'): Promise<CompiledPreview> {
-    await this.preparePreviewAssets(markdown);
+    await preloadDocumentAssets(markdown, this.assetResolver);
     const started = performance.now();
     const compiled = await compilePreviewDocument(markdown, this.assetResolver, { sourceLineOffset: 2 });
     previewMetrics.recordPreviewCompile(metricKind, performance.now() - started);
@@ -183,7 +192,7 @@ export class PreviewCoordinator {
     this.liveCompileRunning = true;
     try {
       const started = performance.now();
-      await this.preparePreviewAssets(request.markdown);
+      await preloadDocumentAssets(request.markdown, this.assetResolver);
       let compiled: CompiledPreview | null = null;
       try {
         compiled = await this.incrementalCompiler.compile(request.markdown, this.assetResolver);
@@ -208,11 +217,4 @@ export class PreviewCoordinator {
     }
   }
 
-  private async preparePreviewAssets(markdown: string): Promise<void> {
-    const requestedAssets = [...scanMarkdownForImages(markdown), ...scanCustomBlockStyleIcons()];
-    const assetsToPrepare = requestedAssets.filter(asset => !this.preparedPreviewAssets.has(asset));
-    if (assetsToPrepare.length === 0) return;
-    await this.assetResolver.preloadImages(assetsToPrepare);
-    assetsToPrepare.forEach(asset => this.preparedPreviewAssets.add(asset));
-  }
 }

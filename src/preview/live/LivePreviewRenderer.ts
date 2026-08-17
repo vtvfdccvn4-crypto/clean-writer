@@ -21,27 +21,28 @@ export class LivePreviewRenderer {
   private current: LivePreviewDocument | null = null;
   private readonly container: HTMLElement;
   private readonly metadata = new WeakMap<HTMLElement, BlockMetadata>();
+  private readonly imageDimensions = new Map<string, ImageDimensions>();
+  private readonly trackedImages = new WeakSet<HTMLImageElement>();
   private pageBreakGuides: readonly CanonicalPageBreakGuide[] = [];
 
   constructor(container: HTMLElement) {
     this.container = container;
   }
 
-  public async render(
+  public render(
     html: string,
     manifest: readonly PreviewSourceManifestEntry[],
     pageSetup: PageSetup,
     isCurrent: () => boolean = () => true
-  ): Promise<LivePreviewDocument | null> {
+  ): LivePreviewDocument | null {
     const source = document.createElement('div');
     source.innerHTML = html;
-    bindImageFallbacks(source);
     applyHeadingNumbering(source);
     applySpecialHeadings(source);
     applyTableOfContents(source, pageSetup.toc?.maxLevel);
-    await reserveImageLayout(source);
+    this.applyKnownImageDimensions(source);
     if (!isCurrent()) return null;
-    const next = createLivePreviewDocument(source.innerHTML, manifest);
+    const next = createLivePreviewDocument(source, manifest);
     const anchor = this.captureAnchor();
     const existing = new Map<string, HTMLElement>();
     const unchangedByContent = new Map<string, HTMLElement[]>();
@@ -78,6 +79,8 @@ export class LivePreviewRenderer {
       obsolete.remove();
     }
     this.current = next;
+    bindImageFallbacks(this.container);
+    this.rememberImageDimensions(this.container);
     this.applyPageBreakGuides();
     this.restoreAnchor(anchor);
     return next;
@@ -85,6 +88,7 @@ export class LivePreviewRenderer {
 
   public clear(): void {
     this.current = null;
+    this.imageDimensions.clear();
     this.container.replaceChildren();
   }
 
@@ -116,30 +120,28 @@ export class LivePreviewRenderer {
   }
 
   private applyPageBreakGuides(): void {
+    if (this.pageBreakGuides.length === 0) {
+      this.clearPageBreakGuideMarkers();
+      return;
+    }
+
     const blocks = new Map<HTMLElement, CanonicalPageBreakGuide[]>();
+    const blockById = new Map<string, HTMLElement>();
+    Array.from(this.container.children).forEach(node => {
+      if (node instanceof HTMLElement && node.dataset.previewBlockId) {
+        blockById.set(node.dataset.previewBlockId, node);
+      }
+    });
+    const blockByAnchor = new Map<string, HTMLElement>();
+    this.container.querySelectorAll<HTMLElement>('[data-ref]').forEach(source => {
+      const anchor = source.getAttribute('data-ref');
+      const block = source.closest<HTMLElement>('.live-preview-block');
+      if (anchor && block && !blockByAnchor.has(anchor)) blockByAnchor.set(anchor, block);
+    });
     let mappedGuideCount = 0;
     this.pageBreakGuides.forEach(guide => {
-      const source = Array.from(this.container.querySelectorAll<HTMLElement>('[data-ref]'))
-        .find(element => element.getAttribute('data-ref') === guide.anchor);
-      let block = source?.closest<HTMLElement>('.live-preview-block');
-      if (!block && guide.sourceLine && this.current) {
-        const matching = this.current.blocks.find(candidate => candidate.manifest.some(entry =>
-          entry.range.startLine <= guide.sourceLine!
-          && entry.range.endLine >= guide.sourceLine!
-        ));
-        const nearest = matching ?? this.current.blocks
-          .flatMap(candidate => candidate.manifest.map(entry => ({ candidate, entry })))
-          .filter(item => item.entry.range.startLine >= guide.sourceLine!)
-          .sort((left, right) => left.entry.range.startLine - right.entry.range.startLine)[0]?.candidate
-          ?? [...this.current.blocks].reverse().find(candidate => candidate.manifest.some(entry =>
-            entry.range.startLine <= guide.sourceLine!
-          ));
-        if (nearest) {
-          block = Array.from(this.container.children).find(node =>
-            node instanceof HTMLElement && node.dataset.previewBlockId === nearest.id
-          ) as HTMLElement | undefined;
-        }
-      }
+      const block = blockByAnchor.get(guide.anchor)
+        ?? this.resolveGuideBlockBySourceLine(guide.sourceLine, blockById);
       if (!block) return;
       const guidesForBlock = blocks.get(block) ?? [];
       guidesForBlock.push(guide);
@@ -147,15 +149,11 @@ export class LivePreviewRenderer {
       mappedGuideCount += 1;
     });
 
-    // An empty list is an explicit clear. A non-empty result that cannot map
-    // to the current canonical DOM is stale or from another render; preserve
-    // the last valid guide set instead of making it disappear.
-    if (this.pageBreakGuides.length > 0 && mappedGuideCount < this.pageBreakGuides.length) return;
-    this.container.querySelectorAll('.canonical-page-break-guide').forEach(guide => guide.remove());
-    this.container.querySelectorAll('.canonical-page-break-before').forEach(block => {
-      block.classList.remove('canonical-page-break-before');
-    });
-    if (this.pageBreakGuides.length === 0) return;
+    // A non-empty result that cannot map to the current canonical DOM is stale
+    // or from another render; preserve the last valid guide set instead of
+    // making it disappear.
+    if (mappedGuideCount < this.pageBreakGuides.length) return;
+    this.clearPageBreakGuideMarkers();
 
     // Build each block's replacement fragment before touching the visible DOM,
     // so a completed background result appears as one synchronous update.
@@ -172,6 +170,31 @@ export class LivePreviewRenderer {
       });
       block.before(fragment);
     });
+  }
+
+  private clearPageBreakGuideMarkers(): void {
+    this.container.querySelectorAll<HTMLElement>('.canonical-page-break-guide, .canonical-page-break-before').forEach(element => {
+      if (element.classList.contains('canonical-page-break-guide')) element.remove();
+      else element.classList.remove('canonical-page-break-before');
+    });
+  }
+
+  private resolveGuideBlockBySourceLine(
+    sourceLine: number | undefined,
+    blockById: ReadonlyMap<string, HTMLElement>
+  ): HTMLElement | undefined {
+    if (sourceLine === undefined || !this.current) return undefined;
+    const containing = this.current.blocks.find(candidate => candidate.manifest.some(entry =>
+      entry.range.startLine <= sourceLine && entry.range.endLine >= sourceLine
+    ));
+    const nearest = containing ?? this.current.blocks
+      .flatMap(candidate => candidate.manifest.map(entry => ({ candidate, entry })))
+      .filter(item => item.entry.range.startLine >= sourceLine)
+      .sort((left, right) => left.entry.range.startLine - right.entry.range.startLine)[0]?.candidate
+      ?? [...this.current.blocks].reverse().find(candidate => candidate.manifest.some(entry =>
+        entry.range.startLine <= sourceLine
+      ));
+    return nearest ? blockById.get(nearest.id) : undefined;
   }
 
   private captureAnchor(): ScrollAnchor | null {
@@ -208,6 +231,37 @@ export class LivePreviewRenderer {
     restore();
     window.requestAnimationFrame(restore);
   }
+
+  private applyKnownImageDimensions(root: ParentNode): void {
+    root.querySelectorAll<HTMLImageElement>('img').forEach(image => {
+      const dimensions = this.imageDimensions.get(imageKey(image)) ?? dimensionsFrom(image);
+      if (!dimensions) return;
+      this.imageDimensions.set(imageKey(image), dimensions);
+      applyImageDimensions(image, dimensions);
+    });
+  }
+
+  private rememberImageDimensions(root: ParentNode): void {
+    root.querySelectorAll<HTMLImageElement>('img').forEach(image => {
+      const knownDimensions = this.imageDimensions.get(imageKey(image));
+      if (knownDimensions) {
+        applyImageDimensions(image, knownDimensions);
+        return;
+      }
+      const remember = () => {
+        const dimensions = dimensionsFrom(image);
+        if (!dimensions) return;
+        this.imageDimensions.set(imageKey(image), dimensions);
+        applyImageDimensions(image, dimensions);
+      };
+      if (image.complete) {
+        remember();
+      } else if (!this.trackedImages.has(image)) {
+        this.trackedImages.add(image);
+        image.addEventListener('load', remember, { once: true });
+      }
+    });
+  }
 }
 
 function createBlockSignature(block: LivePreviewBlock): string {
@@ -225,31 +279,22 @@ interface BlockMetadata {
   signature: string;
 }
 
-/**
- * Give images intrinsic dimensions before their block enters the live stage.
- * The browser can therefore lay out the block once rather than shifting the
- * entire document when an image finishes decoding.
- */
-async function reserveImageLayout(root: ParentNode): Promise<void> {
-  const images = Array.from(root.querySelectorAll<HTMLImageElement>('img'));
-  await Promise.all(images.map(async image => {
-    if (!image.complete) {
-      await new Promise<void>(resolve => {
-        const timeout = window.setTimeout(resolve, 2500);
-        image.addEventListener('load', () => {
-          window.clearTimeout(timeout);
-          resolve();
-        }, { once: true });
-        image.addEventListener('error', () => {
-          window.clearTimeout(timeout);
-          resolve();
-        }, { once: true });
-      });
-    }
-    if (image.naturalWidth > 0 && image.naturalHeight > 0) {
-      image.width = image.naturalWidth;
-      image.height = image.naturalHeight;
-      image.style.height = 'auto';
-    }
-  }));
+interface ImageDimensions {
+  width: number;
+  height: number;
+}
+
+function imageKey(image: HTMLImageElement): string {
+  return image.currentSrc || image.src;
+}
+
+function dimensionsFrom(image: HTMLImageElement): ImageDimensions | null {
+  if (image.naturalWidth <= 0 || image.naturalHeight <= 0) return null;
+  return { width: image.naturalWidth, height: image.naturalHeight };
+}
+
+function applyImageDimensions(image: HTMLImageElement, dimensions: ImageDimensions): void {
+  image.width = dimensions.width;
+  image.height = dimensions.height;
+  image.style.height = 'auto';
 }

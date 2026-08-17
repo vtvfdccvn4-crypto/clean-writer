@@ -24,10 +24,12 @@ interface SectionEnvelope {
   bodyStartLine: number;
 }
 
+const MAX_CONCURRENT_BLOCK_COMPILATIONS = 4;
+
 /**
  * Compiles only Markdown blocks whose source changed. The document wrapper is
- * preserved while individual top-level Markdown AST nodes are reconciled with
- * an LCS match against the previous revision.
+ * preserved while unchanged top-level Markdown AST nodes reuse their prior
+ * compiled output through linear, content-keyed matching.
  */
 export class IncrementalPreviewCompiler {
   private previous: readonly CompiledBlock[] = [];
@@ -43,11 +45,11 @@ export class IncrementalPreviewCompiler {
     if (!sourceBlocks) return null;
 
     const reusable = matchUnchangedBlocks(this.previous, sourceBlocks);
-    const blocks = await Promise.all(sourceBlocks.map(async (source, index) => {
+    const blocks = await mapWithConcurrency(sourceBlocks, MAX_CONCURRENT_BLOCK_COMPILATIONS, async (source, index) => {
       const previous = reusable.get(index);
       if (previous) return { ...previous, startLine: source.startLine };
       return this.compileBlock(envelope, source, assetResolver);
-    }));
+    });
     this.previous = blocks;
     return assemblePreview(envelope, blocks);
   }
@@ -114,30 +116,49 @@ function parseSourceBlocks(body: string, bodyStartLine: number): SourceBlock[] |
   return blocks;
 }
 
-function matchUnchangedBlocks(previous: readonly CompiledBlock[], next: readonly SourceBlock[]): Map<number, CompiledBlock> {
-  const table = Array.from({ length: previous.length + 1 }, () => new Uint32Array(next.length + 1));
-  for (let oldIndex = previous.length - 1; oldIndex >= 0; oldIndex -= 1) {
-    for (let newIndex = next.length - 1; newIndex >= 0; newIndex -= 1) {
-      table[oldIndex]![newIndex] = previous[oldIndex]!.markdown === next[newIndex]!.markdown
-        ? table[oldIndex + 1]![newIndex + 1]! + 1
-        : Math.max(table[oldIndex + 1]![newIndex]!, table[oldIndex]![newIndex + 1]!);
-    }
-  }
-  const matched = new Map<number, CompiledBlock>();
-  let oldIndex = 0;
-  let newIndex = 0;
-  while (oldIndex < previous.length && newIndex < next.length) {
-    if (previous[oldIndex]!.markdown === next[newIndex]!.markdown) {
-      matched.set(newIndex, previous[oldIndex]!);
-      oldIndex += 1;
-      newIndex += 1;
-    } else if (table[oldIndex + 1]![newIndex]! >= table[oldIndex]![newIndex + 1]!) {
-      oldIndex += 1;
-    } else {
-      newIndex += 1;
-    }
-  }
+export function matchUnchangedBlocks<T extends { markdown: string }>(
+  previous: readonly T[],
+  next: readonly { markdown: string }[]
+): Map<number, T> {
+  const reusableByMarkdown = new Map<string, T[]>();
+  previous.forEach(block => {
+    const candidates = reusableByMarkdown.get(block.markdown);
+    if (candidates) candidates.push(block);
+    else reusableByMarkdown.set(block.markdown, [block]);
+  });
+
+  const nextCandidateIndex = new Map<string, number>();
+  const matched = new Map<number, T>();
+  next.forEach((block, index) => {
+    const markdown = block.markdown;
+    const candidates = reusableByMarkdown.get(markdown);
+    const candidateIndex = nextCandidateIndex.get(markdown) ?? 0;
+    const candidate = candidates?.[candidateIndex];
+    if (!candidate) return;
+    matched.set(index, candidate);
+    nextCandidateIndex.set(markdown, candidateIndex + 1);
+  });
   return matched;
+}
+
+/** Maps source-order work with a bounded number of active asynchronous jobs. */
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  maxConcurrency: number,
+  map: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+      results[index] = await map(items[index]!, index);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, maxConcurrency), items.length) }, worker));
+  return results;
 }
 
 function assemblePreview(envelope: SectionEnvelope, blocks: readonly CompiledBlock[]): CompiledPreview {

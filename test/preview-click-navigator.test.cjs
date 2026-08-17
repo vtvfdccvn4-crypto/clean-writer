@@ -109,6 +109,20 @@ test('keeps visible source copies on separate pages clickable', () => {
   assert.deepEqual(index.getTargets().map(target => target.element), [firstCopy, secondCopy]);
 });
 
+test('committed navigation prefers the most specific matching source range', () => {
+  const pageContent = {};
+  const source = fakeSourceElement('nested-block', pageContent);
+  const index = CommittedPreviewIndex.build(
+    fakeContainer([fakePage([source], pageContent)]),
+    [
+      { anchor: 'nested-block', range: { startLine: 1, endLine: 20 }, elementPath: [0], priority: 1 },
+      { anchor: 'nested-block', range: { startLine: 8, endLine: 10 }, elementPath: [0, 0], priority: 1 }
+    ]
+  );
+
+  assert.deepEqual(index.resolve(9)?.entry.range, { startLine: 8, endLine: 10 });
+});
+
 function fakeSourceElement(reference, pageContent, attribute = 'data-ref') {
   return {
     getAttribute: name => name === attribute ? reference : null,

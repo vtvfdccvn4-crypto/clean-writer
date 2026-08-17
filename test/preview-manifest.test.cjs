@@ -4,10 +4,11 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
 let server;
 let compilePreviewDocument;
+let rebaseManifest;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24685 } } });
-  ({ compilePreviewDocument } = await server.ssrLoadModule('/src/compiler/index.ts'));
+  ({ compilePreviewDocument, rebaseManifest } = await server.ssrLoadModule('/src/compiler/index.ts'));
 });
 
 after(async () => {
@@ -76,4 +77,35 @@ test('preview compilation associates manifest ranges with generated document sec
     { filePath: 'one.md', range: { startLine: 1, endLine: 1 } },
     { filePath: 'two.md', range: { startLine: 1, endLine: 1 } }
   ]);
+});
+
+test('manifest rebasing advances through ordered source segments linearly', () => {
+  const count = 1_000;
+  let segmentReads = 0;
+  const segments = Array.from({ length: count }, (_, index) => ({
+    filePath: `section-${index}.md`,
+    get generatedStartLine() {
+      segmentReads += 1;
+      return index * 4 + 1;
+    },
+    get generatedEndLine() {
+      segmentReads += 1;
+      return index * 4 + 2;
+    },
+    sourceStartLine: 1
+  }));
+  const manifest = Array.from({ length: count }, (_, index) => ({
+    anchor: `preview-source-${index}`,
+    elementPath: [index],
+    priority: 0,
+    range: { startLine: index * 4 + 1, endLine: index * 4 + 1 }
+  }));
+
+  const rebased = rebaseManifest(manifest, 0, segments);
+
+  assert.equal(rebased.length, count);
+  assert.deepEqual(rebased[0].range, { startLine: 1, endLine: 1 });
+  assert.deepEqual(rebased.at(-1).range, { startLine: 1, endLine: 1 });
+  assert.equal(rebased.at(-1).filePath, 'section-999.md');
+  assert.ok(segmentReads < count * 6, `expected linear segment reads, received ${segmentReads}`);
 });

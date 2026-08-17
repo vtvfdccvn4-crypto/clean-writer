@@ -117,16 +117,27 @@ export async function compilePreviewDocument(
   };
 }
 
-function rebaseManifest(
+export function rebaseManifest(
   manifest: readonly PreviewSourceManifestEntry[],
   sourceLineOffset: number,
   sourceSegments: readonly PreviewSourceSegment[] | undefined
 ): PreviewSourceManifestEntry[] {
+  // Both collections are emitted in generated-document order, so each source
+  // segment is examined at most once instead of once per manifest entry.
+  let nextSegmentIndex = 0;
   return manifest.map(entry => {
-    const segment = sourceSegments?.find(candidate =>
-      entry.range.startLine >= candidate.generatedStartLine
+    while (
+      nextSegmentIndex < (sourceSegments?.length ?? 0)
+      && sourceSegments![nextSegmentIndex]!.generatedEndLine < entry.range.startLine
+    ) {
+      nextSegmentIndex += 1;
+    }
+    const candidate = sourceSegments?.[nextSegmentIndex];
+    const segment = candidate
+      && entry.range.startLine >= candidate.generatedStartLine
       && entry.range.endLine <= candidate.generatedEndLine
-    );
+      ? candidate
+      : undefined;
     if (segment) {
       return {
         ...entry,

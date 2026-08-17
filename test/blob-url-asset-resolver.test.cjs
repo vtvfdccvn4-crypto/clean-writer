@@ -47,3 +47,28 @@ test('asset preloading deduplicates paths and runs independent reads concurrentl
     URL.revokeObjectURL = originalRevoke;
   }
 });
+
+test('an unresolved asset is retried by the resolver', async () => {
+  const originalCreate = URL.createObjectURL;
+  let attempts = 0;
+  let available = false;
+  URL.createObjectURL = () => 'blob:retried';
+  try {
+    const resolver = new BlobUrlAssetResolver(async () => {
+      attempts += 1;
+      return available ? new Blob(['available']) : null;
+    });
+
+    await resolver.preloadImages(['images/later.png']);
+    assert.equal(resolver.resolveSync('images/later.png'), 'images/later.png');
+
+    const firstPassAttempts = attempts;
+    available = true;
+    await resolver.preloadImages(['images/later.png']);
+    assert.equal(resolver.resolveSync('images/later.png'), 'blob:retried');
+    assert.ok(attempts > firstPassAttempts);
+    resolver.releaseAll();
+  } finally {
+    URL.createObjectURL = originalCreate;
+  }
+});

@@ -1,10 +1,9 @@
 import type { PageSetup, TypographySetup, ListSetup, TableSetup, ImageSetup } from '../state';
 import { DEFAULT_PAGE_SETUP } from '../config/defaults';
-import type { LivePreviewOptions, RenderResult } from './contracts';
+import type { RenderResult } from './contracts';
 import { PreviewViewport } from './PreviewViewport';
 import { previewMetrics } from '../perf/preview-metrics';
 
-import type { AssetResolver } from '../platform/types';
 import type { PreviewSourceManifestEntry } from '../compiler/rehype-plugins';
 import type { PdfPreviewFrameTimings, PdfPreviewJob } from '../pdf-preview/contracts';
 import { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
@@ -18,7 +17,7 @@ import { applyImagePreviewStyle, applyListPreviewStyle, applyLiveDocumentStyle, 
 import type { PreviewTimingPhase } from '../perf/preview-timing';
 import type { PreviewPageTiming } from '../perf/preview-timing';
 
-export interface PreviewControllerOptions extends LivePreviewOptions {
+export interface PreviewControllerOptions {
   mode?: 'live' | 'paginated';
   /** Handles a source-block click in the committed preview. */
   onPreviewSourceClick?: (line: number) => void;
@@ -48,6 +47,7 @@ export class PreviewController {
   private pageIndicatorFrame: number | null = null;
   private pageIndicatorGeometry: number[] = [];
   private pageIndicatorGeometryDirty = true;
+  private disposed = false;
 
   private currentPageSetup: PageSetup = {
     ...DEFAULT_PAGE_SETUP
@@ -57,7 +57,7 @@ export class PreviewController {
   private lastSourceRevision: number | null = null;
   private liveRenderGeneration = 0;
 
-  constructor(container: HTMLElement, _assetResolver: AssetResolver, options: PreviewControllerOptions = {}) {
+  constructor(container: HTMLElement, options: PreviewControllerOptions = {}) {
     this.container = container;
     this.mode = options.mode ?? 'live';
     this.createIsolatedJob = options.createIsolatedJob;
@@ -67,11 +67,8 @@ export class PreviewController {
     this.container.parentElement?.classList.toggle('is-live-preview-scroll', this.mode === 'live');
     this.previewScrollParent = this.container.parentElement;
     this.pageIndicator = document.getElementById('preview-page-indicator') as HTMLOutputElement | null;
-    this.previewScrollParent?.addEventListener('scroll', () => this.schedulePageIndicatorUpdate(), { passive: true });
-    window.addEventListener('resize', () => {
-      this.pageIndicatorGeometryDirty = true;
-      this.schedulePageIndicatorUpdate();
-    }, { passive: true });
+    this.previewScrollParent?.addEventListener('scroll', this.handlePreviewScroll, { passive: true });
+    window.addEventListener('resize', this.handleWindowResize, { passive: true });
     if (this.mode === 'live') applyLiveDocumentStyle(this.currentPageSetup);
     this.viewport = new PreviewViewport(container, this.currentPageSetup);
     this.navigation = new PreviewNavigationCoordinator(target => {
@@ -176,15 +173,27 @@ export class PreviewController {
     this.updatePageIndicator();
   }
 
+  /** Releases browser-owned preview resources when the application host is torn down. */
+  public dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.invalidatePendingRender();
+    if (this.pageIndicatorFrame !== null) window.cancelAnimationFrame(this.pageIndicatorFrame);
+    this.pageIndicatorFrame = null;
+    this.previewScrollParent?.removeEventListener('scroll', this.handlePreviewScroll);
+    window.removeEventListener('resize', this.handleWindowResize);
+    this.clickNavigation.destroy();
+    this.viewport.dispose();
+    this.liveRenderer?.clear();
+    this.clearIsolatedPaginationStyle();
+  }
+
   /** Cancels superseded work without changing the cached document. */
   public invalidatePendingRender() {
     this.isolatedRenderAbortController?.abort();
     this.isolatedRenderAbortController = null;
     this.liveRenderGeneration += 1;
-    if (this.scheduledRenderFrame !== null) {
-      window.cancelAnimationFrame(this.scheduledRenderFrame);
-      this.scheduledRenderFrame = null;
-    }
+    this.cancelScheduledRender();
     this.navigation.clear();
     this.clickNavigation.setIndex(null);
   }
@@ -210,12 +219,10 @@ export class PreviewController {
     // In paginated mode an edit supersedes Paged.js work. Live mode has no
     // background paginator and only reconciles the latest compiled blocks.
     this.liveRenderGeneration += 1;
-    this.lastCompiledHtml = html;
-    this.lastSourceManifest = sourceManifest;
-    this.lastSourceRevision = sourceRevision;
+    this.cacheDocument(html, sourceManifest, sourceRevision);
     if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
     this.clickNavigation.setIndex(null);
-    if (this.scheduledRenderFrame !== null) window.cancelAnimationFrame(this.scheduledRenderFrame);
+    this.cancelScheduledRender();
     this.scheduledRenderFrame = window.requestAnimationFrame(async () => {
       this.scheduledRenderFrame = null;
       const started = performance.now();
@@ -234,16 +241,9 @@ export class PreviewController {
     sourceManifest: readonly PreviewSourceManifestEntry[] = [],
     sourceRevision: number | null = null
   ): Promise<RenderResult> {
-    this.lastCompiledHtml = html;
-    this.lastSourceManifest = sourceManifest;
-    this.lastSourceRevision = sourceRevision;
-    if (this.scheduledRenderFrame !== null) {
-      window.cancelAnimationFrame(this.scheduledRenderFrame);
-      this.scheduledRenderFrame = null;
-    }
-    if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
-    else this.navigation.clear();
-    this.clickNavigation.setIndex(null);
+    this.cacheDocument(html, sourceManifest, sourceRevision);
+    this.cancelScheduledRender();
+    this.prepareNavigation(sourceRevision);
 
     const started = performance.now();
     try {
@@ -277,12 +277,9 @@ export class PreviewController {
     onPageTimings?: (pageTimings: readonly PreviewPageTiming[]) => void,
     onPaginationStats?: (stats: Pick<PdfPreviewFrameTimings, 'paginationCssCharacterCount' | 'paginationStyleCount'>) => void
   ): Promise<RenderResult> {
-    this.lastCompiledHtml = sourceHtml;
-    this.lastSourceManifest = sourceManifest;
-    this.lastSourceRevision = sourceRevision;
+    this.cacheDocument(sourceHtml, sourceManifest, sourceRevision);
     this.invalidatePendingRender();
     if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
-    this.clickNavigation.setIndex(null);
 
     const abortController = new AbortController();
     this.isolatedRenderAbortController = abortController;
@@ -344,6 +341,35 @@ export class PreviewController {
     this.navigation.requestNavigation(line, sourceRevision);
   }
 
+  private cacheDocument(
+    html: string,
+    sourceManifest: readonly PreviewSourceManifestEntry[],
+    sourceRevision: number | null
+  ): void {
+    this.lastCompiledHtml = html;
+    this.lastSourceManifest = sourceManifest;
+    this.lastSourceRevision = sourceRevision;
+  }
+
+  private readonly handlePreviewScroll = (): void => this.schedulePageIndicatorUpdate();
+
+  private readonly handleWindowResize = (): void => {
+    this.pageIndicatorGeometryDirty = true;
+    this.schedulePageIndicatorUpdate();
+  };
+
+  private cancelScheduledRender(): void {
+    if (this.scheduledRenderFrame === null) return;
+    window.cancelAnimationFrame(this.scheduledRenderFrame);
+    this.scheduledRenderFrame = null;
+  }
+
+  private prepareNavigation(sourceRevision: number | null): void {
+    if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
+    else this.navigation.clear();
+    this.clickNavigation.setIndex(null);
+  }
+
   private async render(
     html: string,
     sourceManifest: readonly PreviewSourceManifestEntry[]
@@ -353,7 +379,7 @@ export class PreviewController {
     }
 
     const generation = ++this.liveRenderGeneration;
-    const document = await this.liveRenderer!.render(
+    const document = this.liveRenderer!.render(
       html,
       sourceManifest,
       this.currentPageSetup,

@@ -1,4 +1,5 @@
 import type { CommittedPreviewTarget } from './CommittedPreviewIndex';
+import { comparePreviewTargetsByPage, resolveSourceLineTarget } from './PreviewTargetSelection';
 
 /** A source location shared by the editor and a rendered preview block. */
 export interface LinkedScrollAnchor {
@@ -121,13 +122,7 @@ export function resolvePreviewTargetForLine(
   targets: readonly CommittedPreviewTarget[],
   line: number
 ): CommittedPreviewTarget | null {
-  const containing = targets.filter(target =>
-    target.entry.range.startLine <= line && target.entry.range.endLine >= line
-  );
-  if (containing.length > 0) return chooseMostSpecificTarget(containing);
-
-  const preceding = targets.filter(target => target.entry.range.startLine <= line);
-  return preceding.length > 0 ? chooseMostSpecificTarget(preceding) : null;
+  return resolveSourceLineTarget(targets, line, 'preceding', comparePreviewTargetsByPage);
 }
 
 /** Converts a target's document position into a bounded follower scroll top. */
@@ -139,15 +134,6 @@ export function calculateLinkedScrollTop(
 ): number {
   const desiredTop = targetDocumentTop - (followerViewportHeight * clampViewportFraction(viewportFraction));
   return Math.min(Math.max(0, desiredTop), Math.max(0, followerScrollHeight - followerViewportHeight));
-}
-
-function chooseMostSpecificTarget(targets: readonly CommittedPreviewTarget[]): CommittedPreviewTarget {
-  return [...targets].sort((left, right) => {
-    const leftSpan = left.entry.range.endLine - left.entry.range.startLine;
-    const rightSpan = right.entry.range.endLine - right.entry.range.startLine;
-    if (leftSpan !== rightSpan) return leftSpan - rightSpan;
-    return left.pageIndex - right.pageIndex;
-  })[0]!;
 }
 
 function clampViewportFraction(value: number): number {

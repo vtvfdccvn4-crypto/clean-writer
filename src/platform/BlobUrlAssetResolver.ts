@@ -60,16 +60,6 @@ export class BlobUrlAssetResolver implements AssetResolver {
     return this.cache.get(normalized) || path;
   }
 
-  release(url: string): void {
-    for (const [key, value] of this.cache.entries()) {
-      if (value === url) {
-        URL.revokeObjectURL(url);
-        this.cache.delete(key);
-        break;
-      }
-    }
-  }
-
   releaseAll(): void {
     this.cacheGeneration += 1;
     for (const url of this.cache.values()) {

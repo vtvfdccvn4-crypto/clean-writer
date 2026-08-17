@@ -47,10 +47,7 @@ function getHeapSize(): number {
 
 async function run() {
   const stage = document.getElementById('stage')!;
-  const controller = new PreviewController(stage, {
-    renderTimeoutMs: 120_000,
-    unthrottledPagination: true
-  });
+  const controller = new PreviewController(stage);
 
   const htmlA = buildWorkload('A', 5);
   const htmlB = buildWorkload('B', 3);

@@ -59,7 +59,6 @@ export interface AssetResolver {
   /** Stops scheduling work when the caller no longer needs the resolved assets. */
   preloadImages(paths: string[], signal?: AbortSignal): Promise<void>;
   resolveSync(path: string): string;
-  release(url: string): void;
   releaseAll(): void;
 }
 

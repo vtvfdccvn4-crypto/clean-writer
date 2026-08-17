@@ -4,6 +4,7 @@ export interface PageGuideSnapshot {
   readonly projectId: string;
   readonly documentPath: string;
   readonly markdown: string;
+  readonly layoutRevision: number;
 }
 
 export interface PageGuideComputation {
@@ -18,31 +19,44 @@ export interface PageGuideCoordinatorDependencies {
   apply(guides: readonly CanonicalPageBreakGuide[]): void;
 }
 
+export interface PageGuideCoordinatorOptions {
+  typingIdleMs?: number;
+  layoutIdleMs?: number;
+}
+
+type ScheduleReason = 'typing' | 'layout';
+
+const DEFAULT_TYPING_IDLE_MS = 1_500;
+const DEFAULT_LAYOUT_IDLE_MS = 500;
+
 /** Owns debounced, cancellable background page-guide work for one active document. */
 export class PageGuideCoordinator {
   private readonly dependencies: PageGuideCoordinatorDependencies;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private abortController: AbortController | null = null;
   private revision = 0;
+  private completedSnapshot: PageGuideSnapshot | null = null;
+  private readonly typingIdleMs: number;
+  private readonly layoutIdleMs: number;
 
-  constructor(dependencies: PageGuideCoordinatorDependencies) {
+  constructor(dependencies: PageGuideCoordinatorDependencies, options: PageGuideCoordinatorOptions = {}) {
     this.dependencies = dependencies;
+    this.typingIdleMs = options.typingIdleMs ?? DEFAULT_TYPING_IDLE_MS;
+    this.layoutIdleMs = options.layoutIdleMs ?? DEFAULT_LAYOUT_IDLE_MS;
   }
 
-  schedule(): void {
+  schedule(reason: ScheduleReason = 'typing'): void {
     const snapshot = this.dependencies.getSnapshot();
     if (!snapshot) return;
+    if (isSameSnapshot(snapshot, this.completedSnapshot)) return;
 
-    this.revision += 1;
-    this.abortController?.abort();
-    this.abortController = null;
-    if (this.timer) clearTimeout(this.timer);
+    this.cancel();
 
     const requestRevision = this.revision;
     this.timer = setTimeout(() => {
       this.timer = null;
       void this.run(snapshot, requestRevision);
-    }, 450);
+    }, reason === 'layout' ? this.layoutIdleMs : this.typingIdleMs);
   }
 
   /**
@@ -54,14 +68,9 @@ export class PageGuideCoordinator {
   async refreshNow(timeoutMs = 2500): Promise<boolean> {
     const snapshot = this.dependencies.getSnapshot();
     if (!snapshot) return false;
+    if (isSameSnapshot(snapshot, this.completedSnapshot)) return true;
 
-    this.revision += 1;
-    this.abortController?.abort();
-    this.abortController = null;
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
+    this.cancel();
 
     const requestRevision = this.revision;
     const work = this.run(snapshot, requestRevision);
@@ -77,6 +86,13 @@ export class PageGuideCoordinator {
   }
 
   clear(): void {
+    this.cancel();
+    this.completedSnapshot = null;
+    this.dependencies.apply([]);
+  }
+
+  /** Stops background work without removing the last valid guide set. */
+  cancel(): void {
     this.revision += 1;
     if (this.timer) {
       clearTimeout(this.timer);
@@ -84,7 +100,6 @@ export class PageGuideCoordinator {
     }
     this.abortController?.abort();
     this.abortController = null;
-    this.dependencies.apply([]);
   }
 
   dispose(): void {
@@ -105,6 +120,7 @@ export class PageGuideCoordinator {
       // can temporarily return no source anchor while Paged.js is settling;
       // clearing the last valid guides here makes them disappear after edits.
       if (result.guides.length === 0) return false;
+      this.completedSnapshot = snapshot;
       this.dependencies.apply(result.guides);
       return true;
     } catch (error) {
@@ -116,4 +132,12 @@ export class PageGuideCoordinator {
       if (this.abortController === abortController) this.abortController = null;
     }
   }
+}
+
+function isSameSnapshot(left: PageGuideSnapshot, right: PageGuideSnapshot | null): boolean {
+  return right !== null
+    && left.projectId === right.projectId
+    && left.documentPath === right.documentPath
+    && left.markdown === right.markdown
+    && left.layoutRevision === right.layoutRevision;
 }

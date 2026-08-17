@@ -69,8 +69,8 @@ export function bootPdfPreviewFrame(): void {
       const pagination = await paginatePreviewFrame(stage, input.html, input.css);
       const pageBoundaries = Array.from(stage.querySelectorAll<HTMLElement>('.pagedjs_page')).flatMap((page, index) => {
         if (index === 0) return [];
-        const anchor = page.querySelector<HTMLElement>('[data-ref], [data-split-from]')?.getAttribute('data-ref')
-          ?? page.querySelector<HTMLElement>('[data-ref], [data-split-from]')?.getAttribute('data-split-from');
+        const source = page.querySelector<HTMLElement>('[data-ref], [data-split-from]');
+        const anchor = source?.getAttribute('data-ref') ?? source?.getAttribute('data-split-from');
         return anchor ? [{ pageNumber: index + 1, anchor }] : [];
       });
       window.parent.postMessage({ type: 'clear-writer-pdf-preview-guide-result', requestId, pageBoundaries, paginationMs: pagination.durationMs }, window.location.origin);

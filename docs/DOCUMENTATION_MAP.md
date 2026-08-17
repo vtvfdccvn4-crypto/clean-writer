@@ -218,7 +218,7 @@ Source map:
 - `src/preview/PreviewController.ts`: exact render scheduling.
 - `src/pdf-preview/IsolatedPaginationHost.ts`: isolated Paged.js lifecycle, cancellation, budgets, progress, diagnostics, and cleanup.
 - `src/pdf-preview/PdfPreviewJobFactory.ts`: immutable print-job assembly.
-- `src/preview/PagedJsAdapter.ts`: Paged.js integration.
+- `src/pdf-preview/PdfPreviewFramePaginator.ts`: isolated Paged.js integration.
 - `src/preview/PreviewViewport.ts`: responsive preview zoom and viewport controls.
 - `src/preview/CssGenerator.ts`: dynamic page, typography, list, and table CSS.
 - `src/preview/headingNumbering.ts`: heading numbering transform.

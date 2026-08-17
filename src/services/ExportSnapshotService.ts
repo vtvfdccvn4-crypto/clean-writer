@@ -28,7 +28,7 @@ export interface ExportSnapshotDependencies<T = string> {
   ): Promise<T>;
 }
 
-export function scanMarkdownForImages(markdown: string): string[] {
+function scanMarkdownForImages(markdown: string): string[] {
   const paths: string[] = [];
   
   // Match standard Markdown images: ![alt](path) or ![alt](<path>)
@@ -51,15 +51,30 @@ export function scanMarkdownForImages(markdown: string): string[] {
     }
   }
 
-  return Array.from(new Set(paths));
+  return paths;
 }
 
-export function scanCustomBlockStyleIcons(): string[] {
-  return Array.from(new Set(
-    (state.current.customBlockStyles || [])
-      .map(style => style.icon)
-      .filter((icon): icon is string => Boolean(icon) && isBlockGlyphPath(icon))
-  ));
+function scanCustomBlockStyleIcons(): string[] {
+  return (state.current.customBlockStyles || [])
+    .map(style => style.icon)
+    .filter((icon): icon is string => Boolean(icon) && isBlockGlyphPath(icon));
+}
+
+/** Collects each document image and configured block glyph once per operation. */
+function collectDocumentAssetPaths(markdown: string): string[] {
+  return [...new Set([
+    ...scanMarkdownForImages(markdown),
+    ...scanCustomBlockStyleIcons()
+  ])];
+}
+
+export async function preloadDocumentAssets(
+  markdown: string,
+  assetResolver: AssetResolver,
+  signal?: AbortSignal
+): Promise<void> {
+  const assets = collectDocumentAssetPaths(markdown);
+  if (assets.length > 0) await assetResolver.preloadImages(assets, signal);
 }
 
 /**
@@ -121,8 +136,7 @@ export async function compileExportSnapshot<T = string>(
     
     const assetPreloadStartedAt = performance.now();
     try {
-      const imagePaths = scanMarkdownForImages(document.markdown);
-      await assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()], signal);
+      await preloadDocumentAssets(document.markdown, assetResolver, signal);
     } finally {
       input.onPhase?.('asset-preload', performance.now() - assetPreloadStartedAt);
     }
@@ -137,8 +151,7 @@ export async function compileExportSnapshot<T = string>(
 
   const assetPreloadStartedAt = performance.now();
   try {
-    const imagePaths = scanMarkdownForImages(markdownToCompile);
-    await assetResolver.preloadImages([...imagePaths, ...scanCustomBlockStyleIcons()], signal);
+    await preloadDocumentAssets(markdownToCompile, assetResolver, signal);
   } finally {
     input.onPhase?.('asset-preload', performance.now() - assetPreloadStartedAt);
   }

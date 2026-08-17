@@ -52,16 +52,6 @@ export class InMemoryAssetResolver implements AssetResolver {
     return this.cache.get(normalizeExplorerPath(path)) || path;
   }
 
-  release(url: string): void {
-    for (const [key, value] of this.cache.entries()) {
-      if (value === url) {
-        URL.revokeObjectURL(url);
-        this.cache.delete(key);
-        break;
-      }
-    }
-  }
-
   releaseAll(): void {
     for (const url of this.cache.values()) {
       URL.revokeObjectURL(url);
