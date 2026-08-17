@@ -70,10 +70,10 @@ export const DEFAULT_LIST_SETUP: ListSetup = {
 
 export const DEFAULT_TABLE_SETUP: TableSetup = {
   table1: {
-    fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 10, headerTextColor: '#ffffff', headerBackground: '#405a78', headerBold: true, bodyTextColor: '#000000', bodyBackground: '#ffffff', alternateRowColor: '#f2f2f2', borderColor: '#808080', borderWidth: 1, cellPadding: 6, marginTop: 8, marginBottom: 12,
+    fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 10, verticalAlign: 'top', headerTextColor: '#ffffff', headerBackground: '#405a78', headerBold: true, bodyTextColor: '#000000', bodyBackground: '#ffffff', alternateRowColor: '#f2f2f2', borderColor: '#808080', borderWidth: 1, cellPadding: 6, marginTop: 8, marginBottom: 12,
   },
   table2: {
-    fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 10, headerTextColor: '#000000', headerBackground: '#e8ece8', headerBold: true, bodyTextColor: '#000000', bodyBackground: '#ffffff', alternateRowColor: '#f2f2f2', borderColor: '#808080', borderWidth: 1, cellPadding: 6, marginTop: 8, marginBottom: 12,
+    fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 10, verticalAlign: 'top', headerTextColor: '#000000', headerBackground: '#e8ece8', headerBold: true, bodyTextColor: '#000000', bodyBackground: '#ffffff', alternateRowColor: '#f2f2f2', borderColor: '#808080', borderWidth: 1, cellPadding: 6, marginTop: 8, marginBottom: 12,
   }
 };
 

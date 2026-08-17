@@ -254,6 +254,9 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
     const fallback = DEFAULT_TABLE_SETUP[key];
     style.fontFamily = resolveFontFamily(style.fontFamily ?? '', fallback.fontFamily ?? '');
     style.fontSize = safeNumber(style.fontSize, fallback.fontSize, 1, 200);
+    style.verticalAlign = ['top', 'middle', 'bottom'].includes(style.verticalAlign)
+      ? style.verticalAlign
+      : fallback.verticalAlign;
     style.headerTextColor = safeColor(style.headerTextColor, fallback.headerTextColor);
     style.headerBackground = safeColor(style.headerBackground, fallback.headerBackground);
     style.headerBold = style.headerBold === true;

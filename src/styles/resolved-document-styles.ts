@@ -70,6 +70,7 @@ export function resolveTableStyle(style: Partial<TableStyle> | undefined, fallba
   return {
     fontFamily: hexOr(style?.fontFamily, fallbackFamily),
     fontSize: style?.fontSize ?? 10,
+    verticalAlign: style?.verticalAlign ?? 'top',
     headerTextColor: hexOr(style?.headerTextColor, '#FFFFFF'),
     headerBackground: hexOr(style?.headerBackground, '#405A78'),
     headerBold: !!style?.headerBold,

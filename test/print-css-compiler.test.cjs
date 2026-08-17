@@ -19,6 +19,7 @@ after(async () => server?.close());
 test('compiles paper geometry and body typography from the frozen print snapshot', () => {
   const pageSetup = structuredClone(defaults.DEFAULT_PAGE_SETUP);
   const typographySetup = structuredClone(defaults.DEFAULT_TYPOGRAPHY_SETUP);
+  const tableSetup = structuredClone(defaults.DEFAULT_TABLE_SETUP);
   pageSetup.paperWidth = 216;
   pageSetup.paperHeight = 279;
   pageSetup.marginTop = 18;
@@ -33,11 +34,12 @@ test('compiles paper geometry and body typography from the frozen print snapshot
   };
   pageSetup.toc.h2 = { fontFamily: 'Verdana', fontSize: 17, color: '#445566', isBold: true, isItalic: true, isAllCaps: true };
   typographySetup.h1 = { fontFamily: 'Calibri', fontSize: 29, color: '#123456', isBold: false, isItalic: true, lineHeight: 1.8, marginTop: 21, marginBottom: 13 };
+  tableSetup.table1.verticalAlign = 'middle';
 
   const layout = createPrintLayoutSettings({
     pageSetup, typographySetup,
     listSetup: structuredClone(defaults.DEFAULT_LIST_SETUP),
-    tableSetup: structuredClone(defaults.DEFAULT_TABLE_SETUP),
+    tableSetup,
     imageSetup: structuredClone(defaults.DEFAULT_IMAGE_SETUP),
     projectMetadata: { ...defaults.DEFAULT_PROJECT_METADATA, documentNumber: 'CW-42' },
     customStyles: [{ id: 'quote', name: 'Quote', openingPair: '“', closingPair: '”', fontFamily: 'Georgia', fontSize: 14, color: '#654321', isBold: false, isItalic: true }],
@@ -61,6 +63,7 @@ test('compiles paper geometry and body typography from the frozen print snapshot
   assert.match(css, /content: "\*"/);
   assert.match(css, /table\[data-table-style="1"\]/);
   assert.match(css, /border-collapse: collapse/);
+  assert.match(css, /table\[data-table-style="1"\][\s\S]*?vertical-align: middle/);
   assert.match(css, /clear-writer-print-image-block/);
   assert.match(css, /max-width: 100%/);
   assert.match(css, /custom-style\[data-custom-style-id="quote"\]/);

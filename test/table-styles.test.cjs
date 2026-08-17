@@ -7,7 +7,7 @@ let compileMarkdown;
 let generateTableCss;
 
 const style = (overrides = {}) => ({
-  fontFamily: 'Arial', fontSize: 10,
+  fontFamily: 'Arial', fontSize: 10, verticalAlign: 'top',
   headerTextColor: '#ffffff', headerBackground: '#445566', headerBold: true,
   bodyTextColor: '#111111', bodyBackground: '#ffffff', alternateRowColor: '#f0f0f0',
   borderColor: '#999999', borderWidth: 1, cellPadding: 6, marginTop: 8, marginBottom: 12,
@@ -34,13 +34,14 @@ test('regular and marked Markdown tables compile into separate style classes', a
 test('table classes generate independent colors, borders, padding, and margins', () => {
   const css = generateTableCss({
     table1: style({ headerBackground: '#112233', cellPadding: 4 }),
-    table2: style({ headerBackground: '#abcdef', borderWidth: 2, cellPadding: 9, marginTop: 15 })
+    table2: style({ headerBackground: '#abcdef', borderWidth: 2, cellPadding: 9, marginTop: 15, verticalAlign: 'middle' })
   });
 
   assert.match(css, /table\[data-table-style="1"\][\s\S]*?padding: 4pt/);
   assert.match(css, /table\[data-table-style="1"\] thead th[\s\S]*?background: #112233/);
   assert.match(css, /table\[data-table-style="2"\][\s\S]*?margin: 15pt 0 12pt/);
   assert.match(css, /table\[data-table-style="2"\] th,[\s\S]*?border: 2pt solid #999999/);
+  assert.match(css, /table\[data-table-style="2"\] th,[\s\S]*?vertical-align: middle/);
   assert.match(css, /table\[data-table-style="2"\] thead th[\s\S]*?background: #abcdef/);
   assert.match(css, /table\[data-table-style="1"\] td \{[\s\S]*?line-height: 1\.2/);
   assert.match(css, /table\[data-table-style="1"\] td:empty::before \{[\s\S]*?min-height: 1\.2em/);

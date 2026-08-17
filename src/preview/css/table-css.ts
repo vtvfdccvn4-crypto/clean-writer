@@ -25,7 +25,7 @@ export function generateTableCss(setup: TableSetup): string {
       ${content} ${selector} td {
         padding: ${number(config.cellPadding, 6, 50)}pt;
         border: ${number(config.borderWidth, 0.75, 10)}pt solid ${config.borderColor};
-        vertical-align: top;
+        vertical-align: ${config.verticalAlign};
         line-height: 1.2;
       }
 

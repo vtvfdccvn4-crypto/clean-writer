@@ -198,7 +198,7 @@ function tableCss(styleNumber: 1 | 2, style: TableStyle): string {
     ${selector} th, ${selector} td {
       padding: ${style.cellPadding}pt;
       border: ${style.borderWidth}pt solid ${style.borderColor};
-      vertical-align: top;
+      vertical-align: ${style.verticalAlign};
     }
     ${selector} thead th {
       color: ${style.headerTextColor};

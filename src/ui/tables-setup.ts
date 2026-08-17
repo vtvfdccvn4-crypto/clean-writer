@@ -16,6 +16,7 @@ export function initTablesDrawer(onSave: (setup: TableSetup) => Promise<void>) {
   const readStyle = (prefix: string): TableStyle => ({
     fontFamily: (document.getElementById(`${prefix}-font`) as HTMLSelectElement).value,
     fontSize: readDrawerNumber(`${prefix}-font-size`, 10, { min: 1, max: 200 }),
+    verticalAlign: (document.getElementById(`${prefix}-vertical-align`) as HTMLSelectElement).value as TableStyle['verticalAlign'],
     headerTextColor: (document.getElementById(`${prefix}-header-text-color`) as HTMLInputElement).value,
     headerBackground: (document.getElementById(`${prefix}-header-background`) as HTMLInputElement).value,
     headerBold: (document.getElementById(`${prefix}-header-bold`) as HTMLInputElement).checked,
@@ -32,6 +33,7 @@ export function initTablesDrawer(onSave: (setup: TableSetup) => Promise<void>) {
   function syncStyle(prefix: string, style: TableStyle) {
     setFontFamilySelectValue(document.getElementById(`${prefix}-font`) as HTMLSelectElement, style.fontFamily);
     (document.getElementById(`${prefix}-font-size`) as HTMLInputElement).value = String(style.fontSize);
+    (document.getElementById(`${prefix}-vertical-align`) as HTMLSelectElement).value = style.verticalAlign || 'top';
     setColor(`${prefix}-header-text-color`, style.headerTextColor || '#FFFFFF');
     setColor(`${prefix}-header-background`, style.headerBackground || '#405A78');
     (document.getElementById(`${prefix}-header-bold`) as HTMLInputElement).checked = style.headerBold;

@@ -120,6 +120,7 @@ export interface ListSetup {
 export interface TableStyle {
   fontFamily: string;
   fontSize: number;
+  verticalAlign: 'top' | 'middle' | 'bottom';
   headerTextColor?: string;
   headerBackground?: string;
   headerBold: boolean;

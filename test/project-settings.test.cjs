@@ -36,6 +36,10 @@ test('untrusted settings values are clamped before CSS generation', () => {
     typographySetup: {
       paragraph: { fontFamily: 'serif; color:red', fontSize: 99999, color: 'expression(alert(1))' }
     },
+    tableSetup: {
+      table1: { verticalAlign: 'middle' },
+      table2: { verticalAlign: 'baseline; color:red' }
+    },
     customStyles: [{
       id: 'unsafe-inline', openingPair: '{{', closingPair: '}}', color: 'red; background: url(https://evil.test)'
     }],
@@ -57,6 +61,8 @@ test('untrusted settings values are clamped before CSS generation', () => {
   assert.equal(settings.typographySetup.paragraph.fontFamily, 'Times New Roman');
   assert.equal(settings.typographySetup.paragraph.fontSize, 200);
   assert.equal(settings.typographySetup.paragraph.color, '#000000');
+  assert.equal(settings.tableSetup.table1.verticalAlign, 'middle');
+  assert.equal(settings.tableSetup.table2.verticalAlign, 'top');
   assert.equal(settings.customStyles[0].color, undefined);
   assert.equal(settings.customBlockStyles[0].color, undefined);
 });
@@ -132,6 +138,7 @@ test('legacy project settings are migrated to the current schema', () => {
   assert.equal(settings.listSetup.ol.bulletIcon, '1.');
   assert.equal(settings.listSetup.olParen.bulletIcon, '1)');
   assert.equal(settings.tableSetup.table1.headerBackground, '#405a78');
+  assert.equal(settings.tableSetup.table1.verticalAlign, 'top');
   assert.equal(settings.tableSetup.table2.headerBackground, '#e8ece8');
   assert.equal(settings.customStyles.length, 1);
   assert.equal(settings.customBlockStyles.length, 0);
