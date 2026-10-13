@@ -3,18 +3,6 @@ import type { CommittedPreviewTarget } from './CommittedPreviewIndex';
 export type PreviewTargetFallback = 'preceding' | 'next-or-preceding';
 export type PreviewTargetComparator = (left: CommittedPreviewTarget, right: CommittedPreviewTarget) => number;
 
-/** Selects the most specific source target without allocating or sorting a copy. */
-function chooseBestPreviewTarget(
-  targets: readonly CommittedPreviewTarget[]
-): CommittedPreviewTarget {
-  let best = targets[0]!;
-  for (let index = 1; index < targets.length; index += 1) {
-    const candidate = targets[index]!;
-    if (comparePreviewTargets(candidate, best) < 0) best = candidate;
-  }
-  return best;
-}
-
 /** Resolves one source line without allocating filtered or sorted target copies. */
 export function resolveSourceLineTarget(
   targets: readonly CommittedPreviewTarget[],

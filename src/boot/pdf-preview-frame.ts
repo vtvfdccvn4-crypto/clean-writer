@@ -1,6 +1,6 @@
 import { materializePdfPreviewMargins } from '../pdf-preview/PdfPreviewMarginRenderer';
 import { paginatePreviewFrame } from '../pdf-preview/PdfPreviewFramePaginator';
-import { materializePdfPreviewListMarkers } from '../pdf-preview/PdfPreviewListMarkers';
+import { materializePdfListMarkers } from '../pdf-preview/PdfPreviewListMarkers';
 import { materializePdfPreviewTocPageNumbers } from '../pdf-preview/PdfPreviewTocPageNumbers';
 import {
   PDF_PREVIEW_FRAME_READY,
@@ -26,7 +26,7 @@ export function bootPdfPreviewFrame(): void {
           pagesCompleted
         }, window.location.origin);
       });
-      if (input.layout) materializePdfPreviewListMarkers(stage, input.layout);
+      if (input.layout) materializePdfListMarkers(stage, { bulletIcon: input.layout.lists.ol.bulletIcon, parenthesized: { bulletIcon: input.layout.lists.olParen.bulletIcon } });
       materializePdfPreviewTocPageNumbers(stage);
       const marginMetrics = materializePdfPreviewMargins(stage, input.margins, input.marginImageSources);
       const artifactStartedAt = performance.now();

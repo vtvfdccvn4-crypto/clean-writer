@@ -23,6 +23,7 @@ export interface TocStyle {
   isBold: boolean;
   isItalic: boolean;
   isAllCaps: boolean;
+  indentation?: number;
 }
 
 export interface TocSetup {

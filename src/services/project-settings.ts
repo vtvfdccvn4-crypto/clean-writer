@@ -215,7 +215,7 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
     const fallback = defaultToc[level];
     style.fontFamily = resolveFontFamily(style.fontFamily ?? '', fallback.fontFamily ?? '');
     style.fontSize = safeNumber(style.fontSize, fallback.fontSize, 1, 200);
-    style.indentation = safeNumber(style.indentation, fallback.indentation, 0, 500);
+    style.indentation = safeNumber(style.indentation, fallback.indentation ?? 0, 0, 500);
     style.color = safeColor(style.color, fallback.color);
     style.isBold = safeBoolAlias(style, 'isBold', 'bold');
     style.isItalic = safeBoolAlias(style, 'isItalic', 'italic');
@@ -255,9 +255,9 @@ function validateSettingsValues(settings: ProjectSettingsData): ProjectSettingsD
     const fallback = DEFAULT_TABLE_SETUP[key];
     style.fontFamily = resolveFontFamily(style.fontFamily ?? '', fallback.fontFamily ?? '');
     style.fontSize = safeNumber(style.fontSize, fallback.fontSize, 1, 200);
-    style.verticalAlign = ['top', 'middle', 'bottom'].includes(style.verticalAlign)
-      ? style.verticalAlign
-      : fallback.verticalAlign;
+    style.verticalAlign = ['top', 'middle', 'bottom'].includes(style.verticalAlign ?? '')
+      ? style.verticalAlign ?? 'top'
+      : (fallback.verticalAlign ?? 'top');
     style.headerTextColor = safeColor(style.headerTextColor, fallback.headerTextColor);
     style.headerBackground = safeColor(style.headerBackground, fallback.headerBackground);
     style.headerBold = style.headerBold === true;
