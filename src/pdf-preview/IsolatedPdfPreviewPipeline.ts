@@ -11,6 +11,9 @@ export type PdfPreviewPipelineResult =
 export class IsolatedPdfPreviewPipeline {
   private readonly paginationHost = new IsolatedPaginationHost();
 
+  prewarm(): void { this.paginationHost.prewarm(); }
+  dispose(): void { this.paginationHost.dispose(); }
+
   async run(
     input: PdfPreviewJob,
     printTarget: PdfPreviewPrintTarget,

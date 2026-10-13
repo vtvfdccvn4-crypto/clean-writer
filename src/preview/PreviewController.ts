@@ -67,6 +67,7 @@ export class PreviewController {
     this.mode = options.mode ?? 'live';
     this.createIsolatedJob = options.createIsolatedJob;
     this.isolatedPaginationHost = options.paginationHost ?? new IsolatedPaginationHost();
+    this.isolatedPaginationHost.prewarm();
     this.liveRenderer = this.mode === 'live' ? new LivePreviewRenderer(container) : null;
     this.container.classList.toggle('is-live-preview', this.mode === 'live');
     this.container.parentElement?.classList.toggle('is-live-preview-scroll', this.mode === 'live');
@@ -208,6 +209,7 @@ export class PreviewController {
     this.viewport.dispose();
     this.liveRenderer?.clear();
     this.clearIsolatedPaginationStyle();
+    this.isolatedPaginationHost.dispose();
   }
 
   /** Cancels superseded work without changing the cached document. */

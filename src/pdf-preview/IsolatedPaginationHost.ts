@@ -38,6 +38,22 @@ type HostOptions = {
 /** Owns the isolated iframe lifecycle for every PDF-preview pagination job. */
 export class IsolatedPaginationHost {
   private activeRequest: Promise<void> = Promise.resolve();
+  private frame: HTMLIFrameElement | null = null;
+  // Resolves when the warm frame has sent PDF_PREVIEW_FRAME_READY.
+  // Rejects (and is cleared) if the frame fails to boot.
+  private frameReady: Promise<void> | null = null;
+
+  /** Boot the pagination frame early so the first preview request finds it warm. */
+  prewarm(): void {
+    this.ensureWarmFrame();
+  }
+
+  /** Remove the warm frame and release all resources. Call on project close. */
+  dispose(): void {
+    this.frame?.remove();
+    this.frame = null;
+    this.frameReady = null;
+  }
 
   requestPrintArtifact(
     input: PdfPreviewJob,
@@ -53,6 +69,27 @@ export class IsolatedPaginationHost {
       signal,
       onPhase
     });
+  }
+
+  private ensureWarmFrame(): { frame: HTMLIFrameElement; ready: Promise<void> } {
+    if (this.frame && this.frameReady) {
+      return { frame: this.frame, ready: this.frameReady };
+    }
+    const frame = this.createFrame();
+    const ready = this.bootFrame(frame);
+    // Auto-invalidate on boot failure so the next request gets a fresh frame.
+    ready.catch(() => {
+      if (this.frame === frame) this.invalidateFrame();
+    });
+    this.frame = frame;
+    this.frameReady = ready;
+    return { frame, ready };
+  }
+
+  private invalidateFrame(): void {
+    this.frame?.remove();
+    this.frame = null;
+    this.frameReady = null;
   }
 
   private async run<T extends PdfPreviewFrameResult>(
@@ -84,12 +121,12 @@ export class IsolatedPaginationHost {
       return complete({ status: 'cancelled', diagnostics: diagnostics() });
     }
     if (options.signal?.aborted) return complete({ status: 'cancelled', diagnostics: diagnostics() });
-      const frame = this.createFrame();
+      const { frame, ready } = this.ensureWarmFrame();
       try {
         const loadStartedAt = performance.now();
         options.onProgress?.(this.progress(request.requestId, 'load-pagination-frame', options.budget, startedAt));
         try {
-          await this.waitForReady(frame, options.signal);
+          await this.awaitFrameReady(ready, options.signal);
         } finally {
           const loadDurationMs = Math.round(performance.now() - loadStartedAt);
           timings.push({ phase: 'load-pagination-frame', durationMs: loadDurationMs });
@@ -127,15 +164,20 @@ export class IsolatedPaginationHost {
         timings.push({ phase: 'transfer-print-artifact', durationMs: artifactTransferMs });
         options.onPhase?.('transfer-print-artifact', artifactTransferMs);
         const finalDiagnostics = { ...diagnostics(), ...('artifact' in result ? { pageCount: result.artifact.pageCount } : {}) };
-        return result.error
-          ? complete({ status: 'failed', message: result.error, diagnostics: finalDiagnostics })
-          : complete({ status: 'success', result: this.freezeArtifactResult(result), diagnostics: finalDiagnostics });
+        if (result.error) {
+          return complete({ status: 'failed', message: result.error, diagnostics: finalDiagnostics });
+        }
+        return complete({ status: 'success', result: this.freezeArtifactResult(result), diagnostics: finalDiagnostics });
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return complete({ status: 'cancelled', diagnostics: diagnostics() });
-        if (error instanceof PaginationTimeoutError) return complete({ status: 'timed-out', message: error.message, diagnostics: diagnostics() });
+        if (error instanceof PaginationTimeoutError) {
+          // Frame timed out — discard it so the next request gets a fresh boot.
+          this.invalidateFrame();
+          return complete({ status: 'timed-out', message: (error as Error).message, diagnostics: diagnostics() });
+        }
+        // Unexpected error: frame state is unknown, discard it.
+        this.invalidateFrame();
         throw error;
-      } finally {
-        this.disposeFrame(frame);
       }
     } finally {
       if (!releaseAfterPrevious) releaseRequest();
@@ -158,8 +200,23 @@ export class IsolatedPaginationHost {
     });
   }
 
-  private disposeFrame(frame: HTMLIFrameElement): void {
-    frame.remove();
+  /** Race the shared frame-boot promise against a per-request abort signal. */
+  private awaitFrameReady(ready: Promise<void>, signal?: AbortSignal): Promise<void> {
+    if (!signal) return ready;
+    if (signal.aborted) return Promise.reject(new DOMException('PDF preview pagination was cancelled.', 'AbortError'));
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', abort);
+        if (error) reject(error); else resolve();
+      };
+      const abort = () => finish(new DOMException('PDF preview pagination was cancelled.', 'AbortError'));
+      ready.then(() => finish(), err => finish(err instanceof Error ? err : new Error(String(err))));
+      signal.addEventListener('abort', abort, { once: true });
+    });
   }
 
   private createFrame(): HTMLIFrameElement {
@@ -175,7 +232,8 @@ export class IsolatedPaginationHost {
     return frame;
   }
 
-  private waitForReady(frame: HTMLIFrameElement, signal?: AbortSignal): Promise<void> {
+  /** Attach frame to DOM and resolve when it signals ready. No per-request abort — boot is shared. */
+  private bootFrame(frame: HTMLIFrameElement): Promise<void> {
     return new Promise((resolve, reject) => {
       let settled = false;
       const finish = (error?: Error) => {
@@ -183,7 +241,6 @@ export class IsolatedPaginationHost {
         settled = true;
         window.clearTimeout(timeout);
         window.removeEventListener('message', receiveReady);
-        signal?.removeEventListener('abort', abort);
         frame.removeEventListener('error', frameError);
         if (error) reject(error); else resolve();
       };
@@ -191,14 +248,12 @@ export class IsolatedPaginationHost {
         () => finish(new PaginationTimeoutError('PDF preview renderer did not load.')),
         FRAME_STARTUP_TIMEOUT_MS
       );
-      const abort = () => finish(new DOMException('PDF preview pagination was cancelled.', 'AbortError'));
       const frameError = () => finish(new Error('PDF preview renderer could not load.'));
       const receiveReady = (event: MessageEvent<{ type?: string }>) => {
         if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
         if (event.data?.type === PDF_PREVIEW_FRAME_READY) finish();
       };
       window.addEventListener('message', receiveReady);
-      signal?.addEventListener('abort', abort, { once: true });
       frame.addEventListener('error', frameError, { once: true });
       document.body.appendChild(frame);
     });
