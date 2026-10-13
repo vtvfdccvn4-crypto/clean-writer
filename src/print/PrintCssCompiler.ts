@@ -238,8 +238,8 @@ function tocCss(toc: TocSetup): string {
       transform: translateY(-0.2em);
     }
     .clear-writer-print-content .toc-page-number {
-      flex: 0 0 4ch;
-      inline-size: 4ch;
+      flex: 0 0 auto;
+      min-width: 2ch;
       text-align: right;
       font-variant-numeric: tabular-nums;
     }

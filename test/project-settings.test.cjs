@@ -118,7 +118,8 @@ test('legacy project settings are migrated to the current schema', () => {
     color: '#000000',
     isBold: false,
     isItalic: false,
-    isAllCaps: false
+    isAllCaps: false,
+    indentation: 0
   });
   assert.deepEqual(settings.pageSetup.toc.h6, {
     fontFamily: 'Times New Roman',
@@ -126,7 +127,8 @@ test('legacy project settings are migrated to the current schema', () => {
     color: '#000000',
     isBold: false,
     isItalic: false,
-    isAllCaps: false
+    isAllCaps: false,
+    indentation: 0
   });
   assert.equal(settings.projectMetadata.documentTitle, '');
   assert.equal(settings.listSetup.ol.bulletIcon, '1.');
