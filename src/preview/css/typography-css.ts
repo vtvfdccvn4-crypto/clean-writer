@@ -1,34 +1,22 @@
 import type { TypographySetup } from '../../state';
 import { resolveTypographyStyle } from '../../styles/resolved-document-styles';
+import { typographyElementCss, type DocumentCssScope } from '../../styles/document-style-css';
 
-function cssFamily(value: string): string {
-  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\n\r\f]/g, ' ')}"`;
-}
+const LIVE_SCOPE: DocumentCssScope = {
+  scope: ':is(.pagedjs_page_content, .paged-stage.is-live-preview)',
+  important: true,
+};
 
 export function generateTypographyCss(setup: TypographySetup): string {
-  const content = ':is(.pagedjs_page_content, .paged-stage.is-live-preview)';
-  const applyStyle = (tag: string, s: any) => `
-    ${content} ${tag} {
-      font-family: ${cssFamily(s.fontFamily)} !important;
-      font-size: ${s.fontSize}pt !important;
-      color: ${s.color || 'inherit'} !important;
-      font-weight: ${s.isBold ? 'bold' : 'normal'} !important;
-      font-style: ${s.isItalic ? 'italic' : 'normal'} !important;
-      line-height: ${s.lineHeight} !important;
-      margin-top: ${s.marginTop}pt !important;
-      margin-bottom: ${s.marginBottom}pt !important;
-    }
-  `;
-
   return `
-    ${applyStyle('p', resolveTypographyStyle(setup.paragraph))}
-    ${applyStyle('h1', resolveTypographyStyle(setup.h1))}
-    ${applyStyle('h2', resolveTypographyStyle(setup.h2))}
-    ${applyStyle('h3', resolveTypographyStyle(setup.h3))}
-    ${applyStyle('h4', resolveTypographyStyle(setup.h4))}
-    ${applyStyle('h5', resolveTypographyStyle(setup.h5))}
-    ${applyStyle('h6', resolveTypographyStyle(setup.h6))}
-    ${content} a {
+    ${typographyElementCss('p', resolveTypographyStyle(setup.paragraph), LIVE_SCOPE)}
+    ${typographyElementCss('h1', resolveTypographyStyle(setup.h1), LIVE_SCOPE)}
+    ${typographyElementCss('h2', resolveTypographyStyle(setup.h2), LIVE_SCOPE)}
+    ${typographyElementCss('h3', resolveTypographyStyle(setup.h3), LIVE_SCOPE)}
+    ${typographyElementCss('h4', resolveTypographyStyle(setup.h4), LIVE_SCOPE)}
+    ${typographyElementCss('h5', resolveTypographyStyle(setup.h5), LIVE_SCOPE)}
+    ${typographyElementCss('h6', resolveTypographyStyle(setup.h6), LIVE_SCOPE)}
+    ${LIVE_SCOPE.scope} a {
       color: inherit !important;
     }
   `;
