@@ -2,21 +2,43 @@
   --font-ui: "Inter Tight", "Segoe UI", Calibri, Arial, sans-serif;
   --font-mono: Consolas, "Courier New", monospace;
 
+  /* Surfaces */
   --ui-surface: #f8f7f3;
-  --ui-surface-subtle: #f7f8fa;
-  --ui-text: #000000;
-  --ui-text-muted: #000000;
-  --ui-border: #000000;
-  --ui-border-soft: #000000;
-  --ui-border-subtle: #000000;
-  --ui-border-strong: #000000;
+  --ui-surface-subtle: #f3f2ee;
+  --ui-surface-hover: #edeae4;
+
+  /* Text */
+  --ui-text: #1a1918;
+  --ui-text-muted: #6b6860;
+  --ui-text-placeholder: #a8a39c;
+
+  /* Borders */
+  --ui-border: #d1cec8;
+  --ui-border-soft: #e5e2dc;
+  --ui-border-subtle: #edeae4;
+  --ui-border-strong: #a8a39c;
+
+  /* App chrome (top bar + activity bar) */
   --ui-app-chrome: #102a4c;
   --ui-app-chrome-text: #ffffff;
+  --ui-app-chrome-text-muted: rgba(255, 255, 255, 0.55);
   --ui-app-chrome-border: #0a1b33;
-  --ui-accent: #000000;
+
+  /* Accent / brand */
+  --ui-accent: #405a78;
+  --ui-accent-light: #e8eef4;
   --ui-brand: #405a78;
-  --ui-muted: #000000;
+  --ui-muted: #a8a39c;
   --ui-danger: #b42318;
+
+  /* Preview pane background */
+  --ui-preview-bg: #ebebeb;
+
+  /* Button sizes */
+  --ui-button-icon-size: 30px;
+  --ui-button-icon-compact-size: 28px;
+
+  /* Radii */
   --ui-radius-sm: 6px;
   --ui-radius-md: 8px;
   --ui-radius-lg: 10px;

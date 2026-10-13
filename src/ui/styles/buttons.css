@@ -28,18 +28,18 @@
 
 .ui-button--icon {
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  width: var(--ui-button-icon-size);
+  height: var(--ui-button-icon-size);
   border-color: var(--ui-border);
-  border-radius: 7px;
+  border-radius: var(--ui-radius-sm);
   font-size: 9pt;
 }
 
 .ui-button--icon-compact {
-  width: 28px;
-  height: 28px;
+  width: var(--ui-button-icon-compact-size);
+  height: var(--ui-button-icon-compact-size);
   border-color: var(--ui-border);
-  border-radius: 6px;
+  border-radius: var(--ui-radius-sm);
 }
 
 .ui-button--text {
