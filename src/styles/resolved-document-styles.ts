@@ -1,7 +1,7 @@
 import type { HeaderFooterCell, ListStyle, PageSetup, SpecialHeadingDefinition, TableStyle, TocStyle, TypographySetup } from '../types';
 import { DEFAULT_BODY_FONT_FAMILY, DEFAULT_HEADER_FOOTER_FONT_FAMILY, DEFAULT_LIST_FONT_FAMILY } from '../config/font-families';
 
-export type ResolvedTocStyle = Required<Pick<TocStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'isAllCaps'>>;
+export type ResolvedTocStyle = Required<Pick<TocStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'isAllCaps'>> & { indentation: number };
 export type ResolvedTypographyStyle = Required<Pick<TypographySetup['paragraph'], 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'lineHeight' | 'marginTop' | 'marginBottom'>>;
 export type ResolvedListStyle = Required<Pick<ListStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'lineHeight' | 'bulletIcon' | 'bulletColor' | 'marginTop' | 'marginBottom' | 'marginLeft' | 'paddingLeft'>>;
 export type ResolvedHeaderFooterCell = Required<Pick<HeaderFooterCell, 'content' | 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic'>> & Pick<HeaderFooterCell, 'horizontalAlign' | 'verticalAlign'>;
@@ -49,7 +49,8 @@ function resolveTocStyle(style: Partial<TocStyle> | undefined, fallbackFamily = 
     color: hexOr(style?.color, '#000000'),
     isBold: !!style?.isBold,
     isItalic: !!style?.isItalic,
-    isAllCaps: !!style?.isAllCaps
+    isAllCaps: !!style?.isAllCaps,
+    indentation: style?.indentation ?? 0
   };
 }
 
