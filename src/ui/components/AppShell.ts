@@ -1,3 +1,4 @@
+import { state } from '../../state';
 import { editorPanelTemplate } from './EditorPanel';
 import { previewPanelTemplate } from './PreviewPanel';
 import { taskPanelTemplate } from './TaskPanel';
@@ -103,3 +104,13 @@ export const appShellTemplate = (): string => `
 export const renderAppShell = (root: HTMLElement): void => {
   root.innerHTML = appShellTemplate();
 };
+
+export function initProjectNameDisplay(): void {
+  const el = document.getElementById('project-name');
+  if (!el) return;
+  const update = () => {
+    el.textContent = state.current.projectRef?.displayName ?? 'No project open';
+  };
+  update();
+  state.onProjectChanged(update);
+}

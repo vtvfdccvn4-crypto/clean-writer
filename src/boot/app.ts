@@ -1,6 +1,6 @@
 import '../style.css';
 import type { EditorManager } from '../ui/editor-manager';
-import { renderAppShell } from '../ui/components/AppShell';
+import { renderAppShell, initProjectNameDisplay } from '../ui/components/AppShell';
 import { initializeSymbolPicker } from '../ui/symbolPicker';
 import { projectSession } from '../services/ProjectSessionStore';
 import { registerServiceWorker } from '../sw-registration';
@@ -85,6 +85,7 @@ export async function bootApp(platform: Platform) {
   if (appContainer) {
     renderAppShell(appContainer);
   }
+  initProjectNameDisplay();
   initTaskPanelResizer();
   initTaskPanelActions(platform);
 
