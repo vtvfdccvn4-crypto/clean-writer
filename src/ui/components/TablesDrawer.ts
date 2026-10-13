@@ -12,6 +12,7 @@ const renderTableStyle = (prefix: string, title: string, secondary = false) => `
         ${renderDrawerControl('Font size (pt)', renderDrawerSizeSelect(`${prefix}-font-size`, 10))}
       </div>
       ${renderDrawerControl('Bold header', renderDrawerSwitchControl(`${prefix}-header-bold`, 'Bold header'))}
+      ${renderDrawerControl('Cell alignment', `<select id="${prefix}-vertical-align"><option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option></select>`)}
       <div class="drawer-grid drawer-grid-2">
         ${renderDrawerControl('Header text', renderDrawerColorControl(`${prefix}-header-text-color`, 'Header text colour', '#FFFFFF'))}
         ${renderDrawerControl('Header background', renderDrawerColorControl(`${prefix}-header-background`, 'Header background colour', secondary ? '#E8ECE8' : '#405A78'))}

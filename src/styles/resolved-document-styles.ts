@@ -79,6 +79,7 @@ export function resolveTableStyle(style: Partial<TableStyle> | undefined, fallba
     borderColor: hexOr(style?.borderColor, '#808080'),
     borderWidth: style?.borderWidth ?? 0.75,
     cellPadding: style?.cellPadding ?? 6,
+    verticalAlign: style?.verticalAlign ?? 'top',
     marginTop: style?.marginTop ?? 8,
     marginBottom: style?.marginBottom ?? 12
   };
