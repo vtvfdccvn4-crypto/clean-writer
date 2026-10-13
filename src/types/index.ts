@@ -129,6 +129,7 @@ export interface TableStyle {
   borderColor?: string;
   borderWidth: number;
   cellPadding: number;
+  verticalAlign?: string;
   marginTop: number;
   marginBottom: number;
 }
