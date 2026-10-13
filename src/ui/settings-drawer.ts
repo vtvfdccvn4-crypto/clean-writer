@@ -110,7 +110,7 @@ export function initSettingsDrawers(): void {
   wireDrawerTabs('styles-drawer');
   wireDrawerTabs('preferences-drawer');
 
-  wireActivityButton('btn-activity-page-setup', () => {
+  wireActivityButton('btn-preview-page-setup', () => {
     const drawer = document.getElementById('page-setup-drawer');
     if (drawer && !drawer.classList.contains('hidden')) {
       closeDrawer(drawer);
@@ -119,7 +119,7 @@ export function initSettingsDrawers(): void {
     }
   });
 
-  wireActivityButton('btn-activity-styles', () => {
+  wireActivityButton('btn-preview-styles', () => {
     const drawer = document.getElementById('styles-drawer');
     if (drawer && !drawer.classList.contains('hidden')) {
       closeDrawer(drawer);
@@ -128,7 +128,16 @@ export function initSettingsDrawers(): void {
     }
   });
 
-  wireActivityButton('btn-preferences', () => {
+  wireActivityButton('btn-activity-preferences', () => {
+    const drawer = document.getElementById('preferences-drawer');
+    if (drawer && !drawer.classList.contains('hidden')) {
+      closeDrawer(drawer);
+    } else {
+      openPreferencesDrawer();
+    }
+  });
+
+  wireActivityButton('btn-editor-preferences', () => {
     const drawer = document.getElementById('preferences-drawer');
     if (drawer && !drawer.classList.contains('hidden')) {
       closeDrawer(drawer);

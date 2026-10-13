@@ -144,8 +144,8 @@ export async function bootApp(platform: Platform) {
       });
     await settingsReady;
     const { openPageSetupDrawer, openStylesDrawer, openPreferencesDrawer } = await import('../ui/settings-drawer');
-    if (targetId === 'btn-activity-styles') openStylesDrawer();
-    else if (targetId === 'btn-preferences') openPreferencesDrawer();
+    if (targetId === 'btn-preview-styles') openStylesDrawer();
+    else if (targetId === 'btn-editor-preferences' || targetId === 'btn-activity-preferences') openPreferencesDrawer();
     else openPageSetupDrawer();
   };
 
@@ -158,11 +158,11 @@ export async function bootApp(platform: Platform) {
 
   document.addEventListener('click', event => {
     const target = event.target instanceof Element
-      ? event.target.closest<HTMLElement>('#btn-activity-page-setup, #btn-activity-styles, #btn-preferences, #btn-activity-outline, #btn-open-project-search, #btn-open-project-review')
+      ? event.target.closest<HTMLElement>('#btn-preview-page-setup, #btn-preview-styles, #btn-editor-preferences, #btn-activity-preferences, #btn-activity-outline, #btn-open-project-search, #btn-open-project-review')
       : null;
     if (!target) return;
 
-    if (target.id === 'btn-activity-page-setup' || target.id === 'btn-activity-styles' || target.id === 'btn-preferences') {
+    if (target.id === 'btn-preview-page-setup' || target.id === 'btn-preview-styles' || target.id === 'btn-editor-preferences' || target.id === 'btn-activity-preferences') {
       event.preventDefault();
       event.stopImmediatePropagation();
       void ensureSettings(target.id).catch(error => {

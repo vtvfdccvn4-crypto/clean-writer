@@ -11,7 +11,7 @@ import { projectReviewDrawerTemplate } from './ProjectReviewDrawer';
 import { materialIcon } from './icon';
 import { toolbarButton } from './toolbarButton';
 
-function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'page-setup' | 'styles'): string {
+function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'preferences'): string {
   switch (kind) {
     case 'explorer':
       return materialIcon('account_tree');
@@ -19,10 +19,8 @@ function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'page-setu
       return materialIcon('photo_library');
     case 'outline':
       return materialIcon('library_books');
-    case 'page-setup':
-      return materialIcon('tune');
-    case 'styles':
-      return materialIcon('palette');
+    case 'preferences':
+      return materialIcon('settings');
   }
 }
 
@@ -43,7 +41,6 @@ const appShellTemplate = (): string => `
         ${toolbarButton({ id: 'btn-task-close-project', variant: 'icon', ariaLabel: 'Close project', title: 'Close project', content: '<span aria-hidden="true">×</span>' })}
         ${toolbarButton({ id: 'btn-task-refresh-project', variant: 'icon', ariaLabel: 'Refresh project files', title: 'Refresh project files (Ctrl+Shift+I)', icon: materialIcon('rotate_left') })}
         ${toolbarButton({ id: 'btn-project-metadata', variant: 'icon', ariaLabel: 'Project metadata', title: 'Project metadata', icon: materialIcon('info') })}
-        ${toolbarButton({ id: 'btn-preferences', variant: 'icon', ariaLabel: 'Preferences', title: 'Preferences', icon: materialIcon('settings') })}
       </div>
     </header>
     <div class="screen-host">
@@ -62,11 +59,8 @@ const appShellTemplate = (): string => `
                 ${activityIconMarkup('outline')}
               </button>
             </div>
-            <button class="activity-bar-button activity-bar-settings" id="btn-activity-page-setup" type="button" aria-label="Page setup" title="Page setup" aria-controls="page-setup-drawer">
-              ${activityIconMarkup('page-setup')}
-            </button>
-            <button class="activity-bar-button activity-bar-settings" id="btn-activity-styles" type="button" aria-label="Styles" title="Styles" aria-controls="styles-drawer">
-              ${activityIconMarkup('styles')}
+            <button class="activity-bar-button activity-bar-settings" id="btn-activity-preferences" type="button" aria-label="Preferences" title="Preferences" aria-controls="preferences-drawer">
+              ${activityIconMarkup('preferences')}
             </button>
           </nav>
           <div id="task-panel">
