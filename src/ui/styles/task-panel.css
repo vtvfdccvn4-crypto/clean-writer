@@ -323,7 +323,7 @@
   padding: 0 6px;
   border: 0;
   border-radius: 5px;
-  background: #fff;
+  background: var(--ui-surface);
   color: var(--ui-text);
   cursor: pointer;
   font: 600 8.5pt var(--font-ui);
@@ -339,7 +339,7 @@
 }
 
 .task-explorer-item-action--danger {
-  color: var(--ui-danger, #b42318);
+  color: var(--ui-danger);
 }
 
 .task-explorer-item-glyph {
