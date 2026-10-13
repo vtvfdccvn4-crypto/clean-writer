@@ -1,4 +1,5 @@
 import type { PreviewSourceManifestEntry } from '../../compiler/rehype-plugins';
+import { resolveSourceLineTarget } from './PreviewTargetSelection';
 
 export interface CommittedPreviewTarget {
   entry: PreviewSourceManifestEntry;
@@ -83,13 +84,7 @@ export class CommittedPreviewIndex {
   }
 
   public resolve(line: number): CommittedPreviewTarget | null {
-    const containing = this.targets.filter(target =>
-      target.entry.range.startLine <= line && target.entry.range.endLine >= line
-    );
-    if (containing.length > 0) return chooseBestTarget(containing);
-
-    const preceding = this.targets.filter(target => target.entry.range.startLine <= line);
-    return preceding.length > 0 ? chooseBestTarget(preceding) : null;
+    return resolveSourceLineTarget(this.targets, line);
   }
 }
 
@@ -107,19 +102,7 @@ export function collectVisiblePageSourceElements(page: HTMLElement): HTMLElement
   return elements.filter(element => isVisiblePageSourceElement(element, page));
 }
 
-export function isVisiblePageSourceElement(element: HTMLElement, page: HTMLElement): boolean {
+function isVisiblePageSourceElement(element: HTMLElement, page: HTMLElement): boolean {
   const pageContent = element.closest('.pagedjs_page_content');
   return pageContent !== null && page.contains(pageContent);
-}
-
-function chooseBestTarget(targets: readonly CommittedPreviewTarget[]): CommittedPreviewTarget {
-  return [...targets].sort((left, right) => {
-    const leftSpan = left.entry.range.endLine - left.entry.range.startLine;
-    const rightSpan = right.entry.range.endLine - right.entry.range.startLine;
-    if (leftSpan !== rightSpan) return leftSpan - rightSpan;
-    if (left.entry.range.startLine !== right.entry.range.startLine) {
-      return right.entry.range.startLine - left.entry.range.startLine;
-    }
-    return right.entry.priority - left.entry.priority;
-  })[0]!;
 }

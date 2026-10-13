@@ -1,20 +1,23 @@
 import type { ListStyle } from '../types';
-import type { PrintLayoutSettings } from '../print/PrintLayoutSettings';
 
-/** Materializes ordered-list markers after pagination so they use real text metrics. */
-export function materializePdfPreviewListMarkers(root: ParentNode, layout: PrintLayoutSettings): void {
+type PdfListMarkerStyles = Readonly<Pick<ListStyle, 'bulletIcon'>> & {
+  readonly parenthesized: Readonly<Pick<ListStyle, 'bulletIcon'>>;
+};
+
+/** Materializes ordered-list markers before pagination so their text affects page geometry. */
+export function materializePdfListMarkers(root: ParentNode, styles: PdfListMarkerStyles): void {
   root.querySelectorAll<HTMLElement>('ol[data-marker] > li > .document-list-marker[data-list-index]').forEach(marker => {
     const list = marker.closest<HTMLOListElement>('ol[data-marker]');
     const value = Number(marker.dataset.listIndex);
     if (!list || !Number.isSafeInteger(value) || value < 1) return;
     const parenthesized = list.dataset.marker === 'paren';
-    const style = parenthesized ? layout.lists.olParen : layout.lists.ol;
+    const style = parenthesized ? styles.parenthesized : styles;
     marker.classList.add('is-materialized');
     marker.textContent = `${formatListNumber(value, style)}${parenthesized ? ')' : '.'}`;
   });
 }
 
-function formatListNumber(value: number, style: ListStyle): string {
+function formatListNumber(value: number, style: Pick<ListStyle, 'bulletIcon'>): string {
   switch (style.bulletIcon) {
     case 'lower-alpha': return toAlphabetic(value, false);
     case 'upper-alpha': return toAlphabetic(value, true);

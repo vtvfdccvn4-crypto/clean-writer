@@ -6,7 +6,7 @@ export type WritingStatistics = {
 };
 
 // Assuming 250 words per minute for reading speed.
-export const WORDS_PER_MINUTE = 250;
+const WORDS_PER_MINUTE = 250;
 
 export function calculateReadingTime(words: number): number {
   if (words <= 0) return 0;

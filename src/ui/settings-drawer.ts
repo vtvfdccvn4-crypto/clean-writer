@@ -1,6 +1,6 @@
 import { closeAllDrawers, closeDrawer, openDrawer } from './drawer-manager';
 
-export const SETTINGS_TAB_ACTIVATED_EVENT = 'clear-writer-settings-tab-activated';
+const SETTINGS_TAB_ACTIVATED_EVENT = 'clear-writer-settings-tab-activated';
 
 export type SettingsTabId =
   | 'page-setup'
@@ -20,7 +20,7 @@ function dispatchSettingsTabActivated(tabId: SettingsTabId): void {
   }));
 }
 
-export function activateSettingsTab(tabId: SettingsTabId): void {
+function activateSettingsTab(tabId: SettingsTabId): void {
   const drawer = document.getElementById('settings-drawer');
   if (!drawer) return;
 

@@ -1,3 +1,5 @@
+import { escapeHtml } from '../utils/escapeHtml';
+
 export interface FontFamilyOption {
   value: string;
   label: string;
@@ -20,20 +22,12 @@ export const FONT_FAMILY_OPTIONS: FontFamilyOption[] = [
   { value: 'Courier New', label: 'Courier New' }
 ];
 
-export const FONT_FAMILY_VALUES = new Set(FONT_FAMILY_OPTIONS.map(option => option.value));
+const FONT_FAMILY_VALUES = new Set(FONT_FAMILY_OPTIONS.map(option => option.value));
 
 export const DEFAULT_HEADER_FOOTER_FONT_FAMILY = 'Calibri';
 export const DEFAULT_BODY_FONT_FAMILY = 'Times New Roman';
 export const DEFAULT_HEADING_FONT_FAMILY = 'Calibri';
 export const DEFAULT_LIST_FONT_FAMILY = 'Times New Roman';
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 export function renderFontFamilyOptions(includeDefault = false): string {
   const options = includeDefault

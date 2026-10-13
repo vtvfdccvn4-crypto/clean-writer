@@ -23,7 +23,7 @@ function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'settings'
   }
 }
 
-export const appShellTemplate = (): string => `
+const appShellTemplate = (): string => `
   <div id="app-layout" class="app-layout">
     <header class="app-bar">
       <div class="brand">

@@ -42,7 +42,7 @@ export function resolveListStyle(style: Partial<ListStyle> | undefined, fallback
   };
 }
 
-export function resolveTocStyle(style: Partial<TocStyle> | undefined, fallbackFamily = DEFAULT_BODY_FONT_FAMILY): ResolvedTocStyle {
+function resolveTocStyle(style: Partial<TocStyle> | undefined, fallbackFamily = DEFAULT_BODY_FONT_FAMILY): ResolvedTocStyle {
   return {
     fontFamily: hexOr(style?.fontFamily, fallbackFamily),
     fontSize: style?.fontSize ?? 11,

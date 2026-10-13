@@ -1,6 +1,8 @@
 import type { PrintLayoutSettings } from './PrintLayoutSettings';
+import { escapeHtml, escapeAttribute } from '../utils/escapeHtml';
+import { escapeRegExp } from '../utils/regex';
 
-export type PrintBreakReason = 'section' | 'h1' | 'custom-heading';
+export type PrintBreakReason = 'section' | 'h1' | 'custom-heading' | 'explicit';
 
 export interface PrintBreakManifestEntry {
   readonly id: string;
@@ -34,7 +36,11 @@ export function compilePrintDocument(sourceHtml: string, layout: PrintLayoutSett
 
   const compiled = sections.map((section, sectionIndex) => {
     const sectionRule = layoutByPath.get(section.path);
-    const body = removeLegacySectionBreaks(section.body);
+    const body = normalizeSectionBreaks(section.body, section.path, () => {
+      const id = `break-${++breakSequence}`;
+      manifest.push({ id, sectionPath: section.path, reasons: ['explicit'] });
+      return id;
+    });
     const headings = findHeadings(body);
     const firstH1 = headings.find(heading => heading.level === 1);
     const sectionRequiresBreak = sectionIndex > 0 && sectionRule?.requiresPageBreak === true;
@@ -42,18 +48,21 @@ export function compilePrintDocument(sourceHtml: string, layout: PrintLayoutSett
     let sectionReasons = new Set<PrintBreakReason>();
 
     if (sectionRequiresBreak) {
-      if (firstH1) addReason(reasonsByHeading, firstH1.index, 'section');
-      else sectionReasons.add('section');
+      if (firstH1) {
+        if (!firstH1.hasExplicitBreakBefore) addReason(reasonsByHeading, firstH1.index, 'section');
+      } else {
+        sectionReasons.add('section');
+      }
     }
 
     headings.forEach(heading => {
       const isFirstPrintableH1 = heading.level === 1
         && sectionIndex === 0
         && isFirstPrintableElement(body, heading.start);
-      if (heading.level === 1 && !isFirstPrintableH1) {
+      if (heading.level === 1 && !isFirstPrintableH1 && !heading.hasExplicitBreakBefore) {
         addReason(reasonsByHeading, heading.index, 'h1');
       }
-      if (heading.specialHeadingId && customBreakIds.has(heading.specialHeadingId) && !isFirstPrintableH1) {
+      if (heading.specialHeadingId && customBreakIds.has(heading.specialHeadingId) && !isFirstPrintableH1 && !heading.hasExplicitBreakBefore) {
         addReason(reasonsByHeading, heading.index, 'custom-heading');
       }
     });
@@ -104,6 +113,7 @@ type Heading = {
   start: number;
   level: number;
   specialHeadingId: string | null;
+  hasExplicitBreakBefore: boolean;
 };
 
 const SECTION_OPEN_TAG = /<div\b(?=[^>]*\bclass=(?:"[^"]*\bdocument-section\b[^"]*"|'[^']*\bdocument-section\b[^']*'))[^>]*>/gi;
@@ -156,8 +166,12 @@ function findMatchingDivClose(html: string, openStart: number): number {
   return -1;
 }
 
-function removeLegacySectionBreaks(html: string): string {
-  return html.replace(LEGACY_SECTION_BREAK, '');
+function normalizeSectionBreaks(html: string, sectionPath: string, createExplicitBreakId: () => string): string {
+  return html.replace(LEGACY_SECTION_BREAK, marker => {
+    if (readAttribute(marker, 'data-explicit-page-break') !== 'true') return '';
+    const id = createExplicitBreakId();
+    return `<div class="print-page-break" data-print-break-before="true" data-print-break-id="${escapeAttribute(id)}" data-section-path="${escapeAttribute(sectionPath)}" aria-hidden="true"></div>`;
+  });
 }
 
 /** Annotate image-only blocks without relying on the unsupported :has() CSS selector. */
@@ -255,7 +269,8 @@ function findHeadings(html: string): Heading[] {
       index: headings.length,
       start: match.index,
       level: Number(match[1]),
-      specialHeadingId: readAttribute(match[0], 'data-special-heading-id')
+      specialHeadingId: readAttribute(match[0], 'data-special-heading-id'),
+      hasExplicitBreakBefore: /<div\b(?=[^>]*\bclass="[^"]*\bprint-page-break\b[^"]*")[^>]*><\/div>\s*$/i.test(html.slice(0, match.index))
     });
   }
   return headings;
@@ -293,18 +308,11 @@ function addClass(tag: string, className: string): string {
 }
 
 function readAttribute(tag: string, name: string): string | null {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escaped = escapeRegExp(name);
   const match = tag.match(new RegExp(`\\b${escaped}=(?:"([^"]*)"|'([^']*)')`, 'i'));
   return match ? (match[1] ?? match[2] ?? '') : null;
 }
 
-function escapeAttribute(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
 
 function stripHtml(value: string): string {
   return value.replace(/<[^>]+>/g, '');

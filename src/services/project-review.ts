@@ -13,7 +13,7 @@ export interface ProjectReviewResult {
   detail: string;
 }
 
-export const LONG_SECTION_WORD_LIMIT = 2000;
+const LONG_SECTION_WORD_LIMIT = 2000;
 
 export async function reviewProject(
   session: WorkspaceSession,

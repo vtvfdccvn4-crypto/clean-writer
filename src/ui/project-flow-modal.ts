@@ -1,12 +1,8 @@
 import type { WorkspaceRef } from '../platform';
+import { escapeHtml } from '../utils/escapeHtml';
 
 export function escapeProjectFlowText(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return escapeHtml(value).replace(/'/g, '&#39;');
 }
 
 export function showNewProjectModal(): Promise<
@@ -37,7 +33,7 @@ export function showNewProjectModal(): Promise<
                   <span class="ui-button-icon">☁️</span> Browser storage
                 </button>
                 <input type="text" id="input-opfs-name" class="input-text project-flow-modal-name-field" placeholder="Project name (e.g. My Draft)" />
-                <button type="button" class="ui-button ui-button--modal ui-button--full project-flow-modal-name-submit" id="btn-modal-new-opfs-confirm">Create</button>
+                <button type="button" class="ui-button ui-button--modal ui-button--full ui-button--primary project-flow-modal-name-submit" id="btn-modal-new-opfs-confirm">Create</button>
               </div>
             </div>
           </div>

@@ -1,8 +1,8 @@
-export const BLOCK_GLYPH_DIRECTORY = 'assets/glyphs';
+const BLOCK_GLYPH_DIRECTORY = 'assets/glyphs';
 
 const GLYPH_FILE_EXTENSION = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
 
-export function isBlockGlyphFile(path: string): boolean {
+function isBlockGlyphFile(path: string): boolean {
   return GLYPH_FILE_EXTENSION.test(path);
 }
 

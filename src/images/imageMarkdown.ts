@@ -2,7 +2,7 @@ import { getBaseName, normalizeExplorerPath } from '../utils/path-utils';
 import { DEFAULT_IMAGE_SETUP } from '../config/defaults';
 import type { ImageSetup } from '../types';
 
-export function normalizeProjectImagePath(path: string): string {
+function normalizeProjectImagePath(path: string): string {
   const normalized = normalizeExplorerPath(path);
   if (!normalized) return normalized;
   return normalized.startsWith('images/') ? normalized : `images/${normalized}`;

@@ -3,6 +3,7 @@ import type { EditorManager } from './editor-manager';
 import type { Platform } from '../platform/types';
 import { extractMarkdownHeadings } from '../editor/markdown-headings';
 import { extractWritingStatistics, calculateReadingTime } from '../editor/writing-statistics';
+import { escapeHtml } from '../utils/escapeHtml';
 
 export function initDocumentOutlineDrawer(platform: Platform, editorManager: EditorManager) {
   const PROJECT_STATS_REFRESH_EVENT = 'clear-writer-project-stats-refresh';
@@ -108,12 +109,6 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
         if (headings.length > 0) {
           totalHeadings += headings.length;
         }
-
-        const escapeHtml = (unsafe: string) => unsafe
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
 
         const sectionName = section.path.split('/').pop() || section.path;
 

@@ -2,7 +2,7 @@ import type { ProjectHealthReport } from '../types';
 
 type WorkspaceAction = 'open' | 'save' | 'settings' | 'close' | 'project';
 
-export function summarizeProjectHealth(report: ProjectHealthReport): string {
+function summarizeProjectHealth(report: ProjectHealthReport): string {
   if (!report.issues.length) return 'No issues detected.';
   return report.issues
     .map(issue => issue.message.trim())
