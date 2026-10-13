@@ -1,5 +1,9 @@
 import type { TableSetup, TableStyle } from '../../state';
 import { resolveTableStyle } from '../../styles/resolved-document-styles';
+function cssFamily(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\n\r\f]/g, ' ')}"`;
+}
+
 export function generateTableCss(setup: TableSetup): string {
   const content = ':is(.pagedjs_page_content, .paged-stage.is-live-preview)';
   const number = (value: number, fallback: number, max: number): number => {
@@ -16,7 +20,7 @@ export function generateTableCss(setup: TableSetup): string {
         margin: ${number(config.marginTop, 8, 200)}pt 0 ${number(config.marginBottom, 12, 200)}pt;
         border-collapse: collapse;
         border-spacing: 0;
-        font-family: ${config.fontFamily} !important;
+        font-family: ${cssFamily(config.fontFamily)} !important;
         font-size: ${number(config.fontSize, 10, 200)}pt !important;
         break-inside: auto;
       }
@@ -25,7 +29,7 @@ export function generateTableCss(setup: TableSetup): string {
       ${content} ${selector} td {
         padding: ${number(config.cellPadding, 6, 50)}pt;
         border: ${number(config.borderWidth, 0.75, 10)}pt solid ${config.borderColor};
-        vertical-align: top;
+        vertical-align: ${config.verticalAlign};
         line-height: 1.2;
       }
 

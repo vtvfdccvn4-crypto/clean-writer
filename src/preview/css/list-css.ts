@@ -19,7 +19,7 @@ export function generateListCss(setup: ListSetup): string {
 
   const listTypography = (selector: string, config: ListStyle) => `
     ${content} ${selector} > li {
-      font-family: ${config.fontFamily} !important;
+      font-family: ${cssString(config.fontFamily, 'serif')} !important;
       font-size: ${points(config.fontSize, 11)}pt !important;
       color: ${config.color || 'inherit'} !important;
       font-weight: ${config.isBold ? 'bold' : 'normal'} !important;
@@ -69,6 +69,19 @@ export function generateListCss(setup: ListSetup): string {
       grid-column: 2;
       grid-row: 1;
       min-width: 0;
+    }
+
+    /* Loose Markdown lists wrap an item's text in a paragraph. Paragraph
+       typography must not replace the list item's font metrics, otherwise
+       the marker and the first text line use different line boxes and only
+       loose lists appear vertically misaligned. */
+    ${content} ${selector} > li > .document-list-content > p {
+      font-family: inherit !important;
+      font-size: inherit !important;
+      color: inherit !important;
+      font-weight: inherit !important;
+      font-style: inherit !important;
+      line-height: inherit !important;
     }
 
     /* A loose Markdown list contains paragraph elements. Their outer margins
@@ -127,6 +140,15 @@ export function generateListCss(setup: ListSetup): string {
       grid-column: 2;
       grid-row: 1;
       min-width: 0;
+    }
+
+    ${content} ${selector} > li > .document-list-content > p {
+      font-family: inherit !important;
+      font-size: inherit !important;
+      color: inherit !important;
+      font-weight: inherit !important;
+      font-style: inherit !important;
+      line-height: inherit !important;
     }
 
     ${content} ${selector} > li > .document-list-content > :first-child {

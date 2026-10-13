@@ -1,10 +1,15 @@
 import type { TypographySetup } from '../../state';
 import { resolveTypographyStyle } from '../../styles/resolved-document-styles';
+
+function cssFamily(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\n\r\f]/g, ' ')}"`;
+}
+
 export function generateTypographyCss(setup: TypographySetup): string {
   const content = ':is(.pagedjs_page_content, .paged-stage.is-live-preview)';
   const applyStyle = (tag: string, s: any) => `
     ${content} ${tag} {
-      font-family: ${s.fontFamily} !important;
+      font-family: ${cssFamily(s.fontFamily)} !important;
       font-size: ${s.fontSize}pt !important;
       color: ${s.color || 'inherit'} !important;
       font-weight: ${s.isBold ? 'bold' : 'normal'} !important;
