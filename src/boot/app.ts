@@ -1,6 +1,6 @@
 import '../style.css';
 import type { EditorManager } from '../ui/editor-manager';
-import { renderAppShell } from '../ui/components/AppShell';
+import { renderAppShell, initProjectNameDisplay } from '../ui/components/AppShell';
 import { initializeSymbolPicker } from '../ui/symbolPicker';
 import { projectSession } from '../services/ProjectSessionStore';
 import { registerServiceWorker } from '../sw-registration';
@@ -85,6 +85,7 @@ export async function bootApp(platform: Platform) {
   if (appContainer) {
     renderAppShell(appContainer);
   }
+  initProjectNameDisplay();
   initTaskPanelResizer();
   initTaskPanelActions(platform);
 
@@ -120,33 +121,32 @@ export async function bootApp(platform: Platform) {
   setupWritingWorkflow(editorManager);
 
   let settingsReady: Promise<void> | null = null;
-  const ensureSettings = async () => {
-    settingsReady ??= Promise.all([
-      import('../ui/settings-drawer'),
-      import('./setupSettingsFeatures')
-    ]).then(([{ initSettingsDrawer }, { setupSettingsFeatures }]) => {
-      initSettingsDrawer(false);
-      setupSettingsFeatures(platform, saveSettingsWithNotice, async (imageSetup) => {
-        try {
-          // Include the active editor's unsaved changes in the project-wide reset.
-          await editorManager.flushCurrentDocument();
-          const changed = await projectSession.resetImagePresentation(imageSetup);
-          changed.forEach(section => editorManager.replaceCurrentDocument(section.path, section.content));
-          showNotice(
-            changed.length === 0
-              ? 'Image settings saved. No existing image attributes needed updating.'
-              : `Image settings applied to ${changed.length} section${changed.length === 1 ? '' : 's'}.`
-          );
-        } catch (error) {
-          console.error('Image settings were not applied:', error);
-          showNotice(describeWorkspaceError(error, 'settings'), 'error');
-          throw error;
-        }
+  const ensureSettings = async (targetId: string) => {
+    settingsReady ??= import('./setupSettingsFeatures')
+      .then(({ setupSettingsFeatures }) => {
+        setupSettingsFeatures(platform, saveSettingsWithNotice, async (imageSetup) => {
+          try {
+            // Include the active editor's unsaved changes in the project-wide reset.
+            await editorManager.flushCurrentDocument();
+            const changed = await projectSession.resetImagePresentation(imageSetup);
+            changed.forEach(section => editorManager.replaceCurrentDocument(section.path, section.content));
+            showNotice(
+              changed.length === 0
+                ? 'Image settings saved. No existing image attributes needed updating.'
+                : `Image settings applied to ${changed.length} section${changed.length === 1 ? '' : 's'}.`
+            );
+          } catch (error) {
+            console.error('Image settings were not applied:', error);
+            showNotice(describeWorkspaceError(error, 'settings'), 'error');
+            throw error;
+          }
+        });
       });
-    });
     await settingsReady;
-    const { openSettingsDrawer } = await import('../ui/settings-drawer');
-    openSettingsDrawer();
+    const { openPageSetupDrawer, openStylesDrawer, openPreferencesDrawer } = await import('../ui/settings-drawer');
+    if (targetId === 'btn-activity-styles') openStylesDrawer();
+    else if (targetId === 'btn-preferences') openPreferencesDrawer();
+    else openPageSetupDrawer();
   };
 
   let writingToolsReady: Promise<void> | null = null;
@@ -158,14 +158,14 @@ export async function bootApp(platform: Platform) {
 
   document.addEventListener('click', event => {
     const target = event.target instanceof Element
-      ? event.target.closest<HTMLElement>('#btn-activity-settings, #btn-activity-outline, #btn-open-project-search, #btn-open-project-review')
+      ? event.target.closest<HTMLElement>('#btn-activity-page-setup, #btn-activity-styles, #btn-preferences, #btn-activity-outline, #btn-open-project-search, #btn-open-project-review')
       : null;
     if (!target) return;
 
-    if (target.id === 'btn-activity-settings') {
+    if (target.id === 'btn-activity-page-setup' || target.id === 'btn-activity-styles' || target.id === 'btn-preferences') {
       event.preventDefault();
       event.stopImmediatePropagation();
-      void ensureSettings().catch(error => {
+      void ensureSettings(target.id).catch(error => {
         console.error('Clear Writer settings features failed to load:', error);
         showNotice('Settings are temporarily unavailable.', 'error');
       });

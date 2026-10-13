@@ -1,15 +1,17 @@
+import { state } from '../../state';
 import { editorPanelTemplate } from './EditorPanel';
 import { previewPanelTemplate } from './PreviewPanel';
 import { taskPanelTemplate } from './TaskPanel';
 import { projectMetadataDrawerTemplate } from './ProjectMetadataDrawer';
 import { symbolPickerDrawerTemplate } from './SymbolPickerDrawer';
-import { settingsDrawerTemplate } from './SettingsDrawer';
+import { pageSetupDrawerTemplate, stylesDrawerTemplate } from './SettingsDrawer';
+import { preferencesDrawerTemplate } from './PreferencesDrawer';
 import { projectSearchDrawerTemplate } from './ProjectSearchDrawer';
 import { projectReviewDrawerTemplate } from './ProjectReviewDrawer';
 import { materialIcon } from './icon';
 import { toolbarButton } from './toolbarButton';
 
-function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'settings'): string {
+function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'page-setup' | 'styles'): string {
   switch (kind) {
     case 'explorer':
       return materialIcon('account_tree');
@@ -17,12 +19,14 @@ function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'settings'
       return materialIcon('photo_library');
     case 'outline':
       return materialIcon('library_books');
-    case 'settings':
-      return materialIcon('build_circle');
+    case 'page-setup':
+      return materialIcon('tune');
+    case 'styles':
+      return materialIcon('palette');
   }
 }
 
-export const appShellTemplate = (): string => `
+const appShellTemplate = (): string => `
   <div id="app-layout" class="app-layout">
     <header class="app-bar">
       <div class="brand">
@@ -39,6 +43,7 @@ export const appShellTemplate = (): string => `
         ${toolbarButton({ id: 'btn-task-close-project', variant: 'icon', ariaLabel: 'Close project', title: 'Close project', content: '<span aria-hidden="true">×</span>' })}
         ${toolbarButton({ id: 'btn-task-refresh-project', variant: 'icon', ariaLabel: 'Refresh project files', title: 'Refresh project files (Ctrl+Shift+I)', icon: materialIcon('rotate_left') })}
         ${toolbarButton({ id: 'btn-project-metadata', variant: 'icon', ariaLabel: 'Project metadata', title: 'Project metadata', icon: materialIcon('info') })}
+        ${toolbarButton({ id: 'btn-preferences', variant: 'icon', ariaLabel: 'Preferences', title: 'Preferences', icon: materialIcon('settings') })}
       </div>
     </header>
     <div class="screen-host">
@@ -57,8 +62,11 @@ export const appShellTemplate = (): string => `
                 ${activityIconMarkup('outline')}
               </button>
             </div>
-            <button class="activity-bar-button activity-bar-settings" id="btn-activity-settings" type="button" aria-label="Settings" title="Settings">
-              ${activityIconMarkup('settings')}
+            <button class="activity-bar-button activity-bar-settings" id="btn-activity-page-setup" type="button" aria-label="Page setup" title="Page setup" aria-controls="page-setup-drawer">
+              ${activityIconMarkup('page-setup')}
+            </button>
+            <button class="activity-bar-button activity-bar-settings" id="btn-activity-styles" type="button" aria-label="Styles" title="Styles" aria-controls="styles-drawer">
+              ${activityIconMarkup('styles')}
             </button>
           </nav>
           <div id="task-panel">
@@ -89,7 +97,9 @@ export const appShellTemplate = (): string => `
     </footer>
     <div id="drawer-container" class="drawer-container">
       <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
-      ${settingsDrawerTemplate()}
+      ${pageSetupDrawerTemplate()}
+      ${stylesDrawerTemplate()}
+      ${preferencesDrawerTemplate()}
       ${projectSearchDrawerTemplate()}
       ${projectReviewDrawerTemplate()}
       ${projectMetadataDrawerTemplate()}
@@ -103,3 +113,13 @@ export const appShellTemplate = (): string => `
 export const renderAppShell = (root: HTMLElement): void => {
   root.innerHTML = appShellTemplate();
 };
+
+export function initProjectNameDisplay(): void {
+  const el = document.getElementById('project-name');
+  if (!el) return;
+  const update = () => {
+    el.textContent = state.current.projectRef?.displayName ?? 'No project open';
+  };
+  update();
+  state.onProjectChanged(update);
+}

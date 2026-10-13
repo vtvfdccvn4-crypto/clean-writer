@@ -11,6 +11,7 @@ import { initImageSettingsDrawer } from '../ui/image-settings-setup';
 import { initTocSetupDrawer } from '../ui/toc-setup';
 import { initTypographyDrawer } from '../ui/typography-setup';
 import { initializeDrawerColorControls } from '../ui/components/drawerControls';
+import { initSettingsDrawers } from '../ui/settings-drawer';
 
 /** Registers settings feature drawers with their shared project-settings writer. */
 export function setupSettingsFeatures(
@@ -32,4 +33,5 @@ export function setupSettingsFeatures(
   initCustomStylesDrawer(platform, async (customStyles, customBlockStyles) => saveSettings({ customStyles, customBlockStyles }));
   setupEditorSettingsDrawer(async (editorSetup) => saveSettings({ editorSetup }));
   initializeDrawerColorControls();
+  initSettingsDrawers();
 }
