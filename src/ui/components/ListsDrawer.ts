@@ -93,7 +93,7 @@ export const listsDrawerContentTemplate = (): string => {
           </select>`
         )}
 
-        <button id="btn-apply-lists" class="ui-button ui-button--block" type="button">Apply settings</button>
+        <button id="btn-apply-lists" class="ui-button ui-button--block ui-button--primary" type="button">Apply settings</button>
       </div>
   `;
 };

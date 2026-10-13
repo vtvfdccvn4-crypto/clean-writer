@@ -27,5 +27,5 @@ export const specialHeadingsDrawerContentTemplate = (): string => `
       ${renderDrawerControl('Spacing before (pt)', '<input id="special-heading-margin-top" type="number" min="0" value="12">')}
       ${renderDrawerControl('Spacing after (pt)', '<input id="special-heading-margin-bottom" type="number" min="0" value="6">')}
     </section>
-    <button id="btn-apply-special-heading" class="ui-button ui-button--block" type="button">Apply settings</button>
+    <button id="btn-apply-special-heading" class="ui-button ui-button--block ui-button--primary" type="button">Apply settings</button>
   </div>`;

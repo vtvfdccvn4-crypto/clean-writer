@@ -113,6 +113,6 @@ export const pageSetupDrawerContentTemplate = (): string => `
         <div id="page-section-visibility-controls" class="drawer-control-stack"></div>
       </section>
 
-      <button id="btn-apply-page-setup" class="ui-button ui-button--block" type="button">Apply settings</button>
+      <button id="btn-apply-page-setup" class="ui-button ui-button--block ui-button--primary" type="button">Apply settings</button>
     </div>
 `;

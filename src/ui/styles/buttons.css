@@ -71,6 +71,22 @@
   border-radius: 10px;
 }
 
+.ui-button--primary {
+  background: var(--ui-brand);
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.ui-button--primary:hover:not(:disabled) {
+  background: var(--ui-brand-strong);
+}
+
+.ui-button--primary:active:not(:disabled) {
+  background: var(--ui-brand-strong);
+  transform: translateY(1px);
+}
+
 .ui-button--modal {
   min-height: 32px;
   padding: 0 16px;
