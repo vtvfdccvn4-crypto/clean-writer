@@ -39,6 +39,8 @@ type AppStateEvent = typeof APP_STATE_EVENTS[keyof typeof APP_STATE_EVENTS];
 
 class AppState extends EventTarget {
   private data: AppStateData;
+  private cachedCurrentData: AppStateData | null = null;
+  private cachedCurrent: Readonly<AppStateData & { projectPath: string | null }> | null = null;
 
   constructor() {
     super();
@@ -47,11 +49,13 @@ class AppState extends EventTarget {
   }
 
   get current(): Readonly<AppStateData & { projectPath: string | null }> {
-    const result = {
+    if (this.cachedCurrentData === this.data) return this.cachedCurrent!;
+    this.cachedCurrentData = this.data;
+    this.cachedCurrent = Object.freeze({
       ...this.data,
       projectPath: this.data.projectRef ? this.data.projectRef.id : null
-    };
-    return Object.freeze(result) as any;
+    }) as any;
+    return this.cachedCurrent!;
   }
 
   private on(eventName: AppStateEvent, listener: EventListener): () => void {
