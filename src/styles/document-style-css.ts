@@ -52,13 +52,13 @@ export function listStructureCss(
       margin-left: 0${s};
       margin-top: ${style.marginTop}pt${s};
       margin-bottom: ${style.marginBottom}pt${s};
-      padding-inline-start: ${style.marginLeft}pt${s};
+      padding-inline-start: ${Math.max(0, style.marginLeft)}pt${s};
       list-style: none${s};
     }
     ${opts.scope} ${selector} > li {
       display: grid;
       grid-template-columns: max-content minmax(0, 1fr);
-      column-gap: ${style.paddingLeft}pt;
+      column-gap: ${Math.max(0, Math.min(100, style.paddingLeft))}pt;
       padding: 0${s};
       font-family: ${cssStringLiteral(style.fontFamily)}${s};
       font-size: ${style.fontSize}pt${s};
@@ -132,8 +132,7 @@ export function tableScopedCss(
   return `
     ${opts.scope} ${sel} {
       width: 100%;
-      margin-top: ${style.marginTop}pt${s};
-      margin-bottom: ${style.marginBottom}pt${s};
+      margin: ${style.marginTop}pt 0 ${style.marginBottom}pt${s};
       border-collapse: collapse;
       border-spacing: 0;
       font-family: ${cssStringLiteral(style.fontFamily)}${s};
@@ -155,15 +154,15 @@ export function tableScopedCss(
     }
     ${opts.scope} ${sel} thead th {
       color: ${style.headerTextColor};
-      background-color: ${style.headerBackground};
+      background: ${style.headerBackground};
       font-weight: ${style.headerBold ? 'bold' : 'normal'};
     }
     ${opts.scope} ${sel} tbody td {
       color: ${style.bodyTextColor};
-      background-color: ${style.bodyBackground};
+      background: ${style.bodyBackground};
     }
     ${opts.scope} ${sel} tbody tr:nth-child(even) td {
-      background-color: ${style.alternateRowColor};
+      background: ${style.alternateRowColor};
     }
     ${opts.scope} ${sel} tr {
       break-inside: avoid;
