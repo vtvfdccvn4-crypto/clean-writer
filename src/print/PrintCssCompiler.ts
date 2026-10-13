@@ -38,6 +38,22 @@ export function compilePrintCss(layout: PrintLayoutSettings): string {
   `;
 }
 
+/**
+ * The completed Paged.js pages are printed as physical sheets. Keep this
+ * output rule in the artifact stylesheet so print cannot silently add its own
+ * geometry or break policy after pagination has completed.
+ */
+export function compilePdfArtifactPrintCss(layout: PrintLayoutSettings): string {
+  return `
+    @media print {
+      @page { size: ${layout.paper.widthMm}mm ${layout.paper.heightMm}mm; margin: 0; }
+      html, body { margin: 0; padding: 0; }
+      .pagedjs_page { break-after: page; }
+      .pagedjs_page:last-child { break-after: auto; }
+    }
+  `;
+}
+
 /** Non-printing visual boundaries used while inspecting paginated previews. */
 function guidelineCss(): string {
   return `
@@ -90,7 +106,6 @@ function marginStyleCss(layout: PrintLayoutSettings): string {
       overflow: hidden;
     }
     .pagedjs_margin-content.clear-writer-print-margin-content > img {
-      display: block;
       box-sizing: border-box;
       flex: 0 1 auto;
       min-width: 0;
@@ -158,13 +173,20 @@ function listBaseCss(selector: string, style: ListStyle): string {
       align-self: start;
       display: inline-flex;
       align-items: center;
-      min-height: 1em;
-      line-height: 1;
+      line-height: inherit;
     }
     .clear-writer-print-content ${selector} > li > .document-list-content {
       grid-column: 2;
       grid-row: 1;
       min-width: 0;
+    }
+    .clear-writer-print-content ${selector} > li > .document-list-content > p {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+      font-weight: inherit;
+      font-style: inherit;
+      line-height: inherit;
     }
     .clear-writer-print-content ${selector} > li > .document-list-content > :first-child { margin-top: 0; }
     .clear-writer-print-content ${selector} > li > .document-list-content > :last-child { margin-bottom: 0; }
@@ -198,7 +220,13 @@ function tableCss(styleNumber: 1 | 2, style: TableStyle): string {
     ${selector} th, ${selector} td {
       padding: ${style.cellPadding}pt;
       border: ${style.borderWidth}pt solid ${style.borderColor};
-      vertical-align: top;
+      vertical-align: ${style.verticalAlign};
+      line-height: 1.2;
+    }
+    ${selector} th:empty::before, ${selector} td:empty::before {
+      content: "\\00a0";
+      display: inline-block;
+      min-height: 1.2em;
     }
     ${selector} thead th {
       color: ${style.headerTextColor};
@@ -277,6 +305,7 @@ function customBlockStyleCss(
 }
 
 function tocCss(toc: TocSetup): string {
+  const defaultIndentations = [0, 19.5, 36, 49.5, 66, 82.5];
   const levels = ([1, 2, 3, 4, 5, 6] as const).map(level => {
     const style = toc[`h${level}`];
     return `
@@ -286,6 +315,7 @@ function tocCss(toc: TocSetup): string {
         color: ${style.color};
         font-weight: ${style.isBold ? 'bold' : 'normal'};
         font-style: ${style.isItalic ? 'italic' : 'normal'};
+        margin-left: ${style.indentation ?? defaultIndentations[level - 1]}pt;
       }
       .clear-writer-print-content .toc-level-${level} .toc-label {
         text-transform: ${style.isAllCaps ? 'uppercase' : 'none'};
@@ -296,12 +326,7 @@ function tocCss(toc: TocSetup): string {
     .clear-writer-print-content .table-of-contents { margin-bottom: 2em; }
     .clear-writer-print-content .toc-list { margin: 0; padding: 0; list-style: none; }
     .clear-writer-print-content .toc-item { margin: .2em 0; line-height: ${toc.lineHeight}; }
-    .clear-writer-print-content .toc-level-1 { margin-left: 0; margin-top: 1em; }
-    .clear-writer-print-content .toc-level-2 { margin-left: 1.5em; }
-    .clear-writer-print-content .toc-level-3 { margin-left: 3em; }
-    .clear-writer-print-content .toc-level-4 { margin-left: 4.5em; }
-    .clear-writer-print-content .toc-level-5 { margin-left: 6em; }
-    .clear-writer-print-content .toc-level-6 { margin-left: 7.5em; }
+    .clear-writer-print-content .toc-level-1 { margin-top: 1em; }
     .clear-writer-print-content .toc-link {
       display: flex;
       align-items: baseline;
@@ -317,9 +342,10 @@ function tocCss(toc: TocSetup): string {
       transform: translateY(-0.2em);
     }
     .clear-writer-print-content .toc-page-number {
-      flex: 0 0 auto;
-      min-width: 2ch;
+      flex: 0 0 4ch;
+      inline-size: 4ch;
       text-align: right;
+      font-variant-numeric: tabular-nums;
     }
     ${levels}
   `;

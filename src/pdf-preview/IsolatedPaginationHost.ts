@@ -3,8 +3,6 @@ import {
   type PdfPreviewFrameMessage,
   type PdfPreviewFrameRequest,
   type PdfPreviewFrameResult,
-  type PdfPreviewGuideJob,
-  type PdfPreviewGuideResult,
   type PdfPreviewJob,
   type PdfPreviewPaginationBudget,
   type PdfPreviewPaginationDiagnostics,
@@ -15,6 +13,9 @@ import {
 } from './contracts';
 import { estimatePdfPreviewBudget } from './PdfPreviewPaginationBudget';
 import { recordPdfPreviewDiagnostic } from './PdfPreviewDiagnosticsLog';
+import { createPdfArtifact } from './PdfArtifact';
+
+const FRAME_STARTUP_TIMEOUT_MS = 15_000;
 
 type HostOptions = {
   signal?: AbortSignal;
@@ -44,22 +45,13 @@ export class IsolatedPaginationHost {
     signal?: AbortSignal,
     onPhase?: HostOptions['onPhase']
   ): Promise<PdfPreviewPaginationOutcome<PdfPreviewRenderResult>> {
-    const budget = estimatePdfPreviewBudget(input, 'print');
+    const budget = estimatePdfPreviewBudget(input);
     return this.run({ type: 'clear-writer-pdf-preview-request', requestId: crypto.randomUUID(), input }, {
       timeoutMs: budget.timeoutMs,
       budget,
       onProgress,
       signal,
       onPhase
-    });
-  }
-
-  requestPageGuides(input: PdfPreviewGuideJob, signal?: AbortSignal): Promise<PdfPreviewPaginationOutcome<PdfPreviewGuideResult>> {
-    const budget = estimatePdfPreviewBudget(input, 'guide');
-    return this.run({ type: 'clear-writer-pdf-preview-guide-request', requestId: crypto.randomUUID(), input }, {
-      timeoutMs: budget.timeoutMs,
-      budget,
-      signal
     });
   }
 
@@ -134,16 +126,16 @@ export class IsolatedPaginationHost {
         const artifactTransferMs = Math.max(0, responseElapsedMs - paginationMs);
         timings.push({ phase: 'transfer-print-artifact', durationMs: artifactTransferMs });
         options.onPhase?.('transfer-print-artifact', artifactTransferMs);
-        const finalDiagnostics = { ...diagnostics(), ...('pageCount' in result ? { pageCount: result.pageCount } : {}) };
+        const finalDiagnostics = { ...diagnostics(), ...('artifact' in result ? { pageCount: result.artifact.pageCount } : {}) };
         return result.error
           ? complete({ status: 'failed', message: result.error, diagnostics: finalDiagnostics })
-          : complete({ status: 'success', result, diagnostics: finalDiagnostics });
+          : complete({ status: 'success', result: this.freezeArtifactResult(result), diagnostics: finalDiagnostics });
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return complete({ status: 'cancelled', diagnostics: diagnostics() });
         if (error instanceof PaginationTimeoutError) return complete({ status: 'timed-out', message: error.message, diagnostics: diagnostics() });
         throw error;
       } finally {
-        await this.disposeFrame(frame);
+        this.disposeFrame(frame);
       }
     } finally {
       if (!releaseAfterPrevious) releaseRequest();
@@ -166,10 +158,8 @@ export class IsolatedPaginationHost {
     });
   }
 
-  private async disposeFrame(frame: HTMLIFrameElement): Promise<void> {
+  private disposeFrame(frame: HTMLIFrameElement): void {
     frame.remove();
-    await Promise.resolve();
-    if (frame.isConnected) throw new Error('PDF preview renderer cleanup failed.');
   }
 
   private createFrame(): HTMLIFrameElement {
@@ -187,21 +177,29 @@ export class IsolatedPaginationHost {
 
   private waitForReady(frame: HTMLIFrameElement, signal?: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
+      let settled = false;
       const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
         window.clearTimeout(timeout);
         window.removeEventListener('message', receiveReady);
         signal?.removeEventListener('abort', abort);
+        frame.removeEventListener('error', frameError);
         if (error) reject(error); else resolve();
       };
-      const timeout = window.setTimeout(() => finish(new PaginationTimeoutError('PDF preview renderer did not load.')), 15_000);
+      const timeout = window.setTimeout(
+        () => finish(new PaginationTimeoutError('PDF preview renderer did not load.')),
+        FRAME_STARTUP_TIMEOUT_MS
+      );
       const abort = () => finish(new DOMException('PDF preview pagination was cancelled.', 'AbortError'));
+      const frameError = () => finish(new Error('PDF preview renderer could not load.'));
       const receiveReady = (event: MessageEvent<{ type?: string }>) => {
         if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
         if (event.data?.type === PDF_PREVIEW_FRAME_READY) finish();
       };
       window.addEventListener('message', receiveReady);
       signal?.addEventListener('abort', abort, { once: true });
-      frame.addEventListener('error', () => finish(new Error('PDF preview renderer could not load.')), { once: true });
+      frame.addEventListener('error', frameError, { once: true });
       document.body.appendChild(frame);
     });
   }
@@ -236,9 +234,6 @@ export class IsolatedPaginationHost {
           finish(undefined, event.data);
           return;
         }
-        if (event.data.type === 'clear-writer-pdf-preview-guide-result' && request.type === 'clear-writer-pdf-preview-guide-request') {
-          finish(undefined, event.data);
-        }
       };
       window.addEventListener('message', receive);
       options.signal?.addEventListener('abort', abort, { once: true });
@@ -257,6 +252,12 @@ export class IsolatedPaginationHost {
       estimatedPages: budget.estimatedPages,
       elapsedMs: Math.round(performance.now() - startedAt), timeoutMs: budget.timeoutMs
     };
+  }
+
+  /** Message transport clones objects, so re-freeze the artifact at the ownership boundary. */
+  private freezeArtifactResult<T extends PdfPreviewFrameResult>(result: T): T {
+    if (!('artifact' in result)) return result;
+    return { ...result, artifact: createPdfArtifact(result.artifact) } as T;
   }
 }
 

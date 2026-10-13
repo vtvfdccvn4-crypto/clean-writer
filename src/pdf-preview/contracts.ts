@@ -1,5 +1,7 @@
 import type { HeaderFooterRow, ProjectMetadata } from '../types';
 import type { PreviewPageTiming } from '../perf/preview-timing';
+import type { PdfArtifact } from './PdfArtifact';
+import type { PdfRenderSnapshot } from './PdfRenderSnapshot';
 
 export interface PdfPreviewMarginData {
   header: Readonly<HeaderFooterRow>;
@@ -8,18 +10,7 @@ export interface PdfPreviewMarginData {
 }
 
 /** Immutable input for one isolated PDF-preview pagination job. */
-export interface PdfPreviewJob {
-  html: string;
-  css: string;
-  layout?: import('../print/PrintLayoutSettings').PrintLayoutSettings;
-  margins: PdfPreviewMarginData;
-  marginImageSources: Record<string, string>;
-}
-
-export interface PdfPreviewGuideJob {
-  html: string;
-  css: string;
-}
+export type PdfPreviewJob = PdfRenderSnapshot;
 
 export type PdfPreviewProgressPhase =
   | 'open-print-target'
@@ -68,9 +59,7 @@ export type PdfPreviewRenderRequest = {
 export type PdfPreviewRenderResult = {
   type: 'clear-writer-pdf-preview-result';
   requestId: string;
-  html: string;
-  paginationCss: string;
-  pageCount: number;
+  artifact: PdfArtifact;
   paginationMs?: number;
   frameTimings?: PdfPreviewFrameTimings;
   pageTimings?: readonly PreviewPageTiming[];
@@ -95,24 +84,8 @@ export type PdfPreviewFrameTimings = {
   artifactSerializationMs?: number;
 };
 
-export type PdfPreviewPageBoundary = { pageNumber: number; anchor: string };
-
-export type PdfPreviewGuideRequest = {
-  type: 'clear-writer-pdf-preview-guide-request';
-  requestId: string;
-  input: PdfPreviewGuideJob;
-};
-
-export type PdfPreviewGuideResult = {
-  type: 'clear-writer-pdf-preview-guide-result';
-  requestId: string;
-  pageBoundaries: PdfPreviewPageBoundary[];
-  paginationMs?: number;
-  error?: string;
-};
-
-export type PdfPreviewFrameRequest = PdfPreviewRenderRequest | PdfPreviewGuideRequest;
-export type PdfPreviewFrameResult = PdfPreviewRenderResult | PdfPreviewGuideResult;
+export type PdfPreviewFrameRequest = PdfPreviewRenderRequest;
+export type PdfPreviewFrameResult = PdfPreviewRenderResult;
 export type PdfPreviewFrameMessage = PdfPreviewProgress | PdfPreviewFrameResult;
 
 /** Expected terminal states for an isolated pagination request. */

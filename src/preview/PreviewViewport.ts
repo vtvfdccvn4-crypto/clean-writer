@@ -4,6 +4,7 @@ import type { PageSetup } from '../state';
 export class PreviewViewport {
   private resizeObserver: ResizeObserver | null = null;
   private resizeFrame: number | null = null;
+  private responsiveZoomSuspended = false;
   private appliedScale: number | null = null;
   private readonly container: HTMLElement;
   private currentPageSetup: PageSetup;
@@ -38,13 +39,39 @@ export class PreviewViewport {
     if (!scrollParent) return;
 
     this.resizeObserver = new ResizeObserver(() => {
-      if (this.resizeFrame !== null) cancelAnimationFrame(this.resizeFrame);
-      this.resizeFrame = requestAnimationFrame(() => {
-        this.resizeFrame = null;
-        this.updateZoomScale();
-      });
+      this.scheduleResponsiveZoom();
     });
     this.resizeObserver.observe(scrollParent);
+  }
+
+  /**
+   * Divider dragging changes the preview viewport every frame. Deferring zoom
+   * avoids repeatedly reflowing the complete preview document; resume always
+   * applies one exact scale for the settled pane width.
+   */
+  public setResponsiveZoomSuspended(suspended: boolean): void {
+    this.responsiveZoomSuspended = suspended;
+    if (!suspended) {
+      this.scheduleResponsiveZoom();
+    }
+  }
+
+  private scheduleResponsiveZoom(): void {
+    if (this.responsiveZoomSuspended) {
+      return;
+    }
+    if (this.resizeFrame !== null) return;
+    this.resizeFrame = requestAnimationFrame(() => {
+      this.resizeFrame = null;
+      this.updateZoomScale();
+    });
+  }
+
+  public dispose(): void {
+    if (this.resizeFrame !== null) cancelAnimationFrame(this.resizeFrame);
+    this.resizeFrame = null;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
   }
 
   public scrollToTop() {

@@ -32,9 +32,16 @@ export function setupPdfPreview(editorManager: EditorManager): void {
     // large documents can spend noticeable time in those preparatory phases.
     window.addEventListener('keydown', cancelOnEscape);
     try {
+      const input = await abortable(editorManager.compilePdfPreviewInput(abortController.signal), abortController.signal);
+      const preparedArtifact = editorManager.getPreparedPdfArtifact(input);
+      if (preparedArtifact) {
+        button.dataset.previewStatus = 'install-print-document';
+        await printTarget.printArtifact(preparedArtifact);
+        button.dataset.previewStatus = 'complete';
+        return;
+      }
       const { IsolatedPdfPreviewPipeline } = await loadPdfPreviewPipeline();
       const pipeline = new IsolatedPdfPreviewPipeline();
-      const input = await abortable(editorManager.compilePdfPreviewInput(abortController.signal), abortController.signal);
       const pipelineResult = await pipeline.run(input, printTarget, progress => {
         button.dataset.previewStatus = progress.phase;
         if (progress.pagesCompleted !== undefined) {

@@ -1,12 +1,15 @@
 import type { PageSetup, TypographySetup, ListSetup, TableSetup, ImageSetup } from '../state';
 import { DEFAULT_PAGE_SETUP } from '../config/defaults';
-import type { LivePreviewOptions, RenderResult } from './contracts';
+import type { RenderResult } from './contracts';
 import { PreviewViewport } from './PreviewViewport';
 import { previewMetrics } from '../perf/preview-metrics';
 
-import type { AssetResolver } from '../platform/types';
 import type { PreviewSourceManifestEntry } from '../compiler/rehype-plugins';
 import type { PdfPreviewFrameTimings, PdfPreviewJob } from '../pdf-preview/contracts';
+import { PdfArtifactStore } from '../pdf-preview/PdfArtifactStore';
+import { renderPdfArtifactContent, createPdfArtifactStyle } from '../pdf-preview/PdfArtifactRenderer';
+import type { PdfArtifact } from '../pdf-preview/PdfArtifact';
+import type { PdfArtifactKey } from '../pdf-preview/PdfRenderSnapshot';
 import { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
 import { PreviewNavigationCoordinator } from './navigation/PreviewNavigationCoordinator';
 import { PreviewClickNavigator } from './navigation/PreviewClickNavigator';
@@ -18,7 +21,7 @@ import { applyImagePreviewStyle, applyListPreviewStyle, applyLiveDocumentStyle, 
 import type { PreviewTimingPhase } from '../perf/preview-timing';
 import type { PreviewPageTiming } from '../perf/preview-timing';
 
-export interface PreviewControllerOptions extends LivePreviewOptions {
+export interface PreviewControllerOptions {
   mode?: 'live' | 'paginated';
   /** Handles a source-block click in the committed preview. */
   onPreviewSourceClick?: (line: number) => void;
@@ -48,6 +51,7 @@ export class PreviewController {
   private pageIndicatorFrame: number | null = null;
   private pageIndicatorGeometry: number[] = [];
   private pageIndicatorGeometryDirty = true;
+  private disposed = false;
 
   private currentPageSetup: PageSetup = {
     ...DEFAULT_PAGE_SETUP
@@ -56,8 +60,9 @@ export class PreviewController {
   private lastSourceManifest: readonly PreviewSourceManifestEntry[] = [];
   private lastSourceRevision: number | null = null;
   private liveRenderGeneration = 0;
+  private readonly pdfArtifacts = new PdfArtifactStore();
 
-  constructor(container: HTMLElement, _assetResolver: AssetResolver, options: PreviewControllerOptions = {}) {
+  constructor(container: HTMLElement, options: PreviewControllerOptions = {}) {
     this.container = container;
     this.mode = options.mode ?? 'live';
     this.createIsolatedJob = options.createIsolatedJob;
@@ -67,11 +72,8 @@ export class PreviewController {
     this.container.parentElement?.classList.toggle('is-live-preview-scroll', this.mode === 'live');
     this.previewScrollParent = this.container.parentElement;
     this.pageIndicator = document.getElementById('preview-page-indicator') as HTMLOutputElement | null;
-    this.previewScrollParent?.addEventListener('scroll', () => this.schedulePageIndicatorUpdate(), { passive: true });
-    window.addEventListener('resize', () => {
-      this.pageIndicatorGeometryDirty = true;
-      this.schedulePageIndicatorUpdate();
-    }, { passive: true });
+    this.previewScrollParent?.addEventListener('scroll', this.handlePreviewScroll, { passive: true });
+    window.addEventListener('resize', this.handleWindowResize, { passive: true });
     if (this.mode === 'live') applyLiveDocumentStyle(this.currentPageSetup);
     this.viewport = new PreviewViewport(container, this.currentPageSetup);
     this.navigation = new PreviewNavigationCoordinator(target => {
@@ -106,6 +108,11 @@ export class PreviewController {
     this.updatePageIndicator();
     if (mode === 'live') applyLiveDocumentStyle(this.currentPageSetup);
     this.viewport.updateZoomScale();
+  }
+
+  /** Returns only an artifact whose full compiled input exactly matches the caller's job. */
+  public getPdfArtifact(artifactKey: PdfArtifactKey): PdfArtifact | null {
+    return this.pdfArtifacts.get(artifactKey);
   }
 
   public applyPageSetup(setup: PageSetup, renderCachedDocument = true) {
@@ -147,6 +154,17 @@ export class PreviewController {
     applyImagePreviewStyle();
   }
 
+  /** Rebuilds the final preview when a print-layout input outside PageSetup changes. */
+  public refreshPaginatedPreview(): void {
+    if (this.mode !== 'paginated' || !this.createIsolatedJob || !this.lastCompiledHtml) return;
+    void this.forceRenderIsolated(
+      this.createIsolatedJob(this.lastCompiledHtml, this.currentPageSetup),
+      this.lastCompiledHtml,
+      this.lastSourceManifest,
+      this.lastSourceRevision
+    );
+  }
+
   /** Apply physical-page guides calculated by the isolated paginator. */
   public setCanonicalPageBreakGuides(guides: readonly CanonicalPageBreakGuide[]): void {
     this.liveRenderer?.setPageBreakGuides(guides);
@@ -164,6 +182,7 @@ export class PreviewController {
 
   public clear() {
     this.invalidatePendingRender();
+    this.pdfArtifacts.clear();
     this.lastCompiledHtml = '';
     this.lastSourceManifest = [];
     this.lastSourceRevision = null;
@@ -176,15 +195,27 @@ export class PreviewController {
     this.updatePageIndicator();
   }
 
+  /** Releases browser-owned preview resources when the application host is torn down. */
+  public dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.invalidatePendingRender();
+    if (this.pageIndicatorFrame !== null) window.cancelAnimationFrame(this.pageIndicatorFrame);
+    this.pageIndicatorFrame = null;
+    this.previewScrollParent?.removeEventListener('scroll', this.handlePreviewScroll);
+    window.removeEventListener('resize', this.handleWindowResize);
+    this.clickNavigation.destroy();
+    this.viewport.dispose();
+    this.liveRenderer?.clear();
+    this.clearIsolatedPaginationStyle();
+  }
+
   /** Cancels superseded work without changing the cached document. */
   public invalidatePendingRender() {
     this.isolatedRenderAbortController?.abort();
     this.isolatedRenderAbortController = null;
     this.liveRenderGeneration += 1;
-    if (this.scheduledRenderFrame !== null) {
-      window.cancelAnimationFrame(this.scheduledRenderFrame);
-      this.scheduledRenderFrame = null;
-    }
+    this.cancelScheduledRender();
     this.navigation.clear();
     this.clickNavigation.setIndex(null);
   }
@@ -210,12 +241,10 @@ export class PreviewController {
     // In paginated mode an edit supersedes Paged.js work. Live mode has no
     // background paginator and only reconciles the latest compiled blocks.
     this.liveRenderGeneration += 1;
-    this.lastCompiledHtml = html;
-    this.lastSourceManifest = sourceManifest;
-    this.lastSourceRevision = sourceRevision;
+    this.cacheDocument(html, sourceManifest, sourceRevision);
     if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
     this.clickNavigation.setIndex(null);
-    if (this.scheduledRenderFrame !== null) window.cancelAnimationFrame(this.scheduledRenderFrame);
+    this.cancelScheduledRender();
     this.scheduledRenderFrame = window.requestAnimationFrame(async () => {
       this.scheduledRenderFrame = null;
       const started = performance.now();
@@ -234,16 +263,9 @@ export class PreviewController {
     sourceManifest: readonly PreviewSourceManifestEntry[] = [],
     sourceRevision: number | null = null
   ): Promise<RenderResult> {
-    this.lastCompiledHtml = html;
-    this.lastSourceManifest = sourceManifest;
-    this.lastSourceRevision = sourceRevision;
-    if (this.scheduledRenderFrame !== null) {
-      window.cancelAnimationFrame(this.scheduledRenderFrame);
-      this.scheduledRenderFrame = null;
-    }
-    if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
-    else this.navigation.clear();
-    this.clickNavigation.setIndex(null);
+    this.cacheDocument(html, sourceManifest, sourceRevision);
+    this.cancelScheduledRender();
+    this.prepareNavigation(sourceRevision);
 
     const started = performance.now();
     try {
@@ -277,12 +299,9 @@ export class PreviewController {
     onPageTimings?: (pageTimings: readonly PreviewPageTiming[]) => void,
     onPaginationStats?: (stats: Pick<PdfPreviewFrameTimings, 'paginationCssCharacterCount' | 'paginationStyleCount'>) => void
   ): Promise<RenderResult> {
-    this.lastCompiledHtml = sourceHtml;
-    this.lastSourceManifest = sourceManifest;
-    this.lastSourceRevision = sourceRevision;
+    this.cacheDocument(sourceHtml, sourceManifest, sourceRevision);
     this.invalidatePendingRender();
     if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
-    this.clickNavigation.setIndex(null);
 
     const abortController = new AbortController();
     this.isolatedRenderAbortController = abortController;
@@ -302,6 +321,7 @@ export class PreviewController {
         return { status: 'degraded', pageCount: 0, error: new Error(outcome.message) };
       }
 
+      this.pdfArtifacts.replace(outcome.result.artifact);
       onPageTimings?.(outcome.result.pageTimings ?? []);
       if (outcome.result.frameTimings) {
         onPaginationStats?.({
@@ -310,20 +330,19 @@ export class PreviewController {
         });
       }
 
-      this.installIsolatedPaginationStyle(outcome.result.paginationCss);
+      this.installIsolatedPaginationStyle(outcome.result.artifact);
       const parseStartedAt = performance.now();
-      const artifact = document.createElement('template');
-      artifact.innerHTML = outcome.result.html;
+      const artifactContent = renderPdfArtifactContent(document, outcome.result.artifact);
       onPaginationPhase?.('parse-artifact', Math.round(performance.now() - parseStartedAt));
 
       const installStartedAt = performance.now();
-      this.commitPreparedPages(artifact.content, onPaginationPhase);
+      this.commitPreparedPages(artifactContent, onPaginationPhase);
       onPaginationPhase?.('install-pages', Math.round(performance.now() - installStartedAt));
 
       const indexStartedAt = performance.now();
       this.isolatedCommittedPreviewIndex = CommittedPreviewIndex.build(this.container, sourceManifest);
       onPaginationPhase?.('build-navigation-index', Math.round(performance.now() - indexStartedAt));
-      const result: RenderResult = { status: 'rendered', pageCount: outcome.result.pageCount };
+      const result: RenderResult = { status: 'rendered', pageCount: outcome.result.artifact.pageCount };
       this.updatePageIndicator();
       this.commitNavigation(sourceRevision, result);
       return result;
@@ -340,8 +359,41 @@ export class PreviewController {
     this.viewport.scrollToTop();
   }
 
+  public setViewportResizeSuspended(suspended: boolean): void {
+    this.viewport.setResponsiveZoomSuspended(suspended);
+  }
+
   public navigateToSourceLine(line: number, sourceRevision: number) {
     this.navigation.requestNavigation(line, sourceRevision);
+  }
+
+  private cacheDocument(
+    html: string,
+    sourceManifest: readonly PreviewSourceManifestEntry[],
+    sourceRevision: number | null
+  ): void {
+    this.lastCompiledHtml = html;
+    this.lastSourceManifest = sourceManifest;
+    this.lastSourceRevision = sourceRevision;
+  }
+
+  private readonly handlePreviewScroll = (): void => this.schedulePageIndicatorUpdate();
+
+  private readonly handleWindowResize = (): void => {
+    this.pageIndicatorGeometryDirty = true;
+    this.schedulePageIndicatorUpdate();
+  };
+
+  private cancelScheduledRender(): void {
+    if (this.scheduledRenderFrame === null) return;
+    window.cancelAnimationFrame(this.scheduledRenderFrame);
+    this.scheduledRenderFrame = null;
+  }
+
+  private prepareNavigation(sourceRevision: number | null): void {
+    if (sourceRevision !== null) this.navigation.beginRender(sourceRevision);
+    else this.navigation.clear();
+    this.clickNavigation.setIndex(null);
   }
 
   private async render(
@@ -353,7 +405,7 @@ export class PreviewController {
     }
 
     const generation = ++this.liveRenderGeneration;
-    const document = await this.liveRenderer!.render(
+    const document = this.liveRenderer!.render(
       html,
       sourceManifest,
       this.currentPageSetup,
@@ -415,12 +467,11 @@ export class PreviewController {
     if (sourceRevision !== null) this.navigation.commitRender(sourceRevision, index);
   }
 
-  private installIsolatedPaginationStyle(css: string): void {
+  private installIsolatedPaginationStyle(artifact: PdfArtifact): void {
     this.clearIsolatedPaginationStyle();
     document.head.querySelectorAll('style[data-pagedjs-inserted-styles]').forEach(style => style.remove());
-    const style = document.createElement('style');
+    const style = createPdfArtifactStyle(document, artifact);
     style.dataset.clearWriterIsolatedPagination = 'true';
-    style.textContent = css;
     document.head.appendChild(style);
     this.isolatedPaginationStyle = style;
   }

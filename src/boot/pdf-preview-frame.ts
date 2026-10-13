@@ -2,11 +2,17 @@ import { materializePdfPreviewMargins } from '../pdf-preview/PdfPreviewMarginRen
 import { paginatePreviewFrame } from '../pdf-preview/PdfPreviewFramePaginator';
 import { materializePdfListMarkers } from '../pdf-preview/PdfPreviewListMarkers';
 import { materializePdfPreviewTocPageNumbers } from '../pdf-preview/PdfPreviewTocPageNumbers';
+import { PDF_ARTIFACT_SCHEMA_VERSION } from '../pdf-preview/PdfArtifact';
 import {
   PDF_PREVIEW_FRAME_READY,
-  type PdfPreviewGuideRequest,
   type PdfPreviewRenderRequest
 } from '../pdf-preview/contracts';
+
+type PdfPreviewGuideRequest = {
+  type: 'clear-writer-pdf-preview-guide-request';
+  requestId: string;
+  input: { html: string; css: string };
+};
 
 export function bootPdfPreviewFrame(): void {
   document.body.replaceChildren();
@@ -25,15 +31,28 @@ export function bootPdfPreviewFrame(): void {
           phase: 'paginate',
           pagesCompleted
         }, window.location.origin);
-      }, input.layout ? source => materializePdfListMarkers(source, { bulletIcon: input.layout!.lists.ol.bulletIcon, parenthesized: { bulletIcon: input.layout!.lists.olParen.bulletIcon } }) : undefined);
+      }, source => materializePdfListMarkers(source, input.listMarkerStyles));
       materializePdfPreviewTocPageNumbers(stage);
       const marginMetrics = materializePdfPreviewMargins(stage, input.margins, input.marginImageSources);
       const artifactStartedAt = performance.now();
       const html = stage.innerHTML;
+      const pages = Array.from(stage.querySelectorAll<HTMLElement>('.pagedjs_page')).map((page, index) => {
+        const sourceElement = page.querySelector<HTMLElement>('[data-ref], [data-split-from]');
+        const anchor = sourceElement?.getAttribute('data-ref') ?? sourceElement?.getAttribute('data-split-from') ?? undefined;
+        return { number: index + 1, ...(anchor !== undefined ? { anchor } : {}) };
+      });
+      const artifact = {
+        schemaVersion: PDF_ARTIFACT_SCHEMA_VERSION,
+        artifactId: crypto.randomUUID(),
+        key: input.key,
+        html,
+        css: pagination.paginationCss + '\n' + input.artifactPrintCss,
+        pageCount: pagination.pageCount,
+        pages
+      };
       const artifactSerializationMs = Math.round(performance.now() - artifactStartedAt);
       window.parent.postMessage({
-        type: 'clear-writer-pdf-preview-result', requestId, html,
-        paginationCss: pagination.paginationCss, pageCount: pagination.pageCount, paginationMs: pagination.durationMs,
+        type: 'clear-writer-pdf-preview-result', requestId, artifact, paginationMs: pagination.durationMs,
         frameTimings: {
           sourceInstallMs: pagination.sourceInstallMs,
           pagedJsInitializationMs: pagination.pagedJsInitializationMs,
@@ -55,7 +74,8 @@ export function bootPdfPreviewFrame(): void {
       }, window.location.origin);
     } catch (error) {
       window.parent.postMessage({
-        type: 'clear-writer-pdf-preview-result', requestId, html: '', paginationCss: '', pageCount: 0,
+        type: 'clear-writer-pdf-preview-result', requestId,
+        artifact: undefined as never,
         error: error instanceof Error ? error.message : String(error)
       }, window.location.origin);
     }
