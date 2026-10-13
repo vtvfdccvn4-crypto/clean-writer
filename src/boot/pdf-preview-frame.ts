@@ -25,8 +25,7 @@ export function bootPdfPreviewFrame(): void {
           phase: 'paginate',
           pagesCompleted
         }, window.location.origin);
-      });
-      if (input.layout) materializePdfListMarkers(stage, { bulletIcon: input.layout.lists.ol.bulletIcon, parenthesized: { bulletIcon: input.layout.lists.olParen.bulletIcon } });
+      }, input.layout ? source => materializePdfListMarkers(source, { bulletIcon: input.layout!.lists.ol.bulletIcon, parenthesized: { bulletIcon: input.layout!.lists.olParen.bulletIcon } }) : undefined);
       materializePdfPreviewTocPageNumbers(stage);
       const marginMetrics = materializePdfPreviewMargins(stage, input.margins, input.marginImageSources);
       const artifactStartedAt = performance.now();

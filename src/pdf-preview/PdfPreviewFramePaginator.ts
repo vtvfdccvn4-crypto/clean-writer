@@ -28,7 +28,8 @@ export async function paginatePreviewFrame(
   stage: HTMLElement,
   html: string,
   css: string,
-  reportProgress?: (pagesCompleted: number) => void
+  reportProgress?: (pagesCompleted: number) => void,
+  prepareSource?: (source: HTMLElement) => void
 ): Promise<FramePaginationResult> {
   const startedAt = performance.now();
   const sourceInstallStartedAt = performance.now();
@@ -36,6 +37,7 @@ export async function paginatePreviewFrame(
   const styleUrl = URL.createObjectURL(new Blob([css], { type: 'text/css' }));
   const source = document.createElement('article');
   source.innerHTML = html;
+  prepareSource?.(source);
   const sourceInstallMs = Math.round(performance.now() - sourceInstallStartedAt);
   const pagedJsInitializationStartedAt = performance.now();
   const previewer = new Previewer() as unknown as PdfPreviewer;
