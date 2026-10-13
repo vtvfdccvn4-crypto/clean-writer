@@ -137,28 +137,29 @@ export class EditorManager {
       this.activation.request('settings snapshot change');
     });
     state.onPageSetupChanged(() => {
-      this.preview.applyPageSetup(state.current.pageSetup);
+      this.preview.applyPageSetup(state.current.pageSetup, false);
+      this.preview.schedulePaginatedRefresh();
       this.applyDocumentContentWidth();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onTypographySetupChanged(() => {
       this.preview.applyTypographySetup(state.current.typographySetup);
-      this.preview.refreshPaginatedPreview();
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onListSetupChanged(() => {
       this.preview.applyListSetup(state.current.listSetup);
-      this.preview.refreshPaginatedPreview();
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onTableSetupChanged(() => {
       this.preview.applyTableSetup(state.current.tableSetup);
-      this.preview.refreshPaginatedPreview();
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onImageSetupChanged(() => {
       this.preview.applyImageSetup(state.current.imageSetup);
-      this.preview.refreshPaginatedPreview();
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onProjectMetadataChanged(() => {
@@ -166,11 +167,11 @@ export class EditorManager {
       this.activation.request('project metadata change');
     });
     state.onCustomStylesChanged(() => {
-      this.preview.refreshPaginatedPreview();
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onCustomBlockStylesChanged(() => {
-      this.preview.refreshPaginatedPreview();
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
 

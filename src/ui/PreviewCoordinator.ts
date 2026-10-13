@@ -31,6 +31,7 @@ export class PreviewCoordinator {
   private liveCompileGeneration = 0;
   private liveCompileRunning = false;
   private readonly incrementalCompiler = new IncrementalPreviewCompiler();
+  private paginatedRefreshFrame: number | null = null;
 
   constructor(
     stage: HTMLElement,
@@ -55,6 +56,7 @@ export class PreviewCoordinator {
 
   beginRevision(): number {
     this.revision += 1;
+    this.cancelPaginatedRefresh();
     this.controller.invalidatePendingRender();
     return this.revision;
   }
@@ -92,6 +94,15 @@ export class PreviewCoordinator {
     this.controller.refreshPaginatedPreview();
   }
 
+  /** Coalesce back-to-back settings changes into one paginated re-render per animation frame. */
+  schedulePaginatedRefresh(): void {
+    if (this.paginatedRefreshFrame !== null) return;
+    this.paginatedRefreshFrame = window.requestAnimationFrame(() => {
+      this.paginatedRefreshFrame = null;
+      this.controller.refreshPaginatedPreview();
+    });
+  }
+
   clear(): void {
     this.beginRevision();
     this.incrementalCompiler.reset();
@@ -107,6 +118,7 @@ export class PreviewCoordinator {
     this.liveCompileGeneration += 1;
     if (this.liveCompileFrame !== null) window.cancelAnimationFrame(this.liveCompileFrame);
     this.liveCompileFrame = null;
+    this.cancelPaginatedRefresh();
     this.pendingLiveCompile?.resolve(null);
     this.pendingLiveCompile = null;
     this.incrementalCompiler.reset();
@@ -189,6 +201,12 @@ export class PreviewCoordinator {
 
   getPaginatedPageBreakGuides(): CanonicalPageBreakGuide[] {
     return this.controller.getPaginatedPageBreakGuides();
+  }
+
+  private cancelPaginatedRefresh(): void {
+    if (this.paginatedRefreshFrame === null) return;
+    window.cancelAnimationFrame(this.paginatedRefreshFrame);
+    this.paginatedRefreshFrame = null;
   }
 
   private scheduleLiveCompile(): void {
