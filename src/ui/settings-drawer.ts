@@ -4,9 +4,12 @@ const SETTINGS_TAB_ACTIVATED_EVENT = 'clear-writer-settings-tab-activated';
 
 export type PageSetupTabId = 'page-setup' | 'toc' | 'special-headings';
 export type StylesTabId = 'typography' | 'lists' | 'tables' | 'images' | 'inline-styles' | 'quote-styles';
-export type PreferencesTabId = 'editor';
+export type EditorPreferencesTabId = 'editor';
+export type ShellPreferencesTabId = 'shell-ui';
+/** @deprecated Use EditorPreferencesTabId | ShellPreferencesTabId */
+export type PreferencesTabId = EditorPreferencesTabId;
 
-export type SettingsTabId = PageSetupTabId | StylesTabId | PreferencesTabId;
+export type SettingsTabId = PageSetupTabId | StylesTabId | EditorPreferencesTabId | ShellPreferencesTabId;
 
 const PAGE_SETUP_TABS = new Set<SettingsTabId>(['page-setup', 'toc', 'special-headings']);
 const STYLES_TABS = new Set<SettingsTabId>(['typography', 'lists', 'tables', 'images', 'inline-styles', 'quote-styles']);
@@ -49,13 +52,27 @@ export function openStylesDrawer(tabId?: StylesTabId): boolean {
   return opened;
 }
 
-export function openPreferencesDrawer(tabId?: PreferencesTabId): boolean {
-  const drawer = document.getElementById('preferences-drawer');
+export function openEditorPreferencesDrawer(tabId?: EditorPreferencesTabId): boolean {
+  const drawer = document.getElementById('editor-preferences-drawer');
   if (!drawer) return false;
   const opened = openDrawer(drawer);
-  const currentTab = drawer.querySelector<HTMLButtonElement>('[data-settings-tab].active')?.dataset.settingsTab as PreferencesTabId | undefined;
+  const currentTab = drawer.querySelector<HTMLButtonElement>('[data-settings-tab].active')?.dataset.settingsTab as EditorPreferencesTabId | undefined;
   activateTabInDrawer(drawer, tabId ?? currentTab ?? 'editor');
   return opened;
+}
+
+export function openShellPreferencesDrawer(tabId?: ShellPreferencesTabId): boolean {
+  const drawer = document.getElementById('shell-preferences-drawer');
+  if (!drawer) return false;
+  const opened = openDrawer(drawer);
+  const currentTab = drawer.querySelector<HTMLButtonElement>('[data-settings-tab].active')?.dataset.settingsTab as ShellPreferencesTabId | undefined;
+  activateTabInDrawer(drawer, tabId ?? currentTab ?? 'shell-ui');
+  return opened;
+}
+
+/** @deprecated Use openEditorPreferencesDrawer() instead. */
+export function openPreferencesDrawer(tabId?: PreferencesTabId): boolean {
+  return openEditorPreferencesDrawer(tabId);
 }
 
 /** @deprecated Route to openPageSetupDrawer or openStylesDrawer instead. */
@@ -66,7 +83,7 @@ export function openSettingsDrawer(tabId?: SettingsTabId): boolean {
   if (STYLES_TABS.has(tabId)) {
     return openStylesDrawer(tabId as StylesTabId);
   }
-  return openPreferencesDrawer(tabId as PreferencesTabId);
+  return openEditorPreferencesDrawer(tabId as EditorPreferencesTabId);
 }
 
 export function onSettingsTabActivated(tabId: SettingsTabId, listener: () => void): () => void {
@@ -108,7 +125,8 @@ function wireCloseButton(buttonId: string, drawerId: string): void {
 export function initSettingsDrawers(): void {
   wireDrawerTabs('page-setup-drawer');
   wireDrawerTabs('styles-drawer');
-  wireDrawerTabs('preferences-drawer');
+  wireDrawerTabs('editor-preferences-drawer');
+  wireDrawerTabs('shell-preferences-drawer');
 
   wireActivityButton('btn-preview-page-setup', () => {
     const drawer = document.getElementById('page-setup-drawer');
@@ -128,27 +146,28 @@ export function initSettingsDrawers(): void {
     }
   });
 
-  wireActivityButton('btn-activity-preferences', () => {
-    const drawer = document.getElementById('preferences-drawer');
+  wireActivityButton('btn-editor-preferences', () => {
+    const drawer = document.getElementById('editor-preferences-drawer');
     if (drawer && !drawer.classList.contains('hidden')) {
       closeDrawer(drawer);
     } else {
-      openPreferencesDrawer();
+      openEditorPreferencesDrawer();
     }
   });
 
-  wireActivityButton('btn-editor-preferences', () => {
-    const drawer = document.getElementById('preferences-drawer');
+  wireActivityButton('btn-activity-preferences', () => {
+    const drawer = document.getElementById('shell-preferences-drawer');
     if (drawer && !drawer.classList.contains('hidden')) {
       closeDrawer(drawer);
     } else {
-      openPreferencesDrawer();
+      openShellPreferencesDrawer();
     }
   });
 
   wireCloseButton('btn-close-page-setup-drawer', 'page-setup-drawer');
   wireCloseButton('btn-close-styles-drawer', 'styles-drawer');
-  wireCloseButton('btn-close-preferences-drawer', 'preferences-drawer');
+  wireCloseButton('btn-close-editor-preferences-drawer', 'editor-preferences-drawer');
+  wireCloseButton('btn-close-shell-preferences-drawer', 'shell-preferences-drawer');
 }
 
 /** @deprecated Use initSettingsDrawers() instead. */

@@ -5,7 +5,8 @@ import { taskPanelTemplate } from './TaskPanel';
 import { projectMetadataDrawerTemplate } from './ProjectMetadataDrawer';
 import { symbolPickerDrawerTemplate } from './SymbolPickerDrawer';
 import { pageSetupDrawerTemplate, stylesDrawerTemplate } from './SettingsDrawer';
-import { preferencesDrawerTemplate } from './PreferencesDrawer';
+import { editorPreferencesDrawerTemplate } from './PreferencesDrawer';
+import { shellPreferencesDrawerTemplate } from './ShellPreferencesDrawer';
 import { projectSearchDrawerTemplate } from './ProjectSearchDrawer';
 import { projectReviewDrawerTemplate } from './ProjectReviewDrawer';
 import { materialIcon } from './icon';
@@ -59,7 +60,7 @@ const appShellTemplate = (): string => `
                 ${activityIconMarkup('outline')}
               </button>
             </div>
-            <button class="activity-bar-button activity-bar-settings" id="btn-activity-preferences" type="button" aria-label="Preferences" title="Preferences" aria-controls="preferences-drawer">
+            <button class="activity-bar-button activity-bar-settings" id="btn-activity-preferences" type="button" aria-label="Shell preferences" title="Shell preferences" aria-controls="shell-preferences-drawer">
               ${activityIconMarkup('preferences')}
             </button>
           </nav>
@@ -93,7 +94,8 @@ const appShellTemplate = (): string => `
       <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
       ${pageSetupDrawerTemplate()}
       ${stylesDrawerTemplate()}
-      ${preferencesDrawerTemplate()}
+      ${editorPreferencesDrawerTemplate()}
+      ${shellPreferencesDrawerTemplate()}
       ${projectSearchDrawerTemplate()}
       ${projectReviewDrawerTemplate()}
       ${projectMetadataDrawerTemplate()}

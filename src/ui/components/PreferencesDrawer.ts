@@ -22,17 +22,17 @@ const renderDrawerPanel = (id: string, content: string, active = false): string 
   </section>
 `;
 
-export const preferencesDrawerTemplate = (): string => `
-  <aside id="preferences-drawer" class="drawer settings-drawer hidden" aria-label="Preferences">
+export const editorPreferencesDrawerTemplate = (): string => `
+  <aside id="editor-preferences-drawer" class="drawer settings-drawer hidden" aria-label="Editor preferences">
     <div class="drawer-header">
       <div class="drawer-title-block">
         <span class="drawer-eyebrow">Device</span>
-        <span>Preferences</span>
+        <span>Editor</span>
       </div>
-      <button id="btn-close-preferences-drawer" class="ui-button ui-button--icon-compact drawer-close-button" type="button" aria-label="Close preferences">✕</button>
+      <button id="btn-close-editor-preferences-drawer" class="ui-button ui-button--icon-compact drawer-close-button" type="button" aria-label="Close editor preferences">✕</button>
     </div>
     <div class="settings-drawer-layout">
-      <nav class="settings-tab-list" role="tablist" aria-label="Preferences sections">
+      <nav class="settings-tab-list" role="tablist" aria-label="Editor sections">
         ${renderDrawerTab('editor', 'Editor', true)}
       </nav>
       <div class="settings-tab-panels">
@@ -41,3 +41,6 @@ export const preferencesDrawerTemplate = (): string => `
     </div>
   </aside>
 `;
+
+/** @deprecated Use editorPreferencesDrawerTemplate() */
+export const preferencesDrawerTemplate = editorPreferencesDrawerTemplate;

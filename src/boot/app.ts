@@ -143,9 +143,10 @@ export async function bootApp(platform: Platform) {
         });
       });
     await settingsReady;
-    const { openPageSetupDrawer, openStylesDrawer, openPreferencesDrawer } = await import('../ui/settings-drawer');
+    const { openPageSetupDrawer, openStylesDrawer, openEditorPreferencesDrawer, openShellPreferencesDrawer } = await import('../ui/settings-drawer');
     if (targetId === 'btn-preview-styles') openStylesDrawer();
-    else if (targetId === 'btn-editor-preferences' || targetId === 'btn-activity-preferences') openPreferencesDrawer();
+    else if (targetId === 'btn-editor-preferences') openEditorPreferencesDrawer();
+    else if (targetId === 'btn-activity-preferences') openShellPreferencesDrawer();
     else openPageSetupDrawer();
   };
 

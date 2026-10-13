@@ -58,7 +58,7 @@ export const editorPanelTemplate = (): string => `
         ${toolbarButton({ id: 'btn-toggle-print-preview', variant: 'icon', ariaLabel: 'Show final print preview', title: 'Show final print preview', icon: editorPrintPreviewIconMarkup(), attributes: { 'aria-pressed': 'false' } })}
         ${toolbarButton({ id: 'btn-open-project-review', variant: 'icon', ariaLabel: 'Project Review', title: 'Project Review', icon: editorReviewIconMarkup(), attributes: { 'aria-controls': 'project-review-drawer', 'aria-expanded': 'false' } })}
         ${toolbarButton({ id: 'btn-open-search', variant: 'icon', ariaLabel: 'Find and Replace', title: 'Find and Replace', icon: editorSearchIconMarkup() })}
-        ${toolbarButton({ id: 'btn-editor-preferences', variant: 'icon', ariaLabel: 'Editor preferences', title: 'Editor preferences', icon: materialIcon('settings'), attributes: { 'aria-controls': 'preferences-drawer' } })}
+        ${toolbarButton({ id: 'btn-editor-preferences', variant: 'icon', ariaLabel: 'Editor preferences', title: 'Editor preferences', icon: materialIcon('settings'), attributes: { 'aria-controls': 'editor-preferences-drawer' } })}
       </div>
     </div>
     <div class="editor-stage panel-content">
