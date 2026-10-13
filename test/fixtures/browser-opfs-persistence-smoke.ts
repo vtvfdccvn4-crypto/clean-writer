@@ -65,7 +65,7 @@ async function run() {
   await waitFor('project reopened', () => state.current.projectRef?.id === projectId ? true : null);
   await waitFor('tree restored', () => state.current.sections.some(section => section.path === 'sections/SavedDraftState.md') ? true : null);
 
-  state.setActiveFile('sections/SavedDraftState.md');
+  await editorManager.openDocument('sections/SavedDraftState.md');
   await waitFor('section active after reopen', () => state.current.activeFile === 'sections/SavedDraftState.md' ? true : null);
   await waitFor('editor rendered after reopen', () => document.querySelector('.cm-content') ? true : null);
 

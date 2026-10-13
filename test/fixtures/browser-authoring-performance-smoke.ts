@@ -58,8 +58,8 @@ async function run() {
   const { OPFSCatalogue } = await import('../../src/platform/OPFSCatalogue.ts');
   const catalogue = new OPFSCatalogue();
   await catalogue.register({ id: 'test-perf-project', kind: 'opfs', displayName: 'Generated Performance Project' });
-  state.setProjectRef({ id: 'test-perf-project', kind: 'opfs', displayName: 'Generated Performance Project' });
 
+  history.replaceState(null, '', '?restoreLastWorkspace=true');
   await import('/src/main.ts');
   await waitFor('app ready flag or boot error', () => (
     window.__CLEAR_WRITER_READY__ === true || Boolean(window.__CLEAR_WRITER_BOOT_ERROR__)
