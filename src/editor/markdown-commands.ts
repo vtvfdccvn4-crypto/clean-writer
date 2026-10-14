@@ -1,11 +1,13 @@
 import type { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
 
+import { createMarkdownTable } from './markdown/parseMarkdownTable';
+
 export type MarkdownCommand =
   | 'heading-1' | 'heading-2' | 'heading-3'
   | 'bold' | 'italic' | 'link'
   | 'unordered-list' | 'ordered-list' | 'quote'
-  | 'inline-code' | 'code-block' | 'page-break';
+  | 'inline-code' | 'code-block' | 'page-break' | 'table';
 
 type Range = { from: number; to: number };
 
@@ -98,6 +100,27 @@ function insertPageBreak(view: EditorView) {
   view.focus();
 }
 
+function insertTable(view: EditorView) {
+  const range = view.state.selection.main;
+  const startLine = view.state.doc.lineAt(range.from);
+  const endLine = view.state.doc.lineAt(range.to);
+  const before = view.state.doc.sliceString(startLine.from, range.from);
+  const after = view.state.doc.sliceString(range.to, endLine.to);
+  const prefix = before.length > 0 ? `${before}\n\n` : '';
+  const suffix = after.length > 0 ? `\n\n${after}` : '';
+  const table = createMarkdownTable();
+  const insert = `${prefix}${table}\n${suffix}`;
+  // Leave the caret in the first header cell so the table can be typed straight away.
+  const firstCell = startLine.from + prefix.length + 2;
+
+  view.dispatch({
+    changes: { from: startLine.from, to: endLine.to, insert },
+    selection: EditorSelection.range(firstCell, firstCell + 'Column 1'.length),
+    scrollIntoView: true
+  });
+  view.focus();
+}
+
 export function applyMarkdownCommand(view: EditorView, command: MarkdownCommand): void {
   const wrapper = inlineWrappers[command];
   if (wrapper) {
@@ -112,6 +135,11 @@ export function applyMarkdownCommand(view: EditorView, command: MarkdownCommand)
 
   if (command === 'page-break') {
     insertPageBreak(view);
+    return;
+  }
+
+  if (command === 'table') {
+    insertTable(view);
     return;
   }
 

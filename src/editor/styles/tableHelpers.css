@@ -1,0 +1,112 @@
+/* The helper is a non-replacing block above the table so the Markdown source
+ * stays editable in place, exactly as the image preview leaves its syntax. */
+.cm-table-helper-control {
+  display: flex;
+  width: min(420px, calc(100% - 8px));
+  margin: 0.35rem 0 0.2rem;
+  border: 1px solid color-mix(in srgb, var(--ui-text) 10%, var(--ui-surface));
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--ui-surface);
+  flex-direction: column;
+  align-items: stretch;
+  box-sizing: border-box;
+  font-family: var(--font-ui);
+}
+
+.cm-table-helper-header,
+.cm-table-helper-footer {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  background: #f7f5ef;
+}
+
+.cm-table-helper-header {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-text) 5%, var(--ui-surface));
+  color: var(--ui-text-muted, currentColor);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.cm-table-helper-columns {
+  display: flex;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  box-sizing: border-box;
+  background: #fff;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cm-table-helper-column {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cm-table-helper-column-label {
+  overflow: hidden;
+  color: var(--ui-text-muted, currentColor);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-table-helper-alignment {
+  display: inline-flex;
+  gap: 0.2rem;
+  flex: 0 0 auto;
+}
+
+.cm-table-helper-footer {
+  padding: 0.4rem 0.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--ui-text) 5%, var(--ui-surface));
+  gap: 0.2rem;
+}
+
+.cm-table-helper-button {
+  display: inline-flex;
+  width: 1.7rem;
+  height: 1.7rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: 3px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.cm-table-helper-button .ui-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.cm-table-helper-button[aria-pressed="true"] {
+  border-color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 14%, transparent);
+  color: #4b5563;
+}
+
+/* A quiet grid behind the pipe rows reads as one table rather than loose lines. */
+.cm-table-row {
+  background: color-mix(in srgb, var(--ui-accent) 4%, transparent);
+}
+
+.cm-table-row-header {
+  font-weight: 700;
+}
+
+.cm-table-row-delimiter {
+  color: var(--ui-text-muted, currentColor);
+}

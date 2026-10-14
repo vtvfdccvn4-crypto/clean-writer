@@ -2,6 +2,7 @@
 @import './ui/styles/buttons.css';
 @import './editor/styles/surface.css';
 @import './editor/styles/imagePreviews.css';
+@import './editor/styles/tableHelpers.css';
 @import '@fortawesome/fontawesome-free/css/all.min.css';
 @import 'material-symbols/outlined.css';
 /* The application uses Inter Tight for UI and Courier Prime for the editor.

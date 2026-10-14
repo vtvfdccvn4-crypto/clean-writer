@@ -15,9 +15,19 @@ import { markdownAppearanceExtension } from './extensions/markdownAppearance';
 import { markdownLanguageExtension } from './extensions/markdown';
 import { imageDropExtension } from './extensions/imageDropExtension';
 import { imageBlockPointerDragExtension } from './extensions/imageBlockPointerDrag';
+import { tableHelperExtension } from './extensions/tableHelpers';
 import { state as appState } from '../state';
 import type { EditorSetup } from '../types';
 import { parseEditorMarkdownImages, withImageAlignmentAttribute, withImageWidthAttribute } from './markdown/parseMarkdownImage';
+import {
+  formatMarkdownTable,
+  parseEditorMarkdownTables,
+  withAppendedTableColumn,
+  withAppendedTableRow,
+  withTableColumnAlignment,
+  type EditorMarkdownTable
+} from './markdown/parseMarkdownTable';
+import type { TableHelperAction } from './widgets/TableHelperWidget';
 
 export interface EditorSelectionRange {
   from: number;
@@ -102,6 +112,29 @@ export function createEditor(
     view.focus();
   };
 
+  const editTablePresentation = (table: EditorMarkdownTable, action: TableHelperAction) => {
+    // The widget was built from an earlier document, so locate the same block again.
+    const tables = parseEditorMarkdownTables(view.state.doc.toString());
+    const current = tables.find(candidate => candidate.source === table.source && candidate.start === table.start)
+      ?? tables.find(candidate => candidate.source === table.source)
+      ?? tables.find(candidate => candidate.startLine === table.startLine);
+    if (!current) return;
+
+    const next = action.type === 'add-column'
+      ? withAppendedTableColumn(current)
+      : action.type === 'add-row'
+        ? withAppendedTableRow(current)
+        : action.type === 'alignment'
+          ? withTableColumnAlignment(current, action.column, action.alignment)
+          : current;
+    const replacement = formatMarkdownTable(next);
+    if (replacement === current.source) return;
+    view.dispatch({
+      changes: { from: current.start, to: current.end, insert: replacement },
+      scrollIntoView: true
+    });
+  };
+
   const state = EditorState.create({
     doc: initialContent,
     extensions: [
@@ -126,6 +159,7 @@ export function createEditor(
         : []),
       dropCursor(),
       imageBlockPointerDragExtension(),
+      tableHelperExtension(editTablePresentation),
       imageDropExtension(),
       ...(callbacks.onImageFile ? [imagePasteExtension(callbacks.onImageFile)] : []),
       updateListener

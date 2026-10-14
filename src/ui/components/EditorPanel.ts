@@ -73,6 +73,7 @@ export const editorPanelTemplate = (): string => `
         ${toolbarButton({ variant: 'text', title: 'Inline code', content: 'Code', attributes: { 'data-markdown-command': 'inline-code' } })}
         ${toolbarButton({ variant: 'text', title: 'Code block', content: 'Block', attributes: { 'data-markdown-command': 'code-block' } })}
         ${toolbarButton({ variant: 'text', title: 'Insert page break', content: 'PB', attributes: { 'data-markdown-command': 'page-break' } })}
+        ${toolbarButton({ variant: 'text', title: 'Insert table', content: 'Table', attributes: { 'data-markdown-command': 'table' } })}
         ${toolbarButton({ id: 'open-symbol-picker', variant: 'text', classes: ['markdown-symbol-button'], ariaLabel: 'Symbols', title: 'Symbols', icon: editorSymbolsIconMarkup(), attributes: { 'aria-controls': 'symbol-picker', 'aria-expanded': 'false' } })}
       </div>
       <div id="editor-container" class="editor-container">
