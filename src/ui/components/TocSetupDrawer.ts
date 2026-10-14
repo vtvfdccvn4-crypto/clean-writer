@@ -62,6 +62,7 @@ export const tocSetupDrawerContentTemplate = (): string => `
           sizeValue: 11,
           colorValue: '#000000'
         })}
+        ${renderDrawerControl('Indentation (pt)', '<input id="toc-selected-indentation" type="number" min="0" max="500" step="0.5" value="0">')}
         ${renderDrawerControl('All caps', renderDrawerSwitchControl('toc-selected-all-caps', 'All caps'))}
       </section>
       <button id="btn-apply-toc-setup" class="ui-button ui-button--block ui-button--primary" type="button">Apply settings</button>
