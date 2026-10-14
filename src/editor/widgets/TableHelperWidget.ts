@@ -17,6 +17,31 @@ export interface TableCellAddress {
   column: number;
 }
 
+/**
+ * The widget is not in the document when it is built, so the caret has to wait for
+ * it to be attached. An animation frame is the natural moment, but it never arrives
+ * while the window is unpainted — behind another window, or in a background tab —
+ * and the keystrokes after a Tab would then land in the document instead of the
+ * cell. Timers keep firing there, so they back the frame up.
+ */
+function focusCellWhenAttached(target: HTMLElement): void {
+  let focused = false;
+  const focusCell = () => {
+    if (focused || !target.isConnected) return;
+    target.focus();
+    if (document.activeElement !== target) return;
+    focused = true;
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  };
+  requestAnimationFrame(focusCell);
+  setTimeout(focusCell, 0);
+  setTimeout(focusCell, 60);
+}
+
 const alignmentIcons: Record<Exclude<TableColumnAlignment, ''>, string> = {
   left: 'format_align_left',
   center: 'format_align_center',
@@ -206,15 +231,7 @@ export class TableHelperWidget extends WidgetType {
       const target = container.querySelector<HTMLElement>(
         `.cm-table-helper-cell-text[data-table-row="${row}"][data-table-column="${column}"]`
       );
-      // The widget is not in the document yet, so focusing waits for layout.
-      if (target) requestAnimationFrame(() => {
-        target.focus();
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(target);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      });
+      if (target) focusCellWhenAttached(target);
     }
 
     return container;

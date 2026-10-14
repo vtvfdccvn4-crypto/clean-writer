@@ -45,6 +45,26 @@ async function run() {
   const pipesHidden = !editor.view.contentDOM.textContent?.includes('| Name | Qty |');
   const sourceIntact = editor.getValue().includes('| Name | Qty |');
 
+  // The reference is a clean rendered table, so the controls must not be on
+  // screen until the pointer or the caret is in the table. :hover cannot be
+  // simulated, but :focus-within is the same rule and can be.
+  const toolbar = document.querySelector<HTMLElement>('.cm-table-helper-toolbar');
+  const headerControls = document.querySelector<HTMLElement>('.cm-table-helper-grid thead .cm-table-helper-alignment');
+  if (!toolbar || !headerControls) throw new Error('Table controls missing.');
+  const chromeHiddenAtRest = getComputedStyle(toolbar).opacity === '0'
+    && getComputedStyle(headerControls).opacity === '0';
+  const headerHeight = document.querySelector('.cm-table-helper-grid thead tr')?.getBoundingClientRect().height ?? 0;
+  cell(-1, 0)?.focus();
+  const chromeShownOnFocus = await waitFor(
+    'controls revealed by focus',
+    () => getComputedStyle(toolbar).opacity === '1'
+  );
+  // Revealing them must not move anything: they are laid over the table.
+  const headerHeightUnchanged = Math.abs(
+    (document.querySelector('.cm-table-helper-grid thead tr')?.getBoundingClientRect().height ?? 0) - headerHeight
+  ) < 0.5;
+  cell(-1, 0)?.blur();
+
   const target = cell(0, 1);
   if (!target) throw new Error('Body cell missing.');
   target.textContent = '7';
@@ -106,6 +126,9 @@ async function run() {
     bodyCells,
     readsContent,
     pipesHidden,
+    chromeHiddenAtRest,
+    chromeShownOnFocus: chromeShownOnFocus === true,
+    headerHeightUnchanged,
     sourceIntact,
     editKeptOtherCells,
     tabMovedCaret: tabMovedCaret === true,

@@ -1,7 +1,13 @@
 /* The grid replaces the pipe source, so the editor shows the table the way the
- * document will render it, with every cell editable in place. */
+ * document will render it, with every cell editable in place. At rest the table
+ * alone is visible; its controls overlay it on hover or focus, so revealing them
+ * never changes the widget's height and the table keeps reading as rendered output. */
 .cm-table-helper-control {
   display: flex;
+  position: relative;
+  /* A wide table scrolls inside this box; it must never widen the editor pane. */
+  width: 100%;
+  max-width: 100%;
   margin: 0.4rem 0;
   border: 1px solid color-mix(in srgb, var(--ui-text) 12%, var(--ui-surface));
   border-radius: 6px;
@@ -13,7 +19,6 @@
   font-family: var(--font-ui);
 }
 
-.cm-table-helper-toolbar,
 .cm-table-helper-source-toggle {
   display: flex;
   width: 100%;
@@ -22,11 +27,34 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  flex-wrap: nowrap;
   background: #f7f5ef;
 }
 
+/* Floated over the table's top-right corner so showing it costs no height. */
 .cm-table-helper-toolbar {
-  border-bottom: 1px solid color-mix(in srgb, var(--ui-text) 8%, var(--ui-surface));
+  display: flex;
+  position: absolute;
+  z-index: 2;
+  top: 0.2rem;
+  right: 0.2rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--ui-text) 12%, var(--ui-surface));
+  border-radius: 4px;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+  background: #f7f5ef;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.cm-table-helper-control:hover .cm-table-helper-toolbar,
+.cm-table-helper-control:focus-within .cm-table-helper-toolbar {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .cm-table-helper-source-toggle {
@@ -37,10 +65,14 @@
 }
 
 .cm-table-helper-label {
+  overflow: hidden;
+  min-width: 0;
   color: var(--ui-text-muted, currentColor);
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cm-table-helper-actions {
@@ -51,18 +83,22 @@
 
 .cm-table-helper-scroller {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   background: #fff;
 }
 
 .cm-table-helper-grid {
-  width: 100%;
+  /* Fills the pane when it fits and scrolls within the box when it does not. */
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-family: var(--font-ui);
   font-size: 0.82rem;
 }
 
 .cm-table-helper-cell {
+  position: relative;
   padding: 0.3rem 0.5rem;
   border: 1px solid color-mix(in srgb, var(--ui-text) 18%, #fff);
   color: var(--ui-text);
@@ -90,12 +126,29 @@
   border-radius: 2px;
 }
 
-/* Column controls live in the heading cell so each column carries its own. */
+/* Each column carries its own controls, laid over the foot of its heading cell so
+ * the header row keeps the height of a rendered one. */
 .cm-table-helper-grid thead .cm-table-helper-alignment {
   display: flex;
-  margin-top: 0.25rem;
+  position: absolute;
+  z-index: 1;
+  right: 0.15rem;
+  bottom: -0.9rem;
+  padding: 0.1rem;
+  border: 1px solid color-mix(in srgb, var(--ui-text) 12%, var(--ui-surface));
+  border-radius: 4px;
   gap: 0.15rem;
-  justify-content: flex-start;
+  background: #f7f5ef;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.cm-table-helper-grid thead .cm-table-helper-cell:hover .cm-table-helper-alignment,
+.cm-table-helper-grid thead .cm-table-helper-cell:focus-within .cm-table-helper-alignment {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .cm-table-helper-button {
@@ -128,9 +181,12 @@
   color: #4b5563;
 }
 
-/* Only shown while a table is toggled back to its Markdown. */
+/* Only shown while a table is toggled back to its Markdown. A soft-wrapped pipe
+ * row is unreadable, so these lines scroll sideways instead of wrapping. */
 .cm-table-row {
+  overflow-x: auto;
   background: color-mix(in srgb, var(--ui-accent) 4%, transparent);
+  white-space: pre;
 }
 
 .cm-table-row-header {
