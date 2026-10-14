@@ -19,8 +19,14 @@ const initial = [
   'Outro.'
 ].join('\n');
 
-function tableLines(value: string): string[] {
-  return value.split('\n').filter(line => line.trim().startsWith('|'));
+function cell(row: number, column: number): HTMLElement | null {
+  return document.querySelector<HTMLElement>(
+    `.cm-table-helper-cell-text[data-table-row="${row}"][data-table-column="${column}"]`
+  );
+}
+
+function press(target: HTMLElement, key: string, shiftKey = false): void {
+  target.dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true }));
 }
 
 async function run() {
@@ -28,53 +34,64 @@ async function run() {
   if (!parent) throw new Error('Editor root missing.');
   const editor = createEditor(parent, initial, { onChange: () => {} });
 
-  // A block widget supplied from a view plugin throws inside CodeMirror and never
-  // reaches the DOM, so rendering the control at all is the thing worth asserting.
-  const control = await waitFor(
-    'table helper control',
-    () => document.querySelector<HTMLElement>('.cm-table-helper-control')
-  );
-  const renderedAboveTable = control.compareDocumentPosition(editor.view.contentDOM)
-    === Node.DOCUMENT_POSITION_CONTAINS + Node.DOCUMENT_POSITION_PRECEDING;
-  const columnGroups = document.querySelectorAll('.cm-table-helper-column').length;
+  // A replacing block decoration from a view plugin throws inside CodeMirror and
+  // never reaches the DOM, so rendering the grid at all is worth asserting.
+  const control = await waitFor('table grid', () => document.querySelector<HTMLElement>('.cm-table-helper-control'));
+  const renderedInEditor = editor.view.contentDOM.contains(control);
+  const headerCells = document.querySelectorAll('.cm-table-helper-grid thead th').length;
+  const bodyCells = document.querySelectorAll('.cm-table-helper-grid tbody td').length;
+  const readsContent = cell(0, 0)?.textContent === 'Pen' && cell(-1, 1)?.textContent === 'Qty';
+  // The point of the change: the pipe source must no longer be on screen.
+  const pipesHidden = !editor.view.contentDOM.textContent?.includes('| Name | Qty |');
+  const sourceIntact = editor.getValue().includes('| Name | Qty |');
 
-  const alignCentre = document.querySelector<HTMLButtonElement>(
-    '.cm-table-helper-column .cm-table-helper-button[aria-label="Align Name center"]'
-  );
-  if (!alignCentre) throw new Error('Column alignment control missing.');
-  alignCentre.click();
-  await waitFor('centre alignment written', () => editor.getValue().includes(':-'));
-  const centred = /\|\s*:-+:\s*\|/.test(editor.getValue());
+  const target = cell(0, 1);
+  if (!target) throw new Error('Body cell missing.');
+  target.textContent = '7';
+  target.dispatchEvent(new FocusEvent('blur'));
+  await waitFor('cell edit written to the document', () => editor.getValue().includes('| 7'));
+  const editKeptOtherCells = editor.getValue().includes('Pen');
 
-  const addColumn = document.querySelector<HTMLButtonElement>(
-    '.cm-table-helper-footer .cm-table-helper-button[aria-label="Add column"]'
+  const centre = document.querySelector<HTMLButtonElement>(
+    '.cm-table-helper-grid thead .cm-table-helper-button[aria-label="Align column 2 center"]'
   );
-  if (!addColumn) throw new Error('Add column control missing.');
-  addColumn.click();
-  await waitFor('third column added', () => editor.getValue().includes('Column 3'));
+  if (!centre) throw new Error('Column alignment control missing from the heading.');
+  centre.click();
+  await waitFor('centre alignment written', () => /\|\s*:-+:\s*\|/.test(editor.getValue()));
 
-  const addRow = document.querySelector<HTMLButtonElement>(
-    '.cm-table-helper-footer .cm-table-helper-button[aria-label="Add row"]'
+  document.querySelector<HTMLButtonElement>('.cm-table-helper-actions [aria-label="Add row"]')?.click();
+  await waitFor('row added', () => document.querySelectorAll('.cm-table-helper-grid tbody tr').length === 2);
+  document.querySelector<HTMLButtonElement>('.cm-table-helper-actions [aria-label="Add column"]')?.click();
+  await waitFor('column added', () => document.querySelectorAll('.cm-table-helper-grid thead th').length === 3);
+
+  // Tab moves to the next cell and the caret follows into the rebuilt widget.
+  const tabFrom = cell(0, 0);
+  if (!tabFrom) throw new Error('Cell for the Tab move missing.');
+  tabFrom.focus();
+  press(tabFrom, 'Tab');
+  const tabMovedCaret = await waitFor(
+    'caret moved to the next cell',
+    () => document.activeElement instanceof HTMLElement
+      && document.activeElement.dataset.tableRow === '0'
+      && document.activeElement.dataset.tableColumn === '1'
   );
-  if (!addRow) throw new Error('Add row control missing.');
-  addRow.click();
-  await waitFor('fourth table line added', () => tableLines(editor.getValue()).length === 4);
 
-  const lines = tableLines(editor.getValue());
-  const aligned = new Set(lines.map(line => line.length)).size === 1;
-  await waitFor(
-    'helper redrawn for the wider table',
-    () => document.querySelectorAll('.cm-table-helper-column').length === 3
+  document.querySelector<HTMLButtonElement>('.cm-table-helper-actions [aria-label="Edit as Markdown"]')?.click();
+  const sourceShown = await waitFor(
+    'markdown revealed',
+    () => document.querySelector('.cm-table-helper-source-toggle') !== null
+      && document.querySelector('.cm-table-helper-grid') === null
   );
-  const columnGroupsAfterEdits = document.querySelectorAll('.cm-table-helper-column').length;
+  const pipesVisible = editor.view.contentDOM.textContent?.includes('| Pen') === true;
 
-  // The toolbar's insert command had no browser coverage: the fixture below
-  // builds a table from an empty document the way the Table button does.
+  document.querySelector<HTMLButtonElement>('.cm-table-helper-source-toggle .cm-table-helper-button')?.click();
+  const gridRestored = await waitFor('grid restored', () => document.querySelector('.cm-table-helper-grid') !== null);
+
   const blank = createEditor(document.body.appendChild(document.createElement('div')), 'Prose only.', { onChange: () => {} });
   applyMarkdownCommand(blank.view, 'table');
-  const insertedHelper = await waitFor(
-    'helper for the inserted table',
-    () => document.querySelectorAll('.cm-table-helper-control').length === 2
+  const insertedGrid = await waitFor(
+    'grid for the inserted table',
+    () => document.querySelectorAll('.cm-table-helper-grid').length === 2
   );
   const insertedValue = blank.getValue();
   const insertedColumns = /\| Column 1 \| Column 2 \| Column 3 \|/.test(insertedValue);
@@ -84,17 +101,21 @@ async function run() {
 
   window.__HARNESS_RESULT__ = {
     ok: true,
-    insertedHelper: insertedHelper === true,
+    renderedInEditor,
+    headerCells,
+    bodyCells,
+    readsContent,
+    pipesHidden,
+    sourceIntact,
+    editKeptOtherCells,
+    tabMovedCaret: tabMovedCaret === true,
+    sourceShown: sourceShown === true,
+    pipesVisible,
+    gridRestored: gridRestored === true,
+    insertedGrid: insertedGrid === true,
     insertedColumns,
     insertedRows,
     keptExistingProse,
-    rendered: true,
-    renderedAboveTable,
-    columnGroups,
-    centred,
-    aligned,
-    columnGroupsAfterEdits,
-    rowsAfterEdits: lines.length,
     preservedSurroundingText: editor.getValue().startsWith('Intro.') && editor.getValue().endsWith('Outro.')
   };
   editor.destroy();

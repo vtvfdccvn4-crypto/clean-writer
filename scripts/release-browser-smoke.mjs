@@ -32,18 +32,22 @@ const fixtures = [
     name: 'browser-table-helper-smoke',
     path: '/test/fixtures/browser-table-helper-smoke.html',
     validate(result) {
-      expect(result.ok === true && result.rendered === true, 'The table helper control did not render above a Markdown table.');
-      expect(result.renderedAboveTable === true, 'The table helper did not render inside the editor content.');
-      expect(result.columnGroups === 2, 'The table helper did not show one alignment group per column.');
-      expect(result.centred === true, 'Centring a column did not reach the delimiter row.');
-      expect(result.columnGroupsAfterEdits === 3, 'The table helper did not redraw after a column was added.');
-      expect(result.rowsAfterEdits === 4, 'Adding a row did not extend the table.');
-      expect(result.aligned === true, 'Helper edits did not leave the table source aligned.');
-      expect(result.preservedSurroundingText === true, 'Helper edits disturbed text around the table.');
+      expect(result.ok === true, 'The table grid did not render over a Markdown table.');
+      expect(result.renderedInEditor === true, 'The table grid rendered outside the editor content.');
+      expect(result.pipesHidden === true, 'The Markdown pipe source is still on screen behind the grid.');
+      expect(result.sourceIntact === true, 'Rendering the grid changed the underlying Markdown.');
+      expect(result.headerCells === 2 && result.bodyCells === 2, 'The grid did not render one cell per column and row.');
+      expect(result.readsContent === true, 'Grid cells did not show the table content.');
+      expect(result.editKeptOtherCells === true, 'Editing one cell disturbed the others.');
+      expect(result.tabMovedCaret === true, 'Tab did not carry the caret into the next cell.');
+      expect(result.sourceShown === true, 'Edit as Markdown did not reveal the pipe source.');
+      expect(result.pipesVisible === true, 'The revealed Markdown was not visible in the editor.');
+      expect(result.gridRestored === true, 'Switching back from Markdown did not restore the grid.');
       expect(result.insertedColumns === true, 'The Table insert command did not build a three column starter table.');
       expect(result.insertedRows === 4, 'The inserted table did not have a header, delimiter and two body rows.');
       expect(result.keptExistingProse === true, 'The Table insert command discarded existing text.');
-      expect(result.insertedHelper === true, 'An inserted table did not get its own helper control.');
+      expect(result.insertedGrid === true, 'An inserted table did not get its own grid.');
+      expect(result.preservedSurroundingText === true, 'Helper edits disturbed text around the table.');
     }
   },
   {

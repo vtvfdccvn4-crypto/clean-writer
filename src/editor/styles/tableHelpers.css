@@ -1,10 +1,9 @@
-/* The helper is a non-replacing block above the table so the Markdown source
- * stays editable in place, exactly as the image preview leaves its syntax. */
+/* The grid replaces the pipe source, so the editor shows the table the way the
+ * document will render it, with every cell editable in place. */
 .cm-table-helper-control {
   display: flex;
-  width: min(420px, calc(100% - 8px));
-  margin: 0.35rem 0 0.2rem;
-  border: 1px solid color-mix(in srgb, var(--ui-text) 10%, var(--ui-surface));
+  margin: 0.4rem 0;
+  border: 1px solid color-mix(in srgb, var(--ui-text) 12%, var(--ui-surface));
   border-radius: 6px;
   overflow: hidden;
   background: var(--ui-surface);
@@ -14,64 +13,95 @@
   font-family: var(--font-ui);
 }
 
-.cm-table-helper-header,
-.cm-table-helper-footer {
+.cm-table-helper-toolbar,
+.cm-table-helper-source-toggle {
   display: flex;
   width: 100%;
+  padding: 0.3rem 0.5rem;
   box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   background: #f7f5ef;
 }
 
-.cm-table-helper-header {
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--ui-text) 5%, var(--ui-surface));
+.cm-table-helper-toolbar {
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-text) 8%, var(--ui-surface));
+}
+
+.cm-table-helper-source-toggle {
+  margin: 0.4rem 0 0;
+  border: 1px solid color-mix(in srgb, var(--ui-text) 12%, var(--ui-surface));
+  border-radius: 6px 6px 0 0;
+  font-family: var(--font-ui);
+}
+
+.cm-table-helper-label {
   color: var(--ui-text-muted, currentColor);
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.2;
 }
 
-.cm-table-helper-columns {
-  display: flex;
-  width: 100%;
-  padding: 0.4rem 0.5rem;
-  box-sizing: border-box;
-  background: #fff;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.cm-table-helper-column {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.cm-table-helper-column-label {
-  overflow: hidden;
-  color: var(--ui-text-muted, currentColor);
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cm-table-helper-alignment {
+.cm-table-helper-actions {
   display: inline-flex;
   gap: 0.2rem;
   flex: 0 0 auto;
 }
 
-.cm-table-helper-footer {
-  padding: 0.4rem 0.5rem;
-  border-top: 1px solid color-mix(in srgb, var(--ui-text) 5%, var(--ui-surface));
-  gap: 0.2rem;
+.cm-table-helper-scroller {
+  width: 100%;
+  overflow-x: auto;
+  background: #fff;
+}
+
+.cm-table-helper-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+}
+
+.cm-table-helper-cell {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--ui-text) 18%, #fff);
+  color: var(--ui-text);
+  font-weight: inherit;
+  text-align: inherit;
+  vertical-align: top;
+}
+
+.cm-table-helper-grid thead .cm-table-helper-cell {
+  background: #f3f2ee;
+  font-weight: 600;
+}
+
+.cm-table-helper-cell-text {
+  min-width: 4rem;
+  min-height: 1.2em;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cm-table-helper-cell-text:focus {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+/* Column controls live in the heading cell so each column carries its own. */
+.cm-table-helper-grid thead .cm-table-helper-alignment {
+  display: flex;
+  margin-top: 0.25rem;
+  gap: 0.15rem;
+  justify-content: flex-start;
 }
 
 .cm-table-helper-button {
   display: inline-flex;
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 1.5rem;
+  height: 1.5rem;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -88,7 +118,7 @@
   display: block;
   width: 1em;
   height: 1em;
-  font-size: 1rem;
+  font-size: 0.95rem;
   line-height: 1;
 }
 
@@ -98,7 +128,7 @@
   color: #4b5563;
 }
 
-/* A quiet grid behind the pipe rows reads as one table rather than loose lines. */
+/* Only shown while a table is toggled back to its Markdown. */
 .cm-table-row {
   background: color-mix(in srgb, var(--ui-accent) 4%, transparent);
 }

@@ -15,7 +15,7 @@ import { markdownAppearanceExtension } from './extensions/markdownAppearance';
 import { markdownLanguageExtension } from './extensions/markdown';
 import { imageDropExtension } from './extensions/imageDropExtension';
 import { imageBlockPointerDragExtension } from './extensions/imageBlockPointerDrag';
-import { tableHelperExtension } from './extensions/tableHelpers';
+import { refreshTableGrids, tableHelperExtension, toggleTableSource, type PendingFocus } from './extensions/tableHelpers';
 import { state as appState } from '../state';
 import type { EditorSetup } from '../types';
 import { parseEditorMarkdownImages, withImageAlignmentAttribute, withImageWidthAttribute } from './markdown/parseMarkdownImage';
@@ -24,6 +24,7 @@ import {
   parseEditorMarkdownTables,
   withAppendedTableColumn,
   withAppendedTableRow,
+  withTableCell,
   withTableColumnAlignment,
   type EditorMarkdownTable
 } from './markdown/parseMarkdownTable';
@@ -112,6 +113,10 @@ export function createEditor(
     view.focus();
   };
 
+  // The grid keeps editing to itself, so a cell edit asks for the caret to land in
+  // a particular cell of the widget that replaces this one.
+  let pendingTableFocus: PendingFocus | null = null;
+
   const editTablePresentation = (table: EditorMarkdownTable, action: TableHelperAction) => {
     // The widget was built from an earlier document, so locate the same block again.
     const tables = parseEditorMarkdownTables(view.state.doc.toString());
@@ -120,19 +125,35 @@ export function createEditor(
       ?? tables.find(candidate => candidate.startLine === table.startLine);
     if (!current) return;
 
+    if (action.type === 'show-source') {
+      view.dispatch({ effects: toggleTableSource.of(current.start) });
+      return;
+    }
+
     const next = action.type === 'add-column'
       ? withAppendedTableColumn(current)
       : action.type === 'add-row'
         ? withAppendedTableRow(current)
         : action.type === 'alignment'
           ? withTableColumnAlignment(current, action.column, action.alignment)
-          : current;
+          : action.type === 'cell'
+            ? withTableCell(current, action.row, action.column, action.value)
+            : current;
     const replacement = formatMarkdownTable(next);
-    if (replacement === current.source) return;
+    pendingTableFocus = action.type === 'cell' && action.focus
+      ? { start: current.start, cell: action.focus }
+      : null;
+    if (replacement === current.source) {
+      // Nothing to write, but a Tab or Enter still owes the caret its next cell.
+      if (pendingTableFocus) view.dispatch({ effects: refreshTableGrids.of(null) });
+      pendingTableFocus = null;
+      return;
+    }
     view.dispatch({
       changes: { from: current.start, to: current.end, insert: replacement },
       scrollIntoView: true
     });
+    pendingTableFocus = null;
   };
 
   const state = EditorState.create({
@@ -159,7 +180,7 @@ export function createEditor(
         : []),
       dropCursor(),
       imageBlockPointerDragExtension(),
-      tableHelperExtension(editTablePresentation),
+      tableHelperExtension(editTablePresentation, () => pendingTableFocus),
       imageDropExtension(),
       ...(callbacks.onImageFile ? [imagePasteExtension(callbacks.onImageFile)] : []),
       updateListener
