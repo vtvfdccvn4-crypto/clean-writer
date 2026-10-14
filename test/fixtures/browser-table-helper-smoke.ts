@@ -72,10 +72,13 @@ async function run() {
   await waitFor('cell edit written to the document', () => editor.getValue().includes('| 7'));
   const editKeptOtherCells = editor.getValue().includes('Pen');
 
+  // One toggle per column now, cycling through the alignments; from unset it centres.
+  const alignToggles = document.querySelectorAll('.cm-table-helper-grid thead .cm-table-helper-alignment').length;
   const centre = document.querySelector<HTMLButtonElement>(
-    '.cm-table-helper-grid thead .cm-table-helper-button[aria-label="Align column 2 center"]'
+    '.cm-table-helper-grid thead th:nth-child(2) .cm-table-helper-alignment'
   );
-  if (!centre) throw new Error('Column alignment control missing from the heading.');
+  if (!centre) throw new Error('Column alignment toggle missing from the heading.');
+  const alignmentShown = centre.dataset.alignment === 'default';
   centre.click();
   await waitFor('centre alignment written', () => /\|\s*:-+:\s*\|/.test(editor.getValue()));
 
@@ -107,6 +110,30 @@ async function run() {
   document.querySelector<HTMLButtonElement>('.cm-table-helper-source-toggle .cm-table-helper-button')?.click();
   const gridRestored = await waitFor('grid restored', () => document.querySelector('.cm-table-helper-grid') !== null);
 
+  // A table wider than the pane must scroll inside its own box. A percentage
+  // max-width cannot do that, because it resolves against a content element the
+  // table itself widened, so this is the assertion that the pixel bound holds.
+  const narrowHost = document.body.appendChild(document.createElement('div'));
+  narrowHost.style.width = '320px';
+  const wideTable = [
+    '| A | B | C | D | E | F |',
+    '| --- | --- | --- | --- | --- | --- |',
+    '| aaaaaaaaaa | bbbbbbbbbb | cccccccccc | dddddddddd | eeeeeeeeee | ffffffffff |'
+  ].join('\n');
+  const wide = createEditor(narrowHost, wideTable, { onChange: () => {} });
+  const wideScroller = await waitFor(
+    'wide grid',
+    () => narrowHost.querySelector<HTMLElement>('.cm-table-helper-scroller')
+  );
+  const paneDidNotWiden = await waitFor(
+    'editor pane not widened by the table',
+    () => wide.view.contentDOM.scrollWidth <= wide.view.scrollDOM.clientWidth + 1
+  );
+  const tableScrollsInItsBox = wideScroller instanceof HTMLElement
+    && wideScroller.scrollWidth > wideScroller.clientWidth;
+  wide.destroy();
+  narrowHost.remove();
+
   const blank = createEditor(document.body.appendChild(document.createElement('div')), 'Prose only.', { onChange: () => {} });
   applyMarkdownCommand(blank.view, 'table');
   const insertedGrid = await waitFor(
@@ -135,6 +162,10 @@ async function run() {
     sourceShown: sourceShown === true,
     pipesVisible,
     gridRestored: gridRestored === true,
+    alignToggles,
+    alignmentShown,
+    paneDidNotWiden: paneDidNotWiden === true,
+    tableScrollsInItsBox,
     insertedGrid: insertedGrid === true,
     insertedColumns,
     insertedRows,

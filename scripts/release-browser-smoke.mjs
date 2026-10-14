@@ -41,6 +41,10 @@ const fixtures = [
       expect(result.chromeHiddenAtRest === true, 'The table controls are visible at rest instead of only on hover or focus.');
       expect(result.chromeShownOnFocus === true, 'Putting the caret in a cell did not reveal the table controls.');
       expect(result.headerHeightUnchanged === true, 'Revealing the controls changed the heading row height.');
+      expect(result.alignToggles === 2, 'Each column did not get exactly one alignment toggle.');
+      expect(result.alignmentShown === true, 'The alignment toggle did not report the column\'s current alignment.');
+      expect(result.paneDidNotWiden === true, 'A table wider than the pane widened the editor instead of scrolling inside its box.');
+      expect(result.tableScrollsInItsBox === true, 'A table wider than the pane did not scroll inside the widget.');
       expect(result.editKeptOtherCells === true, 'Editing one cell disturbed the others.');
       expect(result.tabMovedCaret === true, 'Tab did not carry the caret into the next cell.');
       expect(result.sourceShown === true, 'Edit as Markdown did not reveal the pipe source.');

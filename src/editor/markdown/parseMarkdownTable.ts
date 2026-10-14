@@ -193,6 +193,17 @@ export function withTableColumnAlignment(
   return next;
 }
 
+/**
+ * The alignment a single toggle moves a column to next, cycling centre, right, left.
+ * An unset column already renders left, so the first click centres it rather than
+ * setting an alignment that looks like no change at all.
+ */
+export function nextTableColumnAlignment(current: TableColumnAlignment): TableColumnAlignment {
+  if (current === 'center') return 'right';
+  if (current === 'right') return 'left';
+  return 'center';
+}
+
 /** Returns the table with an empty column appended. */
 export function withAppendedTableColumn(table: TableData, label?: string): TableData {
   const next = tableData(table);

@@ -1,7 +1,11 @@
-import { WidgetType } from '@codemirror/view';
+import { WidgetType, type EditorView } from '@codemirror/view';
 
 import { materialIcon } from '../../ui/components/icon';
-import { decodeTableCell, type TableColumnAlignment } from '../markdown/parseMarkdownTable';
+import {
+  decodeTableCell,
+  nextTableColumnAlignment,
+  type TableColumnAlignment
+} from '../markdown/parseMarkdownTable';
 
 export type TableHelperAction =
   | { type: 'alignment'; column: number; alignment: TableColumnAlignment }
@@ -42,10 +46,18 @@ function focusCellWhenAttached(target: HTMLElement): void {
   setTimeout(focusCell, 60);
 }
 
-const alignmentIcons: Record<Exclude<TableColumnAlignment, ''>, string> = {
+const alignmentIcons: Record<TableColumnAlignment, string> = {
+  '': 'format_align_left',
   left: 'format_align_left',
   center: 'format_align_center',
   right: 'format_align_right'
+};
+
+const alignmentNames: Record<TableColumnAlignment, string> = {
+  '': 'left',
+  left: 'left',
+  center: 'centre',
+  right: 'right'
 };
 
 /**
@@ -58,6 +70,7 @@ export class TableHelperWidget extends WidgetType {
   private readonly body: readonly (readonly string[])[];
   private readonly onAction: (action: TableHelperAction) => void;
   private readonly pendingFocus: TableCellAddress | null;
+  private widthObserver: ResizeObserver | null = null;
 
   constructor(
     header: readonly string[],
@@ -166,23 +179,52 @@ export class TableHelperWidget extends WidgetType {
     return cell;
   }
 
+  /**
+   * One small toggle per column rather than a button per alignment: it shows the
+   * column's current alignment and each click moves it to the next one, so the
+   * heading cell keeps the width and height of a rendered one.
+   */
   private headerCell(column: number): HTMLTableCellElement {
     const cell = this.cell('th', -1, column, this.header[column] ?? '');
-    const alignment = document.createElement('span');
-    alignment.className = 'cm-table-helper-alignment';
-    (['left', 'center', 'right'] as const).forEach(value => {
-      alignment.appendChild(this.iconButton(
-        alignmentIcons[value],
-        `Align column ${column + 1} ${value}`,
-        { type: 'alignment', column, alignment: value },
-        this.alignments[column] === value
-      ));
-    });
-    cell.appendChild(alignment);
+    const current = this.alignments[column] ?? '';
+    const next = nextTableColumnAlignment(current);
+    const toggle = this.iconButton(
+      alignmentIcons[current],
+      `Column ${column + 1} alignment: ${alignmentNames[current]}. Click to align ${alignmentNames[next]}.`,
+      { type: 'alignment', column, alignment: next }
+    );
+    toggle.classList.add('cm-table-helper-alignment');
+    toggle.dataset.alignment = current || 'default';
+    cell.appendChild(toggle);
     return cell;
   }
 
-  toDOM(): HTMLElement {
+  /**
+   * A percentage max-width resolves against the content element, which is only as
+   * wide as this widget made it, so the constraint is circular and a wide table
+   * widens the whole editor pane. Measuring the scroller in pixels is the only
+   * bound that bites; the observer keeps it current as the pane is resized.
+   */
+  private constrainWidth(view: EditorView, container: HTMLElement): void {
+    const measure = () => {
+      if (!container.isConnected && this.widthObserver) return;
+      const style = window.getComputedStyle(view.contentDOM);
+      const padding = parseFloat(style.paddingLeft || '0') + parseFloat(style.paddingRight || '0');
+      const available = view.scrollDOM.clientWidth - Math.max(0, view.contentDOM.offsetLeft) - padding;
+      if (available > 40) container.style.maxWidth = `${Math.floor(available)}px`;
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    this.widthObserver = new ResizeObserver(measure);
+    this.widthObserver.observe(view.scrollDOM);
+  }
+
+  destroy(): void {
+    this.widthObserver?.disconnect();
+    this.widthObserver = null;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
     const container = document.createElement('div');
     container.className = 'cm-table-helper-control';
     container.setAttribute('role', 'group');
@@ -225,6 +267,8 @@ export class TableHelperWidget extends WidgetType {
     scroller.className = 'cm-table-helper-scroller';
     scroller.appendChild(grid);
     container.append(toolbar, scroller);
+
+    this.constrainWidth(view, container);
 
     if (this.pendingFocus) {
       const { row, column } = this.pendingFocus;

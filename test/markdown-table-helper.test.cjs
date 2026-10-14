@@ -6,6 +6,7 @@ let server;
 let parseEditorMarkdownTables;
 let formatMarkdownTable;
 let withTableColumnAlignment;
+let nextTableColumnAlignment;
 let withAppendedTableColumn;
 let withAppendedTableRow;
 let createMarkdownTable;
@@ -20,6 +21,7 @@ before(async () => {
     parseEditorMarkdownTables,
     formatMarkdownTable,
     withTableColumnAlignment,
+    nextTableColumnAlignment,
     withAppendedTableColumn,
     withAppendedTableRow,
     createMarkdownTable,
@@ -95,6 +97,14 @@ test('formatting a parsed table is stable, so tidying twice changes nothing', ()
   const once = formatMarkdownTable(parseEditorMarkdownTables(createMarkdownTable())[0]);
   const twice = formatMarkdownTable(parseEditorMarkdownTables(once)[0]);
   assert.equal(once, twice);
+});
+
+test('one toggle cycles a column through the three alignments', () => {
+  // An unset column already renders left, so the first click must visibly centre it.
+  assert.equal(nextTableColumnAlignment(''), 'center');
+  assert.equal(nextTableColumnAlignment('center'), 'right');
+  assert.equal(nextTableColumnAlignment('right'), 'left');
+  assert.equal(nextTableColumnAlignment('left'), 'center');
 });
 
 test('alignment is set per column and toggled off when picked again', () => {

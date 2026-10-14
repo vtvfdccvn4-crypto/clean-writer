@@ -9,7 +9,7 @@
   width: 100%;
   max-width: 100%;
   margin: 0.4rem 0;
-  border: 1px solid color-mix(in srgb, var(--ui-text) 12%, var(--ui-surface));
+  border: 1px solid #d1cec8;
   border-radius: 6px;
   overflow: hidden;
   background: var(--ui-surface);
@@ -100,7 +100,8 @@
 .cm-table-helper-cell {
   position: relative;
   padding: 0.3rem 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--ui-text) 18%, #fff);
+  /* Light enough to read as a rendered table, firm enough to show each cell's limits. */
+  border: 1px solid #e5e2dc;
   color: var(--ui-text);
   font-weight: inherit;
   text-align: inherit;
@@ -126,29 +127,36 @@
   border-radius: 2px;
 }
 
-/* Each column carries its own controls, laid over the foot of its heading cell so
- * the header row keeps the height of a rendered one. */
-.cm-table-helper-grid thead .cm-table-helper-alignment {
+/* One toggle per column, kept in the heading cell's own flow so it can never
+ * overlay the row beneath. It holds its space at rest and only fades in, so
+ * revealing it moves nothing. */
+.cm-table-helper-grid thead .cm-table-helper-cell {
   display: flex;
-  position: absolute;
-  z-index: 1;
-  right: 0.15rem;
-  bottom: -0.9rem;
-  padding: 0.1rem;
-  border: 1px solid color-mix(in srgb, var(--ui-text) 12%, var(--ui-surface));
-  border-radius: 4px;
-  gap: 0.15rem;
-  background: #f7f5ef;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.cm-table-helper-grid thead .cm-table-helper-cell-text {
+  flex: 1 1 auto;
+}
+
+.cm-table-helper-button.cm-table-helper-alignment {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-color: transparent;
+  flex: 0 0 auto;
   opacity: 0;
-  pointer-events: none;
   transition: opacity 120ms ease;
 }
 
-.cm-table-helper-grid thead .cm-table-helper-cell:hover .cm-table-helper-alignment,
-.cm-table-helper-grid thead .cm-table-helper-cell:focus-within .cm-table-helper-alignment {
+.cm-table-helper-button.cm-table-helper-alignment .ui-icon {
+  font-size: 0.8rem;
+}
+
+.cm-table-helper-control:hover .cm-table-helper-alignment,
+.cm-table-helper-control:focus-within .cm-table-helper-alignment {
+  border-color: #d1cec8;
   opacity: 1;
-  pointer-events: auto;
 }
 
 .cm-table-helper-button {
@@ -158,7 +166,7 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--ui-border);
+  border: 1px solid #d1cec8;
   border-radius: 3px;
   background: transparent;
   color: #6b7280;
