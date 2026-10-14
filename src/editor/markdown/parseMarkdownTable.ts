@@ -161,6 +161,16 @@ export function parseEditorMarkdownTables(document: string): EditorMarkdownTable
   return tables;
 }
 
+/** Turns a stored cell back into the text a reader sees in a rendered table. */
+export function decodeTableCell(cell: string): string {
+  return cell.replace(/\\\|/g, '|').trim();
+}
+
+/** Turns edited text back into a cell that cannot break the row apart. */
+export function encodeTableCell(value: string): string {
+  return value.replace(/[\r\n]+/g, ' ').replace(/\\(?=\|)/g, '').replace(/\|/g, '\\|').trim();
+}
+
 type TableData = Pick<EditorMarkdownTable, 'header' | 'alignments' | 'body'>;
 
 function tableData(table: TableData): TableData {
@@ -183,6 +193,17 @@ export function withTableColumnAlignment(
   return next;
 }
 
+/**
+ * The alignment a single toggle moves a column to next, cycling centre, right, left.
+ * An unset column already renders left, so the first click centres it rather than
+ * setting an alignment that looks like no change at all.
+ */
+export function nextTableColumnAlignment(current: TableColumnAlignment): TableColumnAlignment {
+  if (current === 'center') return 'right';
+  if (current === 'right') return 'left';
+  return 'center';
+}
+
 /** Returns the table with an empty column appended. */
 export function withAppendedTableColumn(table: TableData, label?: string): TableData {
   const next = tableData(table);
@@ -196,6 +217,22 @@ export function withAppendedTableColumn(table: TableData, label?: string): Table
 export function withAppendedTableRow(table: TableData): TableData {
   const next = tableData(table);
   next.body.push(next.header.map(() => ''));
+  return next;
+}
+
+/** Returns the table with one cell replaced. Row -1 addresses the header. */
+export function withTableCell(table: TableData, row: number, column: number, value: string): TableData {
+  const next = tableData(table);
+  if (column < 0 || column >= next.header.length) return next;
+  const encoded = encodeTableCell(value);
+  if (row < 0) {
+    next.header[column] = encoded;
+    return next;
+  }
+  if (row >= next.body.length) return next;
+  // A short row is padded so the edited column exists before it is written.
+  while (next.body[row].length < next.header.length) next.body[row].push('');
+  next.body[row][column] = encoded;
   return next;
 }
 

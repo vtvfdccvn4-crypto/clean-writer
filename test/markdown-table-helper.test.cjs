@@ -6,10 +6,14 @@ let server;
 let parseEditorMarkdownTables;
 let formatMarkdownTable;
 let withTableColumnAlignment;
+let nextTableColumnAlignment;
 let withAppendedTableColumn;
 let withAppendedTableRow;
 let createMarkdownTable;
 let splitTableRow;
+let withTableCell;
+let encodeTableCell;
+let decodeTableCell;
 
 before(async () => {
   server = await createTestServer();
@@ -17,10 +21,14 @@ before(async () => {
     parseEditorMarkdownTables,
     formatMarkdownTable,
     withTableColumnAlignment,
+    nextTableColumnAlignment,
     withAppendedTableColumn,
     withAppendedTableRow,
     createMarkdownTable,
-    splitTableRow
+    splitTableRow,
+    withTableCell,
+    encodeTableCell,
+    decodeTableCell
   } = await server.ssrLoadModule('/src/editor/markdown/parseMarkdownTable.ts'));
 });
 
@@ -89,6 +97,14 @@ test('formatting a parsed table is stable, so tidying twice changes nothing', ()
   const once = formatMarkdownTable(parseEditorMarkdownTables(createMarkdownTable())[0]);
   const twice = formatMarkdownTable(parseEditorMarkdownTables(once)[0]);
   assert.equal(once, twice);
+});
+
+test('one toggle cycles a column through the three alignments', () => {
+  // An unset column already renders left, so the first click must visibly centre it.
+  assert.equal(nextTableColumnAlignment(''), 'center');
+  assert.equal(nextTableColumnAlignment('center'), 'right');
+  assert.equal(nextTableColumnAlignment('right'), 'left');
+  assert.equal(nextTableColumnAlignment('left'), 'center');
 });
 
 test('alignment is set per column and toggled off when picked again', () => {
@@ -182,4 +198,40 @@ test('an editor becoming available or going away reports the change once', async
   assert.deepEqual(changes, [true, false]);
   session.destroyActive();
   assert.deepEqual(changes, [true, false]);
+});
+
+test('a cell edit cannot break its row apart', () => {
+  // A pipe typed into a cell would otherwise split it into two columns.
+  assert.equal(encodeTableCell('a | b'), 'a \\| b');
+  assert.equal(encodeTableCell('  padded  '), 'padded');
+  assert.equal(encodeTableCell('two\nlines'), 'two lines');
+  // Encoding an already-encoded cell must not double the escape.
+  assert.equal(encodeTableCell('a \\| b'), 'a \\| b');
+  assert.equal(decodeTableCell('a \\| b'), 'a | b');
+  assert.equal(decodeTableCell(encodeTableCell('a | b')), 'a | b');
+});
+
+test('editing a cell leaves every other cell alone', () => {
+  const table = parseEditorMarkdownTables([
+    '| Name | Qty |',
+    '| :--- | --: |',
+    '| Pen  | 2   |',
+    '| Pad  | 1   |'
+  ].join('\n'))[0];
+
+  const edited = withTableCell(table, 1, 0, 'Notebook');
+  assert.deepEqual(edited.body, [['Pen', '2'], ['Notebook', '1']]);
+  assert.deepEqual(edited.header, ['Name', 'Qty']);
+  assert.deepEqual(edited.alignments, ['left', 'right']);
+
+  // Row -1 addresses the heading.
+  assert.deepEqual(withTableCell(table, -1, 1, 'Count').header, ['Name', 'Count']);
+  // Out-of-range addresses are ignored rather than growing the table.
+  assert.deepEqual(withTableCell(table, 0, 9, 'x').body, table.body);
+  assert.deepEqual(withTableCell(table, 9, 0, 'x').body, table.body);
+});
+
+test('editing a short row pads it so the column exists', () => {
+  const table = parseEditorMarkdownTables(['| a | b | c |', '| - | - | - |', '| 1 |'].join('\n'))[0];
+  assert.deepEqual(withTableCell(table, 0, 2, 'z').body, [['1', '', 'z']]);
 });

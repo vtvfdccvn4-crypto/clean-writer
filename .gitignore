@@ -28,3 +28,20 @@ reports/
 *.njsproj
 *.sln
 *.sw?
+
+# Local build/export output
+output/
+build/
+.vite/
+.turbo/
+
+# Local caches
+.cache/
+*.tsbuildinfo
+coverage/
+.eslintcache
+
+# OS / editor junk
+Thumbs.db
+desktop.ini
+*~

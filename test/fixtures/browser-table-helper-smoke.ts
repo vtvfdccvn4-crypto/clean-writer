@@ -19,8 +19,14 @@ const initial = [
   'Outro.'
 ].join('\n');
 
-function tableLines(value: string): string[] {
-  return value.split('\n').filter(line => line.trim().startsWith('|'));
+function cell(row: number, column: number): HTMLElement | null {
+  return document.querySelector<HTMLElement>(
+    `.cm-table-helper-cell-text[data-table-row="${row}"][data-table-column="${column}"]`
+  );
+}
+
+function press(target: HTMLElement, key: string, shiftKey = false): void {
+  target.dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true }));
 }
 
 async function run() {
@@ -28,53 +34,126 @@ async function run() {
   if (!parent) throw new Error('Editor root missing.');
   const editor = createEditor(parent, initial, { onChange: () => {} });
 
-  // A block widget supplied from a view plugin throws inside CodeMirror and never
-  // reaches the DOM, so rendering the control at all is the thing worth asserting.
-  const control = await waitFor(
-    'table helper control',
-    () => document.querySelector<HTMLElement>('.cm-table-helper-control')
-  );
-  const renderedAboveTable = control.compareDocumentPosition(editor.view.contentDOM)
-    === Node.DOCUMENT_POSITION_CONTAINS + Node.DOCUMENT_POSITION_PRECEDING;
-  const columnGroups = document.querySelectorAll('.cm-table-helper-column').length;
+  // A replacing block decoration from a view plugin throws inside CodeMirror and
+  // never reaches the DOM, so rendering the grid at all is worth asserting.
+  const control = await waitFor('table grid', () => document.querySelector<HTMLElement>('.cm-table-helper-control'));
+  const renderedInEditor = editor.view.contentDOM.contains(control);
+  const headerCells = document.querySelectorAll('.cm-table-helper-grid thead th').length;
+  const bodyCells = document.querySelectorAll('.cm-table-helper-grid tbody td').length;
+  const readsContent = cell(0, 0)?.textContent === 'Pen' && cell(-1, 1)?.textContent === 'Qty';
+  // The point of the change: the pipe source must no longer be on screen.
+  const pipesHidden = !editor.view.contentDOM.textContent?.includes('| Name | Qty |');
+  const sourceIntact = editor.getValue().includes('| Name | Qty |');
 
-  const alignCentre = document.querySelector<HTMLButtonElement>(
-    '.cm-table-helper-column .cm-table-helper-button[aria-label="Align Name center"]'
+  // The reference is a clean rendered table, so the controls must not be on
+  // screen until the pointer or the caret is in the table. :hover cannot be
+  // simulated, but :focus-within is the same rule and can be.
+  const toolbar = document.querySelector<HTMLElement>('.cm-table-helper-toolbar');
+  const headerControls = document.querySelector<HTMLElement>('.cm-table-helper-grid thead .cm-table-helper-alignment');
+  if (!toolbar || !headerControls) throw new Error('Table controls missing.');
+  const chromeHiddenAtRest = getComputedStyle(toolbar).opacity === '0'
+    && getComputedStyle(headerControls).opacity === '0';
+  const headerHeight = document.querySelector('.cm-table-helper-grid thead tr')?.getBoundingClientRect().height ?? 0;
+  cell(-1, 0)?.focus();
+  const chromeShownOnFocus = await waitFor(
+    'controls revealed by focus',
+    () => getComputedStyle(toolbar).opacity === '1'
   );
-  if (!alignCentre) throw new Error('Column alignment control missing.');
-  alignCentre.click();
-  await waitFor('centre alignment written', () => editor.getValue().includes(':-'));
-  const centred = /\|\s*:-+:\s*\|/.test(editor.getValue());
+  // Revealing them must not move anything: they are laid over the table.
+  const headerHeightUnchanged = Math.abs(
+    (document.querySelector('.cm-table-helper-grid thead tr')?.getBoundingClientRect().height ?? 0) - headerHeight
+  ) < 0.5;
+  cell(-1, 0)?.blur();
 
-  const addColumn = document.querySelector<HTMLButtonElement>(
-    '.cm-table-helper-footer .cm-table-helper-button[aria-label="Add column"]'
+  // `display: flex` on a th takes the cell out of its row and stacks every heading
+  // in one column, which no count or height assertion notices. Geometry does: the
+  // headings must share a top, and each must sit over its own body column.
+  const headerRects = Array.from(
+    document.querySelectorAll('.cm-table-helper-grid thead th')
+  ).map(node => node.getBoundingClientRect());
+  const bodyRects = Array.from(
+    document.querySelectorAll('.cm-table-helper-grid tbody tr:first-child td')
+  ).map(node => node.getBoundingClientRect());
+  const headingsShareOneRow = headerRects.length > 1
+    && headerRects.every(rect => Math.abs(rect.top - headerRects[0].top) < 0.5)
+    && headerRects.every((rect, index) => index === 0 || rect.left > headerRects[index - 1].left);
+  const headingsSitOverTheirColumns = headerRects.length === bodyRects.length
+    && headerRects.every((rect, index) => Math.abs(rect.left - bodyRects[index].left) < 0.5);
+
+  const target = cell(0, 1);
+  if (!target) throw new Error('Body cell missing.');
+  target.textContent = '7';
+  target.dispatchEvent(new FocusEvent('blur'));
+  await waitFor('cell edit written to the document', () => editor.getValue().includes('| 7'));
+  const editKeptOtherCells = editor.getValue().includes('Pen');
+
+  // One toggle per column now, cycling through the alignments; from unset it centres.
+  const alignToggles = document.querySelectorAll('.cm-table-helper-grid thead .cm-table-helper-alignment').length;
+  const centre = document.querySelector<HTMLButtonElement>(
+    '.cm-table-helper-grid thead th:nth-child(2) .cm-table-helper-alignment'
   );
-  if (!addColumn) throw new Error('Add column control missing.');
-  addColumn.click();
-  await waitFor('third column added', () => editor.getValue().includes('Column 3'));
+  if (!centre) throw new Error('Column alignment toggle missing from the heading.');
+  const alignmentShown = centre.dataset.alignment === 'default';
+  centre.click();
+  await waitFor('centre alignment written', () => /\|\s*:-+:\s*\|/.test(editor.getValue()));
 
-  const addRow = document.querySelector<HTMLButtonElement>(
-    '.cm-table-helper-footer .cm-table-helper-button[aria-label="Add row"]'
+  document.querySelector<HTMLButtonElement>('.cm-table-helper-actions [aria-label="Add row"]')?.click();
+  await waitFor('row added', () => document.querySelectorAll('.cm-table-helper-grid tbody tr').length === 2);
+  document.querySelector<HTMLButtonElement>('.cm-table-helper-actions [aria-label="Add column"]')?.click();
+  await waitFor('column added', () => document.querySelectorAll('.cm-table-helper-grid thead th').length === 3);
+
+  // Tab moves to the next cell and the caret follows into the rebuilt widget.
+  const tabFrom = cell(0, 0);
+  if (!tabFrom) throw new Error('Cell for the Tab move missing.');
+  tabFrom.focus();
+  press(tabFrom, 'Tab');
+  const tabMovedCaret = await waitFor(
+    'caret moved to the next cell',
+    () => document.activeElement instanceof HTMLElement
+      && document.activeElement.dataset.tableRow === '0'
+      && document.activeElement.dataset.tableColumn === '1'
   );
-  if (!addRow) throw new Error('Add row control missing.');
-  addRow.click();
-  await waitFor('fourth table line added', () => tableLines(editor.getValue()).length === 4);
 
-  const lines = tableLines(editor.getValue());
-  const aligned = new Set(lines.map(line => line.length)).size === 1;
-  await waitFor(
-    'helper redrawn for the wider table',
-    () => document.querySelectorAll('.cm-table-helper-column').length === 3
+  document.querySelector<HTMLButtonElement>('.cm-table-helper-actions [aria-label="Edit as Markdown"]')?.click();
+  const sourceShown = await waitFor(
+    'markdown revealed',
+    () => document.querySelector('.cm-table-helper-source-toggle') !== null
+      && document.querySelector('.cm-table-helper-grid') === null
   );
-  const columnGroupsAfterEdits = document.querySelectorAll('.cm-table-helper-column').length;
+  const pipesVisible = editor.view.contentDOM.textContent?.includes('| Pen') === true;
 
-  // The toolbar's insert command had no browser coverage: the fixture below
-  // builds a table from an empty document the way the Table button does.
+  document.querySelector<HTMLButtonElement>('.cm-table-helper-source-toggle .cm-table-helper-button')?.click();
+  const gridRestored = await waitFor('grid restored', () => document.querySelector('.cm-table-helper-grid') !== null);
+
+  // A table wider than the pane must scroll inside its own box. A percentage
+  // max-width cannot do that, because it resolves against a content element the
+  // table itself widened, so this is the assertion that the pixel bound holds.
+  const narrowHost = document.body.appendChild(document.createElement('div'));
+  narrowHost.style.width = '320px';
+  const wideTable = [
+    '| A | B | C | D | E | F |',
+    '| --- | --- | --- | --- | --- | --- |',
+    '| aaaaaaaaaa | bbbbbbbbbb | cccccccccc | dddddddddd | eeeeeeeeee | ffffffffff |'
+  ].join('\n');
+  const wide = createEditor(narrowHost, wideTable, { onChange: () => {} });
+  const wideScroller = await waitFor(
+    'wide grid',
+    () => narrowHost.querySelector<HTMLElement>('.cm-table-helper-scroller')
+  );
+  const paneDidNotWiden = await waitFor(
+    'editor pane not widened by the table',
+    () => wide.view.contentDOM.scrollWidth <= wide.view.scrollDOM.clientWidth + 1
+  );
+  const tableScrollsInItsBox = wideScroller instanceof HTMLElement
+    && wideScroller.scrollWidth > wideScroller.clientWidth;
+  wide.destroy();
+  narrowHost.remove();
+
   const blank = createEditor(document.body.appendChild(document.createElement('div')), 'Prose only.', { onChange: () => {} });
   applyMarkdownCommand(blank.view, 'table');
-  const insertedHelper = await waitFor(
-    'helper for the inserted table',
-    () => document.querySelectorAll('.cm-table-helper-control').length === 2
+  const insertedGrid = await waitFor(
+    'grid for the inserted table',
+    () => document.querySelectorAll('.cm-table-helper-grid').length === 2
   );
   const insertedValue = blank.getValue();
   const insertedColumns = /\| Column 1 \| Column 2 \| Column 3 \|/.test(insertedValue);
@@ -84,17 +163,30 @@ async function run() {
 
   window.__HARNESS_RESULT__ = {
     ok: true,
-    insertedHelper: insertedHelper === true,
+    renderedInEditor,
+    headerCells,
+    bodyCells,
+    readsContent,
+    pipesHidden,
+    chromeHiddenAtRest,
+    chromeShownOnFocus: chromeShownOnFocus === true,
+    headerHeightUnchanged,
+    sourceIntact,
+    editKeptOtherCells,
+    tabMovedCaret: tabMovedCaret === true,
+    sourceShown: sourceShown === true,
+    pipesVisible,
+    gridRestored: gridRestored === true,
+    alignToggles,
+    headingsShareOneRow,
+    headingsSitOverTheirColumns,
+    alignmentShown,
+    paneDidNotWiden: paneDidNotWiden === true,
+    tableScrollsInItsBox,
+    insertedGrid: insertedGrid === true,
     insertedColumns,
     insertedRows,
     keptExistingProse,
-    rendered: true,
-    renderedAboveTable,
-    columnGroups,
-    centred,
-    aligned,
-    columnGroupsAfterEdits,
-    rowsAfterEdits: lines.length,
     preservedSurroundingText: editor.getValue().startsWith('Intro.') && editor.getValue().endsWith('Outro.')
   };
   editor.destroy();
