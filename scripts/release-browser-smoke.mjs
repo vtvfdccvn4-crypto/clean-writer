@@ -29,6 +29,20 @@ const fixtures = [
     }
   },
   {
+    name: 'browser-table-helper-smoke',
+    path: '/test/fixtures/browser-table-helper-smoke.html',
+    validate(result) {
+      expect(result.ok === true && result.rendered === true, 'The table helper control did not render above a Markdown table.');
+      expect(result.renderedAboveTable === true, 'The table helper did not render inside the editor content.');
+      expect(result.columnGroups === 2, 'The table helper did not show one alignment group per column.');
+      expect(result.centred === true, 'Centring a column did not reach the delimiter row.');
+      expect(result.columnGroupsAfterEdits === 3, 'The table helper did not redraw after a column was added.');
+      expect(result.rowsAfterEdits === 4, 'Adding a row did not extend the table.');
+      expect(result.aligned === true, 'Helper edits did not leave the table source aligned.');
+      expect(result.preservedSurroundingText === true, 'Helper edits disturbed text around the table.');
+    }
+  },
+  {
     name: 'browser-current-dnd-smoke',
     path: '/test/fixtures/browser-current-dnd-smoke.html',
     validate(result) {
