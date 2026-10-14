@@ -1,3 +1,9 @@
+#symbol-picker {
+  --symbol-tile-size: 30px;
+  --symbol-tile-gap: 4px;
+  --symbol-tile-glyph-size: 12pt;
+}
+
 .symbol-search-field {
   display: grid;
   gap: 6px;
@@ -8,8 +14,8 @@
   width: 100%;
   min-height: 30px;
   padding: 5px 8px;
-  border: 1px solid var(--ui-border-soft);
-  border-radius: 4px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
   font-size: var(--drawer-font-size);
 }
 
@@ -50,25 +56,55 @@
 
 .symbol-grid {
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--symbol-tile-size), 1fr));
+  gap: var(--symbol-tile-gap);
+  align-content: start;
 }
 
 .symbol-tile {
   display: grid;
-  min-width: 0;
-  min-height: 32px;
   place-items: center;
+  aspect-ratio: 1 / 1;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
   border: 1px solid var(--ui-border-subtle);
-  border-radius: 4px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-canvas);
+  color: var(--ui-text);
+  font: inherit;
   cursor: pointer;
   transition:
-    transform 120ms ease;
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.symbol-tile[hidden] {
+  display: none;
+}
+
+.symbol-tile:hover,
+.symbol-tile:focus-visible {
+  border-color: color-mix(in srgb, var(--ui-brand) 35%, var(--ui-border));
+  background: var(--ui-brand-tint);
+  color: var(--ui-brand-strong);
+}
+
+.symbol-tile:active {
+  border-color: var(--ui-brand);
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand-strong);
 }
 
 .symbol-tile-glyph {
   display: block;
+  font-size: var(--symbol-tile-glyph-size);
   line-height: 1;
+}
+
+.symbol-grid > .symbol-picker-empty {
+  grid-column: 1 / -1;
 }
 
 .symbol-picker-empty {
