@@ -37,8 +37,6 @@ That design keeps the HTML output clean and makes navigation resilient to rerend
 - `src/pdf-preview/PdfPreviewJobFactory.ts` creates the immutable print job consumed by the isolated host.
 - `src/preview/navigation/CommittedPreviewIndex.ts` maps the compiler manifest to the committed page DOM using Paged.js references such as `data-ref` and `data-split-from`.
 - `src/preview/navigation/PreviewNavigationCoordinator.ts` queues or discards requests until the preview revision and editor revision match.
-- `src/preview/navigation/LinkedScrollController.ts` contains opt-in bidirectional semantic scroll synchronization and is currently standalone; it is not enabled by the app shell.
-- `src/preview/navigation/LinkedScrollPanes.ts` adapts CodeMirror and committed preview geometry for that standalone controller.
 - `src/preview/PreviewViewport.ts` positions the target block near the top of the viewport instead of centering it.
 
 ## Practical Result

@@ -1,11 +1,9 @@
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
-const cssTree = require('css-tree');
 const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
 let server;
 let compileMarkdown;
-let generatePageCss;
 let buildProjectImageMarkdown;
 let parseMarkdownImages;
 let parseEditorMarkdownImages;
@@ -18,7 +16,6 @@ before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24679 } } });
 
   ({ compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts'));
-  ({ generatePageCss } = await server.ssrLoadModule('/src/preview/CssGenerator.ts'));
   ({ buildProjectImageMarkdown } = await server.ssrLoadModule('/src/images/imageMarkdown.ts'));
   ({ parseMarkdownImages } = await server.ssrLoadModule('/src/images/markdownImages.ts'));
   ({ parseEditorMarkdownImages } = await server.ssrLoadModule('/src/editor/markdown/parseMarkdownImage.ts'));
@@ -180,110 +177,6 @@ test('block glyphs compile from portable project asset paths', async () => {
   state.setCustomBlockStyles([]);
 });
 
-test('CSS header content preserves quotes and Windows image paths in one string token', () => {
-  global.window = { location: { search: '' } };
-  const cell = (content) => ({
-    content,
-    fontFamily: 'Inter',
-    fontSize: 9,
-    color: '#000',
-    isBold: false,
-    isItalic: false
-  });
-  const tocStyle = (overrides = {}) => ({
-    fontFamily: 'Arial',
-    fontSize: 10,
-    color: '#000000',
-    isBold: false,
-    isItalic: false,
-    isAllCaps: false,
-    ...overrides
-  });
-  const css = generatePageCss({
-    paperWidth: 210,
-    paperHeight: 297,
-    marginTop: 25,
-    marginRight: 20,
-    marginBottom: 25,
-    marginLeft: 20,
-    header: {
-      centerWidth: '100px',
-      left: cell('Quoted "text" and ![logo](images\\logo.png)'),
-      center: cell(''),
-      right: cell('')
-    },
-    footer: {
-      centerWidth: '100px',
-      left: cell(''),
-      center: cell(''),
-      right: cell('')
-    },
-    toc: {
-      maxLevel: 4,
-      h1: tocStyle({ fontFamily: 'Georgia', fontSize: 14, color: '#123456', isBold: true, isItalic: true, isAllCaps: true }),
-      h2: tocStyle(),
-      h3: tocStyle(),
-      h4: tocStyle(),
-      h5: tocStyle(),
-      h6: tocStyle()
-    }
-  });
-
-  const ast = cssTree.parse(css);
-  const contentValues = [];
-  cssTree.walk(ast, (node) => {
-    if (node.type === 'Declaration' && node.property === 'content') contentValues.push(node.value);
-  });
-
-  const stringContentValues = contentValues.filter((value) => value.children.toArray()[0]?.type === 'String');
-  const headerContentValue = stringContentValues.find(value =>
-    value.children.toArray()[0]?.value?.includes('Quoted')
-  );
-  assert.ok(headerContentValue);
-  assert.equal(headerContentValue.children.getSize(), 1);
-  assert.equal(headerContentValue.children.toArray()[0].type, 'String');
-  assert.match(css, /\.pagedjs_margin-content\.has-markdown-image::after\s*\{\s*content: none !important;/);
-  assert.match(css, /\.toc-item\.toc-level-1\s*\{[^}]*font-family: "Georgia", serif;[^}]*font-size: 14pt;[^}]*color: #123456;[^}]*font-weight: bold;[^}]*font-style: italic;/s);
-  assert.match(css, /\.toc-item\.toc-level-1\s*\{[^}]*margin-left: 0pt;/s);
-  assert.match(css, /\.toc-item\.toc-level-1 \.toc-label\s*\{[^}]*text-transform: uppercase;/s);
-  assert.match(css, /\.toc-item\.toc-level-2\s*\{[^}]*font-family: "Arial", serif;[^}]*font-size: 10pt;[^}]*font-weight: normal;/s);
-  assert.match(css, /\.toc-item\.toc-level-2\s*\{[^}]*margin-left: 19\.5pt;/s);
-  assert.match(css, /\.toc-item\.toc-level-2 \.toc-label\s*\{[^}]*text-transform: none;/s);
-  assert.match(css, /\.toc-leader\s*\{[^}]*border-bottom: 1px dotted currentColor;/s);
-  assert.match(css, /\.toc-link::after\s*\{[^}]*content: target-counter\(attr\(href\), page\);[^}]*text-align: right;/s);
-  assert.doesNotMatch(css, /leader\(/);
-});
-
-test('page margins support current and total page counters', () => {
-  global.window = { location: { search: '' } };
-  state.setFullDocMode();
-  const cell = (content) => ({
-    content,
-    fontFamily: 'Inter',
-    fontSize: 9,
-    color: '#000',
-    isBold: false,
-    isItalic: false
-  });
-  const css = generatePageCss({
-    paperWidth: 210,
-    paperHeight: 297,
-    marginTop: 25,
-    marginRight: 20,
-    marginBottom: 25,
-    marginLeft: 20,
-    header: { centerWidth: '100px', left: cell(''), center: cell(''), right: cell('') },
-    footer: {
-      centerWidth: '100px',
-      left: cell(''),
-      center: cell(''),
-      right: cell('Page {page} of {pages}')
-    }
-  });
-
-  assert.match(css, /@bottom-right\s*\{\s*content: "Page " counter\(page\) " of " counter\(pages\)/);
-});
-
 test('PDF preview margin text resolves the total after pagination', () => {
   const metadata = {
     author: '', documentTitle: '', documentName: '', documentNumber: '', documentRevision: '',
@@ -294,66 +187,4 @@ test('PDF preview margin text resolves the total after pagination', () => {
     resolvePdfPreviewMarginText('Page {page} of {pages}', { metadata }, 3, 12, ''),
     'Page 3 of 12'
   );
-});
-
-test('chapter-aware footers defer all content to the resolved page DOM', () => {
-  global.window = { location: { search: '' } };
-  state.setFullDocMode();
-  const cell = (content) => ({
-    content,
-    fontFamily: 'Inter',
-    fontSize: 9,
-    color: '#000',
-    isBold: false,
-    isItalic: false
-  });
-  const css = generatePageCss({
-    paperWidth: 210,
-    paperHeight: 297,
-    marginTop: 25,
-    marginRight: 20,
-    marginBottom: 25,
-    marginLeft: 20,
-    header: { centerWidth: '100px', left: cell(''), center: cell(''), right: cell('') },
-    footer: {
-      centerWidth: '100px',
-      left: cell(''),
-      center: cell(''),
-      right: cell('Chapter {chapter:} - Page {page}')
-    }
-  });
-
-  assert.match(css, /@bottom-right\s*\{\s*content: "";/);
-  assert.doesNotMatch(css, /@bottom-right\s*\{[\s\S]*counter\(page\)/);
-});
-
-test('section visibility markers do not emit named page rules', () => {
-  global.window = { location: { search: '' } };
-  const css = generatePageCss({
-    paperWidth: 210,
-    paperHeight: 297,
-    marginTop: 25,
-    marginRight: 20,
-    marginBottom: 25,
-    marginLeft: 20,
-    header: {
-      centerWidth: '100px',
-      left: { content: '', fontFamily: '', fontSize: 9, color: '', isBold: false, isItalic: false },
-      center: { content: '', fontFamily: '', fontSize: 9, color: '', isBold: false, isItalic: false },
-      right: { content: '', fontFamily: '', fontSize: 9, color: '', isBold: false, isItalic: false }
-    },
-    footer: {
-      centerWidth: '100px',
-      left: { content: '', fontFamily: '', fontSize: 9, color: '', isBold: false, isItalic: false },
-      center: { content: '', fontFamily: '', fontSize: 9, color: '', isBold: false, isItalic: false },
-      right: { content: '', fontFamily: '', fontSize: 9, color: '', isBold: false, isItalic: false }
-    }
-  });
-
-  assert.doesNotMatch(css, /@page\s+no-header/);
-  assert.doesNotMatch(css, /@page\s+no-footer/);
-  assert.doesNotMatch(css, /page:\s*no-header/);
-  assert.doesNotMatch(css, /page:\s*no-footer/);
-  assert.match(css, /\.pagedjs_page\.page-no-header\s+\.pagedjs_margin-top/);
-  assert.match(css, /\.pagedjs_page\.page-no-footer\s+\.pagedjs_margin-bottom/);
 });

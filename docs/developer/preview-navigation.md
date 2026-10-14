@@ -64,14 +64,14 @@ This is the core of the current navigation pipeline:
 
 `src/preview/PreviewViewport.ts` scrolls the resolved block near the top of the preview with a small inset instead of centering it. That gives a more predictable reading position and avoids the visual drift that was showing up with deep pagination changes.
 
-### 7. Linked scrolling status
+### 7. Linked scrolling (removed)
 
-`src/preview/navigation/LinkedScrollController.ts` and
-`LinkedScrollPanes.ts` provide a separate, opt-in semantic synchronization
-primitive for editor and preview panes. The controller has focused unit tests
-for target resolution, relative placement, clamping, and leader suppression,
-but no production caller currently constructs or enables it. It should be
-treated as an extension point, not as a shipped user-facing setting.
+`src/preview/navigation/LinkedScrollController.ts` and `LinkedScrollPanes.ts`
+provided an opt-in semantic synchronization primitive for the editor and
+preview panes. No production caller ever constructed it, and both files were
+deleted on 2026-10-15. Editor/preview pane sizing is handled by
+`src/ui/split-pane/SplitPaneController.ts` and
+`src/ui/editor-preview-resizer.ts`.
 
 ## Current Guarantees
 

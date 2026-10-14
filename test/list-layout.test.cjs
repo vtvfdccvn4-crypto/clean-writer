@@ -32,7 +32,7 @@ const listSetup = (overrides = {}) => ({
 before(async () => {
   server = await createTestServer();
   ({ compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts'));
-  ({ generateListCss } = await server.ssrLoadModule('/src/preview/CssGenerator.ts'));
+  ({ generateListCss } = await server.ssrLoadModule('/src/preview/css/list-css.ts'));
 });
 
 after(async () => {

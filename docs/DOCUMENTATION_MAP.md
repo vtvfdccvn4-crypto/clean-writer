@@ -26,8 +26,8 @@ Primary source references:
 - Shared defaults are consolidated in `src/ui/styles/global-defaults.css`; shell-specific styling is kept in focused stylesheets under `src/ui/styles/`.
 - The task panel contains the section/image explorer and project actions, while the shared panel contains the editor and preview split.
 - Legacy `src/ui/sidebar/`, `src/ui/workspace-layout.ts`, and `src/editor/section-templates.ts` files were removed from the active tree and have no current source references.
+- Removed 2026-10-15 after a structure review found no references: `isolated/` (two unreferenced PDF-pipeline sandboxes, whose design notes are preserved as `docs/developer/pdf-render-pipeline.md` and `docs/developer/pdf-preview-extraction-analysis.md`), `src/preview/CssGenerator.ts` and `src/preview/css/page-css.ts` (superseded by `src/print/PrintCssCompiler.ts`), `src/preview/navigation/LinkedScrollController.ts` and `LinkedScrollPanes.ts`, `src/editor/images/resolveEditorImageSource.ts`, and the `src/ui/SplitPaneController.ts` re-export shim.
 - Release validation uses `npm run release:prep`; targeted browser and PWA smoke reruns are appropriate when diagnosing transient headless-browser timing failures.
-- `src/preview/navigation/LinkedScrollController.ts` and `LinkedScrollPanes.ts` are implemented and unit-tested as an opt-in extension point, but are not wired into the shipped UI.
 - `src/preview/css/document-features-css.ts` shares TOC and special-heading CSS generation between live and paginated lanes.
 - `src/ui/styles/buttons.css` and `src/ui/components/toolbarButton.ts` define the shared button foundation; `scripts/check-style-contract.mjs` and `test/style-contract.test.cjs` enforce it.
 
@@ -220,7 +220,6 @@ Source map:
 - `src/pdf-preview/PdfPreviewJobFactory.ts`: immutable print-job assembly.
 - `src/pdf-preview/PdfPreviewFramePaginator.ts`: isolated Paged.js integration.
 - `src/preview/PreviewViewport.ts`: responsive preview zoom and viewport controls.
-- `src/preview/CssGenerator.ts`: dynamic page, typography, list, and table CSS.
 - `src/preview/headingNumbering.ts`: heading numbering transform.
 - `src/preview/tableOfContents.ts`: TOC transform.
 - `src/preview/specialHeadings.ts`: special heading transform.
@@ -327,7 +326,6 @@ Source map:
 - `src/ui/EditorStatusController.ts`: save-status presentation and accessibility state.
 - `src/ui/EditorSaveCoordinator.ts`: durable editor flushes, concurrent-save coalescing, and navigation save boundaries.
 - `src/ui/DocumentActivationCoordinator.ts`: activation scheduling, stale-request handling, serialized navigation, and readiness waiting.
-- `src/preview/css/page-css.ts`: page layout, margin boxes, and TOC CSS.
 - `src/preview/css/typography-css.ts`: typography CSS.
 - `src/preview/css/list-css.ts`: ordered and unordered list CSS.
 - `src/preview/css/table-css.ts`: table CSS.
@@ -689,7 +687,6 @@ Primary source:
 - `src/pdf-preview/IsolatedPaginationHost.ts`
 - `src/pdf-preview/PdfPreviewJobFactory.ts`
 - `src/preview/PreviewViewport.ts`
-- `src/preview/CssGenerator.ts`
 - `src/preview/document-rendering/*`
 - `src/preview/headingNumbering.ts`
 - `src/preview/tableOfContents.ts`

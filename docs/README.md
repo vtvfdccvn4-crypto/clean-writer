@@ -36,7 +36,7 @@ Clear Writer is a browser/PWA document authoring app for writing Markdown in a C
 - Project actions are implemented by `src/ui/task-panel-actions.ts`, with section and image interactions in `src/ui/task-explorer.ts` and `src/ui/task-images.ts`.
 - The former `src/ui/sidebar/` and `src/ui/workspace-layout.ts` modules are no longer part of the active tree; do not reintroduce them as documentation or implementation entry points.
 - Release validation is centered on `npm run release:prep`, with focused reruns of browser and PWA smoke checks when diagnosing transient browser timing failures.
-- `npm run check:styles` enforces the shared UI button/token contract. `LinkedScrollController` and its pane adapters are implemented and unit-tested, but are not wired into the application shell yet.
+- `npm run check:styles` enforces the shared UI button/token contract.
 
 The documentation map includes planned guide pages that have not been created yet. Existing pages are listed under Documentation Map above; entries labeled “Planned file (not currently present)” are planning targets, not current files.
 

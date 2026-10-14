@@ -37,13 +37,13 @@ tests; those tests pass.
   `npm run check:styles`; icon markup is centralized in the UI component
   helpers.
 
-## Important boundary: linked scrolling
+## Removed: linked scrolling
 
-`src/preview/navigation/LinkedScrollController.ts` and
-`LinkedScrollPanes.ts` are standalone, tested utilities. They are not wired
-into `PreviewController`, `PreviewCoordinator`, or the editor manager. Do not
-document linked scrolling as an enabled product feature unless a later change
-adds that integration and browser coverage.
+`src/preview/navigation/LinkedScrollController.ts` and `LinkedScrollPanes.ts`
+were standalone, tested utilities that no production code ever constructed.
+They were deleted on 2026-10-15. Do not document linked scrolling as a
+product feature; if it is wanted later, it needs a fresh implementation with
+browser coverage.
 
 ## Safe continuation order
 

@@ -1,4 +1,4 @@
-import { SplitPaneController } from './SplitPaneController';
+import { SplitPaneController } from './split-pane/SplitPaneController';
 
 const STORAGE_KEY = 'clear-writer:layout:editor-preview-ratio:v1';
 

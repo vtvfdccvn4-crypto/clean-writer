@@ -17,7 +17,7 @@ const style = (overrides = {}) => ({
 before(async () => {
   server = await createTestServer();
   ({ compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts'));
-  ({ generateTableCss } = await server.ssrLoadModule('/src/preview/CssGenerator.ts'));
+  ({ generateTableCss } = await server.ssrLoadModule('/src/preview/css/table-css.ts'));
 });
 
 after(async () => server?.close());

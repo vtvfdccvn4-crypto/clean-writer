@@ -72,10 +72,13 @@ and scroll state after the matching preview render and layout frame complete, so
 browser smoke checks and UI callers do not need to infer readiness from a DOM
 element appearing during an intermediate render.
 
-Preview CSS is organized by responsibility under `src/preview/css/`: page
-layout, typography, lists, and tables each have a focused generator. The
-`CssGenerator.ts` remains a small compatibility re-export facade for stable
-imports, while new CSS implementations live under `src/preview/css/`. Editor save-status rendering is isolated in
+Preview CSS is organized by responsibility under `src/preview/css/`:
+typography, lists, and document features each have a focused generator.
+Print and PDF-artifact CSS is compiled separately by
+`src/print/PrintCssCompiler.ts`, which shares its style primitives with the
+preview generators through `src/styles/`. The former `CssGenerator.ts`
+re-export facade and `src/preview/css/page-css.ts` were removed on
+2026-10-15. Editor save-status rendering is isolated in
 `src/ui/EditorStatusController.ts` while `EditorManager` continues to provide
 the application-facing facade.
 
