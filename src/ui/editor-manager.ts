@@ -34,7 +34,9 @@ export class EditorManager {
   private pagedStage: HTMLElement;
   private previewPane: HTMLElement;
   private statsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly documentSession = new DocumentSessionController();
+  private readonly documentSession = new DocumentSessionController(
+    available => this.syncMarkdownToolbarAvailability(available)
+  );
   private readonly activation: DocumentActivationCoordinator;
   private readonly welcome: WelcomeController;
   private readonly screens: AppScreenController;
@@ -256,6 +258,7 @@ export class EditorManager {
   }
 
   public renderEmptyWorkspace() {
+    this.syncMarkdownToolbarAvailability(false);
     this.clearCanonicalPageBreakGuides();
     this.preview.beginRevision();
     this.setPreviewVisible(false);
@@ -606,6 +609,17 @@ export class EditorManager {
     if (!this.currentEditorView) return false;
     applyMarkdownCommand(this.currentEditorView.view, command);
     return true;
+  }
+
+  /**
+   * The Markdown toolbar sits above the editor pane and stays visible while a
+   * project has no open document, where every command is a silent no-op. The
+   * buttons ship disabled and only enable while an editor exists.
+   */
+  private syncMarkdownToolbarAvailability(available: boolean): void {
+    document.querySelectorAll<HTMLButtonElement>('[data-markdown-command]').forEach(button => {
+      button.disabled = !available;
+    });
   }
 
   public focusLine(line: number): void {

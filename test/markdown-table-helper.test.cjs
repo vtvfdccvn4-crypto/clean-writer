@@ -147,3 +147,39 @@ test('consecutive tables separated by a blank line are found separately', () => 
   assert.deepEqual(tables[1].header, ['c', 'd']);
   assert.equal(tables[1].startLine, 5);
 });
+
+test('the Markdown toolbar ships its command buttons disabled', async () => {
+  const { editorPanelTemplate } = await server.ssrLoadModule('/src/ui/components/EditorPanel.ts');
+  const markup = editorPanelTemplate();
+  const buttons = markup.match(/<button[^>]*data-markdown-command[^>]*>/g) ?? [];
+
+  // Every command is a silent no-op while no document is open, so none of the
+  // buttons may be live until an editor exists to receive it.
+  assert.equal(buttons.length, 13);
+  for (const button of buttons) {
+    assert.match(button, /\bdisabled\b/, `Toolbar button is live before an editor exists: ${button}`);
+  }
+  assert.match(markup, /data-markdown-command="table"[^>]*disabled/);
+});
+
+test('an editor becoming available or going away reports the change once', async () => {
+  const { DocumentSessionController } = await server.ssrLoadModule('/src/ui/DocumentSessionController.ts');
+  const changes = [];
+  const session = new DocumentSessionController(available => changes.push(available));
+  const editor = {
+    getSelection: () => ({ from: 0, to: 0 }),
+    view: { scrollDOM: { scrollTop: 0 } },
+    destroy: () => {}
+  };
+  const projectRef = { kind: 'memory', id: 'test' };
+
+  session.activate(projectRef, 'one.md', editor);
+  assert.deepEqual(changes, [true]);
+  // Switching documents keeps an editor available, so the toolbar must not flicker.
+  session.activate(projectRef, 'two.md', editor);
+  assert.deepEqual(changes, [true]);
+  session.destroyActive();
+  assert.deepEqual(changes, [true, false]);
+  session.destroyActive();
+  assert.deepEqual(changes, [true, false]);
+});

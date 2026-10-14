@@ -1,5 +1,6 @@
 import '/src/style.css';
 import { createEditor } from '/src/editor/createEditor.ts';
+import { applyMarkdownCommand } from '/src/editor/markdown-commands.ts';
 import { waitFor } from './helpers/smoke-dom.ts';
 
 declare global {
@@ -67,8 +68,26 @@ async function run() {
   );
   const columnGroupsAfterEdits = document.querySelectorAll('.cm-table-helper-column').length;
 
+  // The toolbar's insert command had no browser coverage: the fixture below
+  // builds a table from an empty document the way the Table button does.
+  const blank = createEditor(document.body.appendChild(document.createElement('div')), 'Prose only.', { onChange: () => {} });
+  applyMarkdownCommand(blank.view, 'table');
+  const insertedHelper = await waitFor(
+    'helper for the inserted table',
+    () => document.querySelectorAll('.cm-table-helper-control').length === 2
+  );
+  const insertedValue = blank.getValue();
+  const insertedColumns = /\| Column 1 \| Column 2 \| Column 3 \|/.test(insertedValue);
+  const insertedRows = insertedValue.split('\n').filter(line => line.trim().startsWith('|')).length;
+  const keptExistingProse = insertedValue.includes('Prose only.');
+  blank.destroy();
+
   window.__HARNESS_RESULT__ = {
     ok: true,
+    insertedHelper: insertedHelper === true,
+    insertedColumns,
+    insertedRows,
+    keptExistingProse,
     rendered: true,
     renderedAboveTable,
     columnGroups,

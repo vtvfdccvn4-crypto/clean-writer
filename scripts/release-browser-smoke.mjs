@@ -40,6 +40,10 @@ const fixtures = [
       expect(result.rowsAfterEdits === 4, 'Adding a row did not extend the table.');
       expect(result.aligned === true, 'Helper edits did not leave the table source aligned.');
       expect(result.preservedSurroundingText === true, 'Helper edits disturbed text around the table.');
+      expect(result.insertedColumns === true, 'The Table insert command did not build a three column starter table.');
+      expect(result.insertedRows === 4, 'The inserted table did not have a header, delimiter and two body rows.');
+      expect(result.keptExistingProse === true, 'The Table insert command discarded existing text.');
+      expect(result.insertedHelper === true, 'An inserted table did not get its own helper control.');
     }
   },
   {
