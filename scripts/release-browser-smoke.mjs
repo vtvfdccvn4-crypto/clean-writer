@@ -42,6 +42,8 @@ const fixtures = [
       expect(result.chromeShownOnFocus === true, 'Putting the caret in a cell did not reveal the table controls.');
       expect(result.headerHeightUnchanged === true, 'Revealing the controls changed the heading row height.');
       expect(result.alignToggles === 2, 'Each column did not get exactly one alignment toggle.');
+      expect(result.headingsShareOneRow === true, 'The column headings are stacked instead of sharing one row.');
+      expect(result.headingsSitOverTheirColumns === true, 'A column heading is not aligned with its own body column.');
       expect(result.alignmentShown === true, 'The alignment toggle did not report the column\'s current alignment.');
       expect(result.paneDidNotWiden === true, 'A table wider than the pane widened the editor instead of scrolling inside its box.');
       expect(result.tableScrollsInItsBox === true, 'A table wider than the pane did not scroll inside the widget.');

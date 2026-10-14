@@ -127,24 +127,23 @@
   border-radius: 2px;
 }
 
-/* One toggle per column, kept in the heading cell's own flow so it can never
- * overlay the row beneath. It holds its space at rest and only fades in, so
- * revealing it moves nothing. */
+/* One toggle per column, laid over the right edge of its own heading cell: inside
+ * the cell's padding box, so it can never reach the row beneath, and out of flow,
+ * so revealing it changes no height. The heading cell must stay a table-cell —
+ * `display: flex` on a th takes it out of its row and stacks every heading in a
+ * single column, which is why the space for the toggle is reserved with padding
+ * rather than a flex gap. */
 .cm-table-helper-grid thead .cm-table-helper-cell {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.3rem;
-}
-
-.cm-table-helper-grid thead .cm-table-helper-cell-text {
-  flex: 1 1 auto;
+  padding-right: 1.6rem;
 }
 
 .cm-table-helper-button.cm-table-helper-alignment {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.15rem;
   width: 1.1rem;
   height: 1.1rem;
   border-color: transparent;
-  flex: 0 0 auto;
   opacity: 0;
   transition: opacity 120ms ease;
 }

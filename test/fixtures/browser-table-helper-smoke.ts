@@ -65,6 +65,21 @@ async function run() {
   ) < 0.5;
   cell(-1, 0)?.blur();
 
+  // `display: flex` on a th takes the cell out of its row and stacks every heading
+  // in one column, which no count or height assertion notices. Geometry does: the
+  // headings must share a top, and each must sit over its own body column.
+  const headerRects = Array.from(
+    document.querySelectorAll('.cm-table-helper-grid thead th')
+  ).map(node => node.getBoundingClientRect());
+  const bodyRects = Array.from(
+    document.querySelectorAll('.cm-table-helper-grid tbody tr:first-child td')
+  ).map(node => node.getBoundingClientRect());
+  const headingsShareOneRow = headerRects.length > 1
+    && headerRects.every(rect => Math.abs(rect.top - headerRects[0].top) < 0.5)
+    && headerRects.every((rect, index) => index === 0 || rect.left > headerRects[index - 1].left);
+  const headingsSitOverTheirColumns = headerRects.length === bodyRects.length
+    && headerRects.every((rect, index) => Math.abs(rect.left - bodyRects[index].left) < 0.5);
+
   const target = cell(0, 1);
   if (!target) throw new Error('Body cell missing.');
   target.textContent = '7';
@@ -163,6 +178,8 @@ async function run() {
     pipesVisible,
     gridRestored: gridRestored === true,
     alignToggles,
+    headingsShareOneRow,
+    headingsSitOverTheirColumns,
     alignmentShown,
     paneDidNotWiden: paneDidNotWiden === true,
     tableScrollsInItsBox,
