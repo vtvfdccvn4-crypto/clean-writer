@@ -53,7 +53,7 @@
 }
 
 .preview-page-indicator {
-  color: var(--ui-text-muted, #6b7280);
+  color: var(--ui-text-muted);
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -86,6 +86,7 @@
   scrollbar-gutter: stable;
   padding: 10px 14px 14px 10px;
   justify-content: center;
+  background: var(--ui-preview-bg);
 }
 
 /* The live sheet uses physical page dimensions. Auto margins centre it while
@@ -282,10 +283,10 @@
 .preview-diagnostics-panel {
   flex: 0 0 auto;
   margin: 0 0.75rem 0.75rem;
-  border: 1px solid var(--ui-border, #d6d9df);
+  border: 1px solid var(--ui-border);
   border-radius: 0.35rem;
-  background: var(--ui-surface-subtle, #f7f8fa);
-  color: var(--ui-text, #20242a);
+  background: var(--ui-surface-subtle);
+  color: var(--ui-text);
   font-size: 0.75rem;
 }
 

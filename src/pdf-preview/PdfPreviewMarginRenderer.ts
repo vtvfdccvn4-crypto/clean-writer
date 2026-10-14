@@ -36,7 +36,9 @@ export function materializePdfPreviewMargins(
   let pagesVisited = 0;
   let containersWritten = 0;
 
-  Array.from(root.querySelectorAll<HTMLElement>('.pagedjs_page')).forEach((page, index) => {
+  const pages = Array.from(root.querySelectorAll<HTMLElement>('.pagedjs_page'));
+  const totalPages = pages.length;
+  pages.forEach((page, index) => {
     pagesVisited += 1;
     const section = page.querySelector<HTMLElement>('[data-section-index]');
     if (section) visibility = {
@@ -51,7 +53,7 @@ export function materializePdfPreviewMargins(
     entries.forEach(entry => {
       const container = page.querySelector<HTMLElement>(entry.selector);
       if (container) {
-        writeMargin(container, entry.cell, entry.parts, data, index + 1, chapter, imageSources);
+        writeMargin(container, entry.cell, entry.parts, data, index + 1, totalPages, chapter, imageSources);
         containersWritten += 1;
       }
     });
@@ -83,18 +85,19 @@ function writeMargin(
   parts: MarginPart[],
   data: PdfPreviewMarginData,
   page: number,
+  totalPages: number,
   chapter: string,
   imageSources: Readonly<Record<string, string>>
 ): void {
   const doc = container.ownerDocument;
   const fragment = doc.createDocumentFragment();
   for (const part of parts) {
-    if (part.kind === 'text') fragment.append(doc.createTextNode(resolveText(part.value, data, page, chapter)));
+    if (part.kind === 'text') fragment.append(doc.createTextNode(resolvePdfPreviewMarginText(part.value, data, page, totalPages, chapter)));
     else {
       const image = doc.createElement('img');
-      image.alt = resolveText(part.alt, data, page, chapter);
-      image.src = imageSources[part.source] || resolveText(part.source, data, page, chapter);
-      if (part.title) image.title = resolveText(part.title, data, page, chapter);
+      image.alt = resolvePdfPreviewMarginText(part.alt, data, page, totalPages, chapter);
+      image.src = imageSources[part.source] || resolvePdfPreviewMarginText(part.source, data, page, totalPages, chapter);
+      if (part.title) image.title = resolvePdfPreviewMarginText(part.title, data, page, totalPages, chapter);
       fragment.append(image);
     }
   }
@@ -124,13 +127,20 @@ function parseParts(content: string): MarginPart[] {
   return parts;
 }
 
-function resolveText(value: string, data: PdfPreviewMarginData, page: number, chapter: string): string {
+export function resolvePdfPreviewMarginText(
+  value: string,
+  data: PdfPreviewMarginData,
+  page: number,
+  totalPages: number,
+  chapter: string
+): string {
   const metadata = data.metadata;
   return value.replace(/\$\{author\}/g, metadata.author).replace(/\$\{documentTitle\}/g, metadata.documentTitle)
     .replace(/\$\{documentName\}/g, metadata.documentName).replace(/\$\{documentNumber\}/g, metadata.documentNumber)
     .replace(/\$\{documentRevision\}/g, metadata.documentRevision).replace(/\$\{documentType\}/g, metadata.documentType)
     .replace(/\$\{productName\}/g, metadata.productName).replace(/\$\{productModule\}/g, metadata.productModule)
     .replace(/\$\{productVersion\}/g, metadata.productVersion).replace(/\{page\}/g, String(page))
+    .replace(/\{pages\}/g, String(totalPages))
     .replace(/\{chapter:([^{}]*)\}/gi, (_token, label: string) => chapter ? `${label}${chapter}` : '')
     .replace(/\\n/g, '\n').replace(/<br\s*\/?>/gi, '\n');
 }

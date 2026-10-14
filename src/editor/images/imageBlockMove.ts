@@ -11,7 +11,7 @@ export interface ImageBlockMove {
   selectionAnchor: number;
 }
 
-export function lineRangeAt(document: string, position: number): { from: number; to: number } {
+function lineRangeAt(document: string, position: number): { from: number; to: number } {
   const safePosition = Math.max(0, Math.min(position, document.length));
   const from = document.lastIndexOf('\n', safePosition - 1) + 1;
   const lineEnd = document.indexOf('\n', safePosition);

@@ -49,9 +49,13 @@ const formatContent = (content: string) => {
   formatted = formatted.replace(/"/g, '\\"');
   formatted = formatted.replace(/\uE000/g, '\\A ');
 
-  if (formatted.includes('{page}')) {
-    const parts = formatted.split('{page}');
-    return parts.map(p => `"${p}"`).join(' counter(page) ');
+  if (/\{pages?\}/.test(formatted)) {
+    return formatted
+      .split(/(\{pages?\})/g)
+      .map(part => part === '{page}'
+        ? 'counter(page)'
+        : part === '{pages}' ? 'counter(pages)' : `"${part}"`)
+      .join(' ');
   }
   return `"${formatted}"`;
 };

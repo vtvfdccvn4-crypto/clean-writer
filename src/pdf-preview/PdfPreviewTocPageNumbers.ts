@@ -1,4 +1,20 @@
 /** Resolves TOC links against the completed physical page tree. */
+export function reservePdfPreviewTocPageNumbers(root: ParentNode): void {
+  const doc = root instanceof Document ? root : root.ownerDocument ?? document;
+  root.querySelectorAll<HTMLAnchorElement>('.table-of-contents .toc-link[href^="#"]').forEach(link => {
+    let output = link.querySelector<HTMLElement>(':scope > .toc-page-number');
+    if (!output) {
+      output = doc.createElement('span');
+      output.className = 'toc-page-number';
+      output.setAttribute('aria-label', 'Page number');
+      link.append(output);
+    }
+    // The final value is written after pagination. Reserving its widest normal
+    // width before Paged.js runs prevents that replacement from reflowing TOC.
+    output.textContent = '0000';
+  });
+}
+
 export function materializePdfPreviewTocPageNumbers(root: ParentNode): void {
   const pages = Array.from(root.querySelectorAll<HTMLElement>('.pagedjs_page'));
   const pageByTargetId = new Map<string, number>();

@@ -5,8 +5,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f7f8f6",
-  "theme_color": "#405a78",
+  "background_color": "#fafbfc",
+  "theme_color": "#ffffff",
   "prefer_related_applications": false,
   "description": "A focused Markdown writing workspace with PDF export.",
   "icons": [

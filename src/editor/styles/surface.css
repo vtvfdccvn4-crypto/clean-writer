@@ -1,7 +1,7 @@
 .editor-container {
-  --cm-surface-background: Canvas;
+  --cm-surface-background: var(--ui-canvas);
   --cm-surface-border: var(--ui-border);
-  --cm-surface-focus: color-mix(in srgb, var(--ui-app-chrome) 45%, transparent);
+  --cm-surface-focus: var(--ui-focus-ring);
   --cm-surface-radius: 8px;
 }
 
@@ -19,6 +19,32 @@
   background-color: var(--cm-surface-background);
   border: 1px solid var(--cm-surface-border);
   border-radius: var(--cm-surface-radius);
+  color: var(--ui-text);
+}
+
+.cm-editor .cm-gutters {
+  border-right-color: var(--ui-border-subtle);
+  background-color: var(--ui-canvas);
+  color: color-mix(in srgb, var(--ui-text-muted) 70%, transparent);
+}
+
+.cm-editor .cm-activeLine,
+.cm-editor .cm-activeLineGutter {
+  background-color: var(--ui-brand-tint);
+}
+
+.cm-editor .cm-activeLineGutter {
+  color: var(--ui-brand);
+}
+
+.cm-editor .cm-cursor {
+  border-left-color: var(--ui-brand);
+}
+
+.cm-editor.cm-focused .cm-selectionBackground,
+.cm-editor .cm-selectionBackground,
+.cm-editor .cm-content ::selection {
+  background-color: color-mix(in srgb, var(--ui-brand) 18%, transparent) !important;
 }
 
 .cm-editor .cm-content,

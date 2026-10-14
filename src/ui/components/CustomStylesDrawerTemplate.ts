@@ -33,7 +33,7 @@ export const customInlineStylesContentTemplate = (): string => `
             colorValue: '#000000',
           })}
           <div class="drawer-grid drawer-grid-2">
-            <button type="submit" class="ui-button ui-button--block" id="cs-submit-btn">Apply</button>
+            <button type="submit" class="ui-button ui-button--block ui-button--primary" id="cs-submit-btn">Apply</button>
             <button type="button" class="ui-button ui-button--block" id="cs-cancel-btn">Cancel</button>
           </div>
         </form>
@@ -103,7 +103,7 @@ export const customQuoteStylesContentTemplate = (): string => `
             </div>
           </section>
           <div class="drawer-grid drawer-grid-2">
-            <button type="submit" class="ui-button ui-button--block" id="cbs-submit-btn">Apply</button>
+            <button type="submit" class="ui-button ui-button--block ui-button--primary" id="cbs-submit-btn">Apply</button>
             <button type="button" class="ui-button ui-button--block" id="cbs-cancel-btn">Cancel</button>
           </div>
         </form>

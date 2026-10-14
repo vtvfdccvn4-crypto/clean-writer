@@ -9,6 +9,8 @@ import { IncrementalPreviewCompiler } from '../preview/live/IncrementalPreviewCo
 import type { CanonicalPageBreakGuide } from '../preview/live/LivePreviewRenderer';
 import type { DocumentPreviewSourceSegment } from '../preview/document-rendering';
 import type { PdfPreviewFrameTimings, PdfPreviewJob } from '../pdf-preview/contracts';
+import type { PdfArtifact } from '../pdf-preview/PdfArtifact';
+import type { PdfArtifactKey } from '../pdf-preview/PdfRenderSnapshot';
 import type { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
 import type { CommittedPreviewTarget } from '../preview/navigation/CommittedPreviewIndex';
 import type { PreviewTimingPhase } from '../perf/preview-timing';
@@ -29,6 +31,7 @@ export class PreviewCoordinator {
   private liveCompileGeneration = 0;
   private liveCompileRunning = false;
   private readonly incrementalCompiler = new IncrementalPreviewCompiler();
+  private paginatedRefreshFrame: number | null = null;
 
   constructor(
     stage: HTMLElement,
@@ -53,6 +56,7 @@ export class PreviewCoordinator {
 
   beginRevision(): number {
     this.revision += 1;
+    this.cancelPaginatedRefresh();
     this.controller.invalidatePendingRender();
     return this.revision;
   }
@@ -86,6 +90,19 @@ export class PreviewCoordinator {
     this.controller.applyImageSetup(setup);
   }
 
+  refreshPaginatedPreview(): void {
+    this.controller.refreshPaginatedPreview();
+  }
+
+  /** Coalesce back-to-back settings changes into one paginated re-render per animation frame. */
+  schedulePaginatedRefresh(): void {
+    if (this.paginatedRefreshFrame !== null) return;
+    this.paginatedRefreshFrame = window.requestAnimationFrame(() => {
+      this.paginatedRefreshFrame = null;
+      this.controller.refreshPaginatedPreview();
+    });
+  }
+
   clear(): void {
     this.beginRevision();
     this.incrementalCompiler.reset();
@@ -101,6 +118,7 @@ export class PreviewCoordinator {
     this.liveCompileGeneration += 1;
     if (this.liveCompileFrame !== null) window.cancelAnimationFrame(this.liveCompileFrame);
     this.liveCompileFrame = null;
+    this.cancelPaginatedRefresh();
     this.pendingLiveCompile?.resolve(null);
     this.pendingLiveCompile = null;
     this.incrementalCompiler.reset();
@@ -161,8 +179,16 @@ export class PreviewCoordinator {
     return this.controller.forceRenderIsolated(input, sourceHtml, manifest, revision, onPaginationPhase, onPageTimings, onPaginationStats);
   }
 
+  getPdfArtifact(artifactKey: PdfArtifactKey): PdfArtifact | null {
+    return this.controller.getPdfArtifact(artifactKey);
+  }
+
   scrollToTop(): void {
     this.controller.scrollToTop();
+  }
+
+  setViewportResizeSuspended(suspended: boolean): void {
+    this.controller.setViewportResizeSuspended(suspended);
   }
 
   navigateToSourceLine(line: number): void {
@@ -175,6 +201,12 @@ export class PreviewCoordinator {
 
   getPaginatedPageBreakGuides(): CanonicalPageBreakGuide[] {
     return this.controller.getPaginatedPageBreakGuides();
+  }
+
+  private cancelPaginatedRefresh(): void {
+    if (this.paginatedRefreshFrame === null) return;
+    window.cancelAnimationFrame(this.paginatedRefreshFrame);
+    this.paginatedRefreshFrame = null;
   }
 
   private scheduleLiveCompile(): void {

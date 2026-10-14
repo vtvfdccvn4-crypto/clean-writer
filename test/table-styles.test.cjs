@@ -38,11 +38,11 @@ test('table classes generate independent colors, borders, padding, and margins',
   });
 
   assert.match(css, /table\[data-table-style="1"\][\s\S]*?padding: 4pt/);
-  assert.match(css, /table\[data-table-style="1"\] thead th[\s\S]*?background: #112233/);
-  assert.match(css, /table\[data-table-style="2"\][\s\S]*?margin: 15pt 0 12pt/);
+  assert.match(css, /table\[data-table-style="1"\] thead th \{[\s\S]*?background-color: #112233/);
+  assert.match(css, /table\[data-table-style="2"\] \{[\s\S]*?margin-top: 15pt[\s\S]*?margin-bottom: 12pt/);
   assert.match(css, /table\[data-table-style="2"\] th,[\s\S]*?border: 2pt solid #999999/);
   assert.match(css, /table\[data-table-style="2"\] th,[\s\S]*?vertical-align: middle/);
-  assert.match(css, /table\[data-table-style="2"\] thead th[\s\S]*?background: #abcdef/);
+  assert.match(css, /table\[data-table-style="2"\] thead th \{[\s\S]*?background-color: #abcdef/);
   assert.match(css, /table\[data-table-style="1"\] td \{[\s\S]*?line-height: 1\.2/);
   assert.match(css, /table\[data-table-style="1"\] td:empty::before \{[\s\S]*?min-height: 1\.2em/);
   assert.match(css, /table\[data-table-style="2"\] td:empty::before \{[\s\S]*?content: "\\00a0"/);

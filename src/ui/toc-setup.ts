@@ -10,18 +10,22 @@ const tocLevels = [1, 2, 3, 4, 5, 6] as const;
 type TocLevel = typeof tocLevels[number];
 type TocLevelKey = `h${TocLevel}`;
 
-const defaultTocStyle = (): TocStyle => ({
+const defaultIndentation = (level: TocLevel): number => [0, 19.5, 36, 49.5, 66, 82.5][level - 1];
+
+const defaultTocStyle = (level: TocLevel): TocStyle => ({
   fontFamily: DEFAULT_BODY_FONT_FAMILY,
   fontSize: 11,
+  indentation: defaultIndentation(level),
   color: '#000000',
   isBold: false,
   isItalic: false,
   isAllCaps: false
 });
 
-const cloneTocStyle = (style?: TocStyle): TocStyle => ({
+const cloneTocStyle = (style: TocStyle | undefined, level: TocLevel): TocStyle => ({
   fontFamily: style?.fontFamily || DEFAULT_BODY_FONT_FAMILY,
   fontSize: style?.fontSize ?? 11,
+  indentation: style?.indentation ?? defaultIndentation(level),
   color: style?.color || '#000000',
   isBold: !!style?.isBold,
   isItalic: !!style?.isItalic,
@@ -31,21 +35,21 @@ const cloneTocStyle = (style?: TocStyle): TocStyle => ({
 const cloneTocSetup = (toc?: TocSetup): TocSetup => toc ? {
   maxLevel: toc.maxLevel ?? 6,
   lineHeight: toc.lineHeight ?? 1.2,
-  h1: cloneTocStyle(toc.h1),
-  h2: cloneTocStyle(toc.h2),
-  h3: cloneTocStyle(toc.h3),
-  h4: cloneTocStyle(toc.h4),
-  h5: cloneTocStyle(toc.h5),
-  h6: cloneTocStyle(toc.h6)
+  h1: cloneTocStyle(toc.h1, 1),
+  h2: cloneTocStyle(toc.h2, 2),
+  h3: cloneTocStyle(toc.h3, 3),
+  h4: cloneTocStyle(toc.h4, 4),
+  h5: cloneTocStyle(toc.h5, 5),
+  h6: cloneTocStyle(toc.h6, 6)
 } : {
   maxLevel: 6,
   lineHeight: 1.2,
-  h1: defaultTocStyle(),
-  h2: defaultTocStyle(),
-  h3: defaultTocStyle(),
-  h4: defaultTocStyle(),
-  h5: defaultTocStyle(),
-  h6: defaultTocStyle()
+  h1: defaultTocStyle(1),
+  h2: defaultTocStyle(2),
+  h3: defaultTocStyle(3),
+  h4: defaultTocStyle(4),
+  h5: defaultTocStyle(5),
+  h6: defaultTocStyle(6)
 };
 
 const isTocLevel = (value: number): value is TocLevel => tocLevels.includes(value as TocLevel);
@@ -59,6 +63,7 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
   const headingLevelSelect = document.getElementById('toc-heading-level') as HTMLSelectElement;
   const fontSelect = document.getElementById('toc-selected-font') as HTMLSelectElement;
   const sizeInput = document.getElementById('toc-selected-size') as HTMLSelectElement;
+  const indentationInput = document.getElementById('toc-selected-indentation') as HTMLInputElement;
   const colorInput = document.getElementById('toc-selected-color') as HTMLInputElement;
   const boldButton = document.getElementById('toc-selected-bold') as HTMLButtonElement;
   const italicButton = document.getElementById('toc-selected-italic') as HTMLButtonElement;
@@ -73,6 +78,7 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
   const readSelectedLevelStyle = (): TocStyle => ({
     fontFamily: fontSelect.value,
     fontSize: readDrawerNumber(sizeInput, 11, { integer: true, min: 1, max: 200 }),
+    indentation: readDrawerNumber(indentationInput, defaultIndentation(activeLevel), { min: 0, max: 500 }),
     color: colorInput.value,
     isBold: getDrawerToggleButtonState(boldButton),
     isItalic: getDrawerToggleButtonState(italicButton),
@@ -87,6 +93,7 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
     const style = workingSetup[getLevelKey(activeLevel)];
     setFontFamilySelectValue(fontSelect, style.fontFamily, DEFAULT_BODY_FONT_FAMILY);
     sizeInput.value = String(style.fontSize ?? 11);
+    indentationInput.value = String(style.indentation ?? defaultIndentation(activeLevel));
     colorInput.value = style.color || '#000000';
     setDrawerToggleButtonState(boldButton, !!style.isBold);
     setDrawerToggleButtonState(italicButton, !!style.isItalic);
@@ -130,6 +137,7 @@ export function initTocSetupDrawer(onSaveSetup: (setup: PageSetup) => Promise<vo
   headingLevelSelect.addEventListener('change', () => updateActiveLevel(getTocLevel(Number.parseInt(headingLevelSelect.value, 10))));
   fontSelect.addEventListener('change', syncCurrentToWorkingSetup);
   sizeInput.addEventListener('input', syncCurrentToWorkingSetup);
+  indentationInput.addEventListener('input', syncCurrentToWorkingSetup);
   colorInput.addEventListener('input', syncCurrentToWorkingSetup);
   allCapsInput.addEventListener('change', syncCurrentToWorkingSetup);
 

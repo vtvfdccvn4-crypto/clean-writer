@@ -43,3 +43,8 @@ test('settings feature module remains independently loadable', () => {
   assert.match(setupSettingsFeatures, /initPageSetupDrawer/);
   assert.match(setupSettingsFeatures, /initCustomStylesDrawer/);
 });
+
+test('project metadata button loads its lazily initialized drawer', () => {
+  assert.match(app, /closest<HTMLElement>\([^\n]*#btn-project-metadata/);
+  assert.match(app, /target\.id === 'btn-project-metadata'[\s\S]*?loadSettingsFeatures\(\)[\s\S]*?dispatchEvent/);
+});

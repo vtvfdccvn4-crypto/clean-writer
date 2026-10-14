@@ -107,8 +107,8 @@ test('page-break directives render inside single and full-document section wrapp
     { path: 'chapter.md', markdown: 'Before\n\n:::pagebreak\n\nAfter' }
   ]);
 
-  assert.match(await compileMarkdown(singleMarkdown), /<div class="section-break"><\/div>/);
-  assert.match(await compileMarkdown(fullMarkdown), /<div class="section-break"><\/div>/);
+  assert.match(await compileMarkdown(singleMarkdown), /<div class="section-break" data-explicit-page-break="true"><\/div>/);
+  assert.match(await compileMarkdown(fullMarkdown), /<div class="section-break" data-explicit-page-break="true"><\/div>/);
 });
 
 test('full-document preview input records source segments for each section', () => {

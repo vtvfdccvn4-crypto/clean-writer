@@ -2,6 +2,7 @@
 @import './ui/styles/buttons.css';
 @import './editor/styles/surface.css';
 @import './editor/styles/imagePreviews.css';
+@import './editor/styles/tableHelpers.css';
 @import '@fortawesome/fontawesome-free/css/all.min.css';
 @import 'material-symbols/outlined.css';
 /* The application uses Inter Tight for UI and Courier Prime for the editor.
@@ -17,6 +18,7 @@
 @import '@fontsource/courier-prime/latin-700-italic.css';
 
 @import './ui/styles/global-defaults.css';
+@import './ui/styles/base.css';
 @import './ui/styles/activity-bar.css';
 @import './ui/styles/workspace.css';
 @import './ui/styles/task-panel.css';
@@ -87,6 +89,7 @@ input {
 .welcome-brand h1 {
   margin: 0;
   font-family: var(--font-ui);
+  color: var(--ui-text);
   font-size: clamp(30px, 3.1vw, 42px);
   font-weight: 500;
   letter-spacing: -0.045em;
@@ -99,6 +102,8 @@ input {
   height: 48px;
   place-items: center;
   border-radius: 12px;
+  background: var(--ui-brand);
+  color: #ffffff;
   font-size: 24px;
   font-weight: 800;
 }
@@ -109,6 +114,7 @@ input {
 
 .welcome-section h2 {
   margin: 0 0 13px;
+  color: var(--ui-text-muted);
   font-family: var(--font-ui);
   font-size: 20px;
   font-weight: 500;
@@ -132,9 +138,32 @@ input {
   padding: 4px 8px 4px 4px;
   border: 1px solid transparent;
   border-radius: 6px;
+  background: transparent;
+  color: var(--ui-text);
   font: 500 12pt var(--font-ui);
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.welcome-action:hover,
+.welcome-action:focus-visible,
+.welcome-recent-item:hover,
+.welcome-recent-item:focus-visible {
+  border-color: var(--ui-border-soft);
+  background: var(--ui-brand-tint);
+}
+
+.welcome-action:focus-visible,
+.welcome-recent-item:focus-visible {
+  outline: 2px solid var(--ui-focus-ring);
+  outline-offset: 1px;
+}
+
+.welcome-action-icon {
+  color: var(--ui-brand);
 }
 
 .welcome-action-icon {
@@ -183,6 +212,7 @@ input {
 }
 
 .welcome-recent-kind {
+  color: var(--ui-text-muted);
   font-size: 10pt;
 }
 
@@ -205,7 +235,7 @@ input {
 body,
 body * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--ui-border-strong) 8%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--ui-border-strong) 55%, transparent) transparent;
 }
 
 .task-explorer-content:hover,
@@ -214,7 +244,7 @@ body * {
 .task-images-list:focus-within,
 .document-outline-content:hover,
 .document-outline-content:focus-within {
-  scrollbar-color: color-mix(in srgb, var(--ui-border-strong) 18%, transparent) transparent;
+  scrollbar-color: var(--ui-border-strong) transparent;
 }
 
 body::-webkit-scrollbar,
@@ -230,7 +260,7 @@ body *::-webkit-scrollbar-track {
 
 body::-webkit-scrollbar-thumb,
 body *::-webkit-scrollbar-thumb {
-  background-color: color-mix(in srgb, var(--ui-border-strong) 8%, transparent);
+  background-color: color-mix(in srgb, var(--ui-border-strong) 55%, transparent);
   border: 2px solid transparent;
   border-radius: 999px;
   background-clip: content-box;
@@ -242,5 +272,5 @@ body *::-webkit-scrollbar-thumb {
 .task-images-list:focus-within::-webkit-scrollbar-thumb,
 .document-outline-content:hover::-webkit-scrollbar-thumb,
 .document-outline-content:focus-within::-webkit-scrollbar-thumb {
-  background-color: color-mix(in srgb, var(--ui-border-strong) 18%, transparent);
+  background-color: var(--ui-border-strong);
 }

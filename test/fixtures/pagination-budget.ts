@@ -11,13 +11,13 @@ async function run() {
   const started = performance.now();
   const outcome = await paginateIsolated(html);
   const elapsedMs = performance.now() - started;
-  const pageCount = outcome.status === 'success' ? outcome.result.pageCount : 0;
+  const pageCount = outcome.status === 'success' ? outcome.result.artifact.pageCount : 0;
 
   window.__HARNESS_RESULT__ = {
     ok: outcome.status === 'success',
     pageCount,
     elapsedMs,
-    hasLastSection: outcome.status === 'success' && outcome.result.html.includes('Budget section 5'),
+    hasLastSection: outcome.status === 'success' && outcome.result.artifact.html.includes('Budget section 5'),
     paginationStatus: outcome.status,
     diagnostics: outcome.diagnostics
   };

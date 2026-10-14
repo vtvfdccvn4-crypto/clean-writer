@@ -11,6 +11,9 @@ export type PdfPreviewPipelineResult =
 export class IsolatedPdfPreviewPipeline {
   private readonly paginationHost = new IsolatedPaginationHost();
 
+  prewarm(): void { this.paginationHost.prewarm(); }
+  dispose(): void { this.paginationHost.dispose(); }
+
   async run(
     input: PdfPreviewJob,
     printTarget: PdfPreviewPrintTarget,
@@ -25,9 +28,9 @@ export class IsolatedPdfPreviewPipeline {
       }
       if (outcome.status === 'timed-out' || outcome.status === 'failed') throw new Error(outcome.message);
       const result = outcome.result;
-      if (result.pageCount === 0) throw new Error('PDF pagination produced no physical pages.');
-      onProgress?.({ type: 'clear-writer-pdf-preview-progress', requestId: result.requestId, phase: 'install-print-document', pagesCompleted: result.pageCount, estimatedPages: outcome.diagnostics.budget.estimatedPages, elapsedMs: outcome.diagnostics.elapsedMs, timeoutMs: outcome.diagnostics.budget.timeoutMs });
-      const printTimings = await printTarget.printArtifact(result.html, result.paginationCss);
+      if (result.artifact.pageCount === 0) throw new Error('PDF pagination produced no physical pages.');
+      onProgress?.({ type: 'clear-writer-pdf-preview-progress', requestId: result.requestId, phase: 'install-print-document', pagesCompleted: result.artifact.pageCount, estimatedPages: outcome.diagnostics.budget.estimatedPages, elapsedMs: outcome.diagnostics.elapsedMs, timeoutMs: outcome.diagnostics.budget.timeoutMs });
+      const printTimings = await printTarget.printArtifact(result.artifact);
       const diagnostics: PdfPreviewPaginationDiagnostics = {
         ...outcome.diagnostics,
         elapsedMs: outcome.diagnostics.elapsedMs + printTimings.installDocumentMs + printTimings.resourceReadinessMs + printTimings.printInvocationMs,
@@ -37,7 +40,7 @@ export class IsolatedPdfPreviewPipeline {
           { phase: 'print', durationMs: printTimings.printInvocationMs }
         ]
       };
-      onProgress?.({ type: 'clear-writer-pdf-preview-progress', requestId: result.requestId, phase: 'print', pagesCompleted: result.pageCount, estimatedPages: diagnostics.budget.estimatedPages, elapsedMs: diagnostics.elapsedMs, timeoutMs: diagnostics.budget.timeoutMs });
+      onProgress?.({ type: 'clear-writer-pdf-preview-progress', requestId: result.requestId, phase: 'print', pagesCompleted: result.artifact.pageCount, estimatedPages: diagnostics.budget.estimatedPages, elapsedMs: diagnostics.elapsedMs, timeoutMs: diagnostics.budget.timeoutMs });
       recordPdfPreviewDiagnostic({ status: 'success', result, diagnostics });
       return { status: 'complete', diagnostics };
     } catch (error) {

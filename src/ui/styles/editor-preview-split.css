@@ -1,5 +1,6 @@
 /* Outer layout for the editor and preview split. */
 #shared-panel {
+  --editor-pane-width: calc((100% - 7px) / 2);
   grid-area: shared;
   position: relative;
   display: flex;
@@ -22,5 +23,42 @@
 }
 
 .shared-panel-split--editor {
-  border-right: 1px solid var(--ui-border-subtle);
+  flex: 0 0 var(--editor-pane-width);
+}
+
+.shared-panel-split--preview {
+  flex: 1 1 0;
+}
+
+.editor-preview-resizer {
+  flex: 0 0 7px;
+  width: 7px;
+  min-width: 7px;
+  cursor: col-resize;
+  touch-action: none;
+  border-inline: 1px solid transparent;
+  background: color-mix(in srgb, var(--ui-surface) 82%, transparent);
+  outline: none;
+  z-index: 2;
+}
+
+.editor-preview-resizer:hover,
+.editor-preview-resizer:focus-visible,
+#shared-panel[data-editor-preview-dragging="true"] .editor-preview-resizer {
+  border-left-color: var(--ui-border-subtle);
+  background: color-mix(in srgb, var(--ui-brand) 16%, var(--ui-surface));
+}
+
+#shared-panel[data-editor-preview-dragging="true"] {
+  cursor: col-resize;
+  user-select: none;
+}
+
+#shared-panel.is-editor-preview-compact .editor-preview-resizer {
+  display: none;
+}
+
+#shared-panel.is-editor-preview-compact .shared-panel-split--editor,
+#shared-panel.is-editor-preview-compact .shared-panel-split--preview {
+  flex: 1 1 0;
 }

@@ -102,7 +102,7 @@ export function collectVisiblePageSourceElements(page: HTMLElement): HTMLElement
   return elements.filter(element => isVisiblePageSourceElement(element, page));
 }
 
-export function isVisiblePageSourceElement(element: HTMLElement, page: HTMLElement): boolean {
+function isVisiblePageSourceElement(element: HTMLElement, page: HTMLElement): boolean {
   const pageContent = element.closest('.pagedjs_page_content');
   return pageContent !== null && page.contains(pageContent);
 }

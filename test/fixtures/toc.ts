@@ -55,7 +55,7 @@ async function run() {
     numbered: rootSection?.querySelector('.heading-number')?.textContent === '1. ',
     tocControls: Boolean(settingsHost.querySelector('#toc-max-level'))
       && Boolean(settingsHost.querySelector('#toc-heading-level'))
-      && ['font', 'size', 'color', 'bold', 'italic', 'all-caps'].every(control =>
+      && ['font', 'size', 'indentation', 'color', 'bold', 'italic', 'all-caps'].every(control =>
         Boolean(settingsHost.querySelector(`#toc-selected-${control}`))
       ),
     headingLevelOptions: settingsHost.querySelectorAll('#toc-heading-level option').length === 6

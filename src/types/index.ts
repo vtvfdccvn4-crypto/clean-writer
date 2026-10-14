@@ -23,6 +23,7 @@ export interface TocStyle {
   isBold: boolean;
   isItalic: boolean;
   isAllCaps: boolean;
+  indentation?: number;
 }
 
 export interface TocSetup {
@@ -120,7 +121,6 @@ export interface ListSetup {
 export interface TableStyle {
   fontFamily: string;
   fontSize: number;
-  verticalAlign: 'top' | 'middle' | 'bottom';
   headerTextColor?: string;
   headerBackground?: string;
   headerBold: boolean;
@@ -130,6 +130,7 @@ export interface TableStyle {
   borderColor?: string;
   borderWidth: number;
   cellPadding: number;
+  verticalAlign?: string;
   marginTop: number;
   marginBottom: number;
 }

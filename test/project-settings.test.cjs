@@ -31,7 +31,7 @@ test('untrusted settings values are clamped before CSS generation', () => {
     pageSetup: {
       paperWidth: Number.POSITIVE_INFINITY,
       header: { centerWidth: '1fr; background:url(https://evil.test)' },
-      toc: { fontFamily: 'serif; color:red', fontSize: 99999, color: 'expression(alert(1))', isBold: 'yes', isItalic: true, isAllCaps: 'yes' }
+      toc: { fontFamily: 'serif; color:red', fontSize: 99999, indentation: 99999, color: 'expression(alert(1))', isBold: 'yes', isItalic: true, isAllCaps: 'yes' }
     },
     typographySetup: {
       paragraph: { fontFamily: 'serif; color:red', fontSize: 99999, color: 'expression(alert(1))' }
@@ -53,6 +53,7 @@ test('untrusted settings values are clamped before CSS generation', () => {
   assert.equal(settings.pageSetup.toc.maxLevel, 6);
   assert.equal(settings.pageSetup.toc.h1.fontFamily, 'Times New Roman');
   assert.equal(settings.pageSetup.toc.h1.fontSize, 200);
+  assert.equal(settings.pageSetup.toc.h1.indentation, 500);
   assert.equal(settings.pageSetup.toc.h1.color, '#000000');
   assert.equal(settings.pageSetup.toc.h1.isBold, false);
   assert.equal(settings.pageSetup.toc.h1.isItalic, true);
@@ -121,6 +122,7 @@ test('legacy project settings are migrated to the current schema', () => {
   assert.deepEqual(settings.pageSetup.toc.h1, {
     fontFamily: 'Times New Roman',
     fontSize: 14,
+    indentation: 0,
     color: '#000000',
     isBold: false,
     isItalic: false,
@@ -129,6 +131,7 @@ test('legacy project settings are migrated to the current schema', () => {
   assert.deepEqual(settings.pageSetup.toc.h6, {
     fontFamily: 'Times New Roman',
     fontSize: 11,
+    indentation: 82.5,
     color: '#000000',
     isBold: false,
     isItalic: false,

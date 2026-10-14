@@ -45,7 +45,7 @@ export const projectMetadataDrawerTemplate = (): string => `
         ${renderField('meta-prod-version', 'Product version', 'Product version')}
       </section>
 
-      <button id="btn-apply-metadata" class="ui-button ui-button--block" type="button">Apply settings</button>
+      <button id="btn-apply-metadata" class="ui-button ui-button--block ui-button--primary" type="button">Apply settings</button>
     </div>
   </div>
 `;

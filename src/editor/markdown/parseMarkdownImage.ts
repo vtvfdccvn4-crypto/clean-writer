@@ -25,7 +25,7 @@ export function imageAlignmentAttribute(attributes: string): 'left' | 'center' |
 }
 
 /** Replaces one image presentation attribute while retaining its other attributes. */
-export function withImageAttribute(attributes: string, key: 'align' | 'width', value: string): string {
+function withImageAttribute(attributes: string, key: 'align' | 'width', value: string): string {
   const content = attributes.startsWith('{') && attributes.endsWith('}')
     ? attributes.slice(1, -1).trim()
     : '';

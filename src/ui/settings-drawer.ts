@@ -1,18 +1,18 @@
 import { closeAllDrawers, closeDrawer, openDrawer } from './drawer-manager';
 
-export const SETTINGS_TAB_ACTIVATED_EVENT = 'clear-writer-settings-tab-activated';
+const SETTINGS_TAB_ACTIVATED_EVENT = 'clear-writer-settings-tab-activated';
 
-export type SettingsTabId =
-  | 'page-setup'
-  | 'typography'
-  | 'lists'
-  | 'tables'
-  | 'images'
-  | 'toc'
-  | 'special-headings'
-  | 'editor'
-  | 'inline-styles'
-  | 'quote-styles';
+export type PageSetupTabId = 'page-setup' | 'toc' | 'special-headings';
+export type StylesTabId = 'typography' | 'lists' | 'tables' | 'images' | 'inline-styles' | 'quote-styles';
+export type EditorPreferencesTabId = 'editor';
+export type ShellPreferencesTabId = 'shell-ui';
+/** @deprecated Use EditorPreferencesTabId | ShellPreferencesTabId */
+export type PreferencesTabId = EditorPreferencesTabId;
+
+export type SettingsTabId = PageSetupTabId | StylesTabId | EditorPreferencesTabId | ShellPreferencesTabId;
+
+const PAGE_SETUP_TABS = new Set<SettingsTabId>(['page-setup', 'toc', 'special-headings']);
+const STYLES_TABS = new Set<SettingsTabId>(['typography', 'lists', 'tables', 'images', 'inline-styles', 'quote-styles']);
 
 function dispatchSettingsTabActivated(tabId: SettingsTabId): void {
   document.dispatchEvent(new CustomEvent<{ tabId: SettingsTabId }>(SETTINGS_TAB_ACTIVATED_EVENT, {
@@ -20,10 +20,7 @@ function dispatchSettingsTabActivated(tabId: SettingsTabId): void {
   }));
 }
 
-export function activateSettingsTab(tabId: SettingsTabId): void {
-  const drawer = document.getElementById('settings-drawer');
-  if (!drawer) return;
-
+function activateTabInDrawer(drawer: HTMLElement, tabId: SettingsTabId): void {
   drawer.querySelectorAll<HTMLButtonElement>('[data-settings-tab]').forEach((button) => {
     const isActive = button.dataset.settingsTab === tabId;
     button.classList.toggle('active', isActive);
@@ -37,15 +34,56 @@ export function activateSettingsTab(tabId: SettingsTabId): void {
   dispatchSettingsTabActivated(tabId);
 }
 
-export function openSettingsDrawer(tabId?: SettingsTabId): boolean {
-  const drawer = document.getElementById('settings-drawer');
+export function openPageSetupDrawer(tabId?: PageSetupTabId): boolean {
+  const drawer = document.getElementById('page-setup-drawer');
   if (!drawer) return false;
-
   const opened = openDrawer(drawer);
-  const currentTab = drawer.querySelector<HTMLButtonElement>('[data-settings-tab].active')?.dataset.settingsTab as SettingsTabId | undefined;
-  const activeTab = tabId ?? currentTab ?? 'page-setup';
-  activateSettingsTab(activeTab);
+  const currentTab = drawer.querySelector<HTMLButtonElement>('[data-settings-tab].active')?.dataset.settingsTab as PageSetupTabId | undefined;
+  activateTabInDrawer(drawer, tabId ?? currentTab ?? 'page-setup');
   return opened;
+}
+
+export function openStylesDrawer(tabId?: StylesTabId): boolean {
+  const drawer = document.getElementById('styles-drawer');
+  if (!drawer) return false;
+  const opened = openDrawer(drawer);
+  const currentTab = drawer.querySelector<HTMLButtonElement>('[data-settings-tab].active')?.dataset.settingsTab as StylesTabId | undefined;
+  activateTabInDrawer(drawer, tabId ?? currentTab ?? 'typography');
+  return opened;
+}
+
+export function openEditorPreferencesDrawer(tabId?: EditorPreferencesTabId): boolean {
+  const drawer = document.getElementById('editor-preferences-drawer');
+  if (!drawer) return false;
+  const opened = openDrawer(drawer);
+  const currentTab = drawer.querySelector<HTMLButtonElement>('[data-settings-tab].active')?.dataset.settingsTab as EditorPreferencesTabId | undefined;
+  activateTabInDrawer(drawer, tabId ?? currentTab ?? 'editor');
+  return opened;
+}
+
+export function openShellPreferencesDrawer(tabId?: ShellPreferencesTabId): boolean {
+  const drawer = document.getElementById('shell-preferences-drawer');
+  if (!drawer) return false;
+  const opened = openDrawer(drawer);
+  const currentTab = drawer.querySelector<HTMLButtonElement>('[data-settings-tab].active')?.dataset.settingsTab as ShellPreferencesTabId | undefined;
+  activateTabInDrawer(drawer, tabId ?? currentTab ?? 'shell-ui');
+  return opened;
+}
+
+/** @deprecated Use openEditorPreferencesDrawer() instead. */
+export function openPreferencesDrawer(tabId?: PreferencesTabId): boolean {
+  return openEditorPreferencesDrawer(tabId);
+}
+
+/** @deprecated Route to openPageSetupDrawer or openStylesDrawer instead. */
+export function openSettingsDrawer(tabId?: SettingsTabId): boolean {
+  if (!tabId || PAGE_SETUP_TABS.has(tabId)) {
+    return openPageSetupDrawer(tabId as PageSetupTabId | undefined);
+  }
+  if (STYLES_TABS.has(tabId)) {
+    return openStylesDrawer(tabId as StylesTabId);
+  }
+  return openEditorPreferencesDrawer(tabId as EditorPreferencesTabId);
 }
 
 export function onSettingsTabActivated(tabId: SettingsTabId, listener: () => void): () => void {
@@ -57,32 +95,82 @@ export function onSettingsTabActivated(tabId: SettingsTabId, listener: () => voi
   return () => document.removeEventListener(SETTINGS_TAB_ACTIVATED_EVENT, wrapped);
 }
 
-export function initSettingsDrawer(bindOpenButton = true): void {
-  const drawer = document.getElementById('settings-drawer');
-  const openButton = document.getElementById('btn-activity-settings');
-  const closeButton = document.getElementById('btn-close-settings-drawer');
-  const backdrop = document.getElementById('drawer-backdrop');
-  if (!drawer || !openButton || !closeButton) return;
-
-  if (bindOpenButton) {
-    openButton.addEventListener('click', () => {
-      openSettingsDrawer();
-    });
-  }
-
-  closeButton.addEventListener('click', () => {
-    closeDrawer(drawer);
-  });
-
-  backdrop?.addEventListener('click', () => {
-    closeAllDrawers();
-  });
+function wireDrawerTabs(drawerId: string): void {
+  const drawer = document.getElementById(drawerId);
+  if (!drawer) return;
 
   drawer.querySelectorAll<HTMLButtonElement>('[data-settings-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       const tabId = button.dataset.settingsTab as SettingsTabId | undefined;
-      if (tabId) activateSettingsTab(tabId);
+      if (tabId) activateTabInDrawer(drawer, tabId);
     });
   });
+}
 
+function wireActivityButton(buttonId: string, openFn: () => void): void {
+  const button = document.getElementById(buttonId);
+  if (!button) return;
+  button.addEventListener('click', openFn);
+}
+
+function wireCloseButton(buttonId: string, drawerId: string): void {
+  const button = document.getElementById(buttonId);
+  const backdrop = document.getElementById('drawer-backdrop');
+  if (button) {
+    button.addEventListener('click', () => closeDrawer(drawerId));
+  }
+  backdrop?.addEventListener('click', () => closeAllDrawers());
+}
+
+export function initSettingsDrawers(): void {
+  wireDrawerTabs('page-setup-drawer');
+  wireDrawerTabs('styles-drawer');
+  wireDrawerTabs('editor-preferences-drawer');
+  wireDrawerTabs('shell-preferences-drawer');
+
+  wireActivityButton('btn-preview-page-setup', () => {
+    const drawer = document.getElementById('page-setup-drawer');
+    if (drawer && !drawer.classList.contains('hidden')) {
+      closeDrawer(drawer);
+    } else {
+      openPageSetupDrawer();
+    }
+  });
+
+  wireActivityButton('btn-preview-styles', () => {
+    const drawer = document.getElementById('styles-drawer');
+    if (drawer && !drawer.classList.contains('hidden')) {
+      closeDrawer(drawer);
+    } else {
+      openStylesDrawer();
+    }
+  });
+
+  wireActivityButton('btn-editor-preferences', () => {
+    const drawer = document.getElementById('editor-preferences-drawer');
+    if (drawer && !drawer.classList.contains('hidden')) {
+      closeDrawer(drawer);
+    } else {
+      openEditorPreferencesDrawer();
+    }
+  });
+
+  wireActivityButton('btn-activity-preferences', () => {
+    const drawer = document.getElementById('shell-preferences-drawer');
+    if (drawer && !drawer.classList.contains('hidden')) {
+      closeDrawer(drawer);
+    } else {
+      openShellPreferencesDrawer();
+    }
+  });
+
+  wireCloseButton('btn-close-page-setup-drawer', 'page-setup-drawer');
+  wireCloseButton('btn-close-styles-drawer', 'styles-drawer');
+  wireCloseButton('btn-close-editor-preferences-drawer', 'editor-preferences-drawer');
+  wireCloseButton('btn-close-shell-preferences-drawer', 'shell-preferences-drawer');
+}
+
+/** @deprecated Use initSettingsDrawers() instead. */
+export function initSettingsDrawer(_bindOpenButton = true): void {
+  initSettingsDrawers();
 }

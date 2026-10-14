@@ -9,12 +9,13 @@ const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.ts'), 'utf8
 const panel = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'components', 'PreviewPanel.ts'), 'utf8');
 const setup = fs.readFileSync(path.join(__dirname, '..', 'src', 'boot', 'setupPdfPreview.ts'), 'utf8');
 const margins = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'PdfPreviewMarginRenderer.ts'), 'utf8');
-const guides = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'PdfPreviewPageGuidePaginator.ts'), 'utf8');
 const host = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'IsolatedPaginationHost.ts'), 'utf8');
 const contracts = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'contracts.ts'), 'utf8');
 const printTarget = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'PdfPreviewPrintTarget.ts'), 'utf8');
+const artifactRenderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'PdfArtifactRenderer.ts'), 'utf8');
 const framePaginator = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'PdfPreviewFramePaginator.ts'), 'utf8');
 const tocPageNumbers = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'PdfPreviewTocPageNumbers.ts'), 'utf8');
+const printCss = fs.readFileSync(path.join(__dirname, '..', 'src', 'print', 'PrintCssCompiler.ts'), 'utf8');
 const budget = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'PdfPreviewPaginationBudget.ts'), 'utf8');
 const diagnostics = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-preview', 'PdfPreviewDiagnosticsLog.ts'), 'utf8');
 const controller = fs.readFileSync(path.join(__dirname, '..', 'src', 'preview', 'PreviewController.ts'), 'utf8');
@@ -33,15 +34,28 @@ test('isolated PDF preview has an independent frame and protocol', () => {
   assert.match(tocPageNumbers, /index \+ 1/);
   assert.match(framePaginator, /queue\.tick/);
   assert.match(framePaginator, /queue\.enqueue/);
-  assert.equal((frame.match(/paginatePreviewFrame/g) || []).length, 3);
+  assert.equal((frame.match(/paginatePreviewFrame/g) || []).length, 2);
   assert.match(frame, /clear-writer-pdf-preview-result/);
   assert.doesNotMatch(pipeline, /noopener,noreferrer/);
 });
 
-test('TOC page numbers are materialized after pagination and before artifact serialization', () => {
-  assert.ok(frame.indexOf('materializePdfPreviewTocPageNumbers(stage)') < frame.indexOf('const html = stage.innerHTML'));
+test('page-dependent values are materialized before the PDF artifact is frozen', () => {
+  assert.ok(frame.indexOf('materializePdfPreviewTocPageNumbers(stage)') < frame.indexOf('const artifact = createPdfArtifact'));
   assert.match(tocPageNumbers, /decodeURIComponent/);
   assert.match(tocPageNumbers, /textContent = pageNumber === undefined/);
+  assert.match(tocPageNumbers, /output\.textContent = '0000'/);
+});
+
+test('the artifact stylesheet owns physical print geometry and TOC reservation', () => {
+  assert.match(printCss, /compilePdfArtifactPrintCss/);
+  assert.match(printCss, /flex: 0 0 4ch/);
+  assert.doesNotMatch(printTarget, /@page \{ margin: 0; \}/);
+  assert.match(frame, /input\.artifactPrintCss/);
+});
+
+test('list marker text is materialized before the one Paged.js pass', () => {
+  assert.match(frame, /materializePdfListMarkers\(source, input\.listMarkerStyles\)/);
+  assert.ok(frame.indexOf('materializePdfListMarkers(source, input.listMarkerStyles)') < frame.indexOf('materializePdfPreviewTocPageNumbers(stage)'));
 });
 
 test('isolated PDF preview is exposed through a dedicated button and boot route', () => {
@@ -57,7 +71,9 @@ test('isolated PDF preview is exposed through a dedicated button and boot route'
   assert.match(margins, /domWriteMs/);
   assert.match(frame, /marginDomWriteMs/);
   assert.match(host, /frame-margin-dom-write/);
-  assert.match(guides, /requestPageGuides/);
+  assert.doesNotMatch(host, /requestPageGuides/);
+  assert.match(editorManager, /requestPrintArtifact\(/);
+  assert.match(editorManager, /outcome\.result\.artifact\.pages/);
   assert.match(host, /status: 'cancelled'/);
   assert.match(host, /PaginationTimeoutError/);
   assert.match(host, /FRAME_STARTUP_TIMEOUT_MS = 15_000/);
@@ -85,9 +101,42 @@ test('single-document print preview uses the isolated paginator', () => {
   assert.match(editorManager, /createPdfPreviewJob\(initialPreview\.html, this\.capturePrintLayout\(\)/);
   assert.match(editorManager, /this\.preview\.forceRenderIsolated\(/);
   assert.match(editorManager, /if \(this\.isFinalPrintPreview\)/);
+  assert.doesNotMatch(editorManager, /enterCanonicalEditingMode/);
+  assert.match(editorManager, /if \(this\.isFinalPrintPreview\) \{[\s\S]*?this\.preview\.forceRenderIsolated\(/);
+  assert.match(editorManager, /createPdfPreviewJob\(compiledPreview\.html, this\.capturePrintLayout\(\)/);
+});
+
+test('print-layout settings invalidate an installed paginated artifact', () => {
+  assert.match(controller, /refreshPaginatedPreview\(\)/);
+  assert.match(controller, /this\.mode !== 'paginated'/);
+  assert.match(coordinator, /refreshPaginatedPreview\(\)/);
+  // Settings listeners coalesce through the scheduler, which drives the controller refresh.
+  assert.match(coordinator, /schedulePaginatedRefresh\(\)[\s\S]*?this\.controller\.refreshPaginatedPreview\(\)/);
+  assert.match(editorManager, /onCustomStylesChanged\(\(\) => \{[\s\S]*?schedulePaginatedRefresh/);
+  assert.match(editorManager, /onCustomBlockStylesChanged\(\(\) => \{[\s\S]*?schedulePaginatedRefresh/);
 });
 
 test('isolated pagination preserves the job stylesheet with generated Paged.js CSS', () => {
   assert.match(framePaginator, /const paginationCss = \[\s*css,/s);
   assert.match(framePaginator, /paginationStyles\.map\(style => style\.textContent \|\| ''\)/);
+});
+
+test('print consumes a completed PDF artifact rather than separate HTML and CSS values', () => {
+  assert.match(printTarget, /printArtifact\(artifact: PdfArtifact\)/);
+  assert.match(printTarget, /stage\.dataset\.pdfArtifactId = artifact\.artifactId/);
+  assert.doesNotMatch(printTarget, /printArtifact\(html: string, paginationCss: string\)/);
+  assert.match(pipeline, /printTarget\.printArtifact\(result\.artifact\)/);
+  assert.match(artifactRenderer, /renderPdfArtifactContent/);
+  assert.match(printTarget, /renderPdfArtifactContent\(doc, artifact\)/);
+  assert.match(controller, /renderPdfArtifactContent\(document, outcome\.result\.artifact\)/);
+});
+
+test('printing reuses only the matching artifact rendered by the paginated preview', () => {
+  assert.match(controller, /getPdfArtifact\(artifactKey: PdfArtifactKey\)/);
+  assert.match(controller, /this\.pdfArtifacts\.get\(artifactKey\)/);
+  assert.match(controller, /this\.pdfArtifacts\.replace\(outcome\.result\.artifact\)/);
+  assert.match(editorManager, /getPreparedPdfArtifact\(input: PdfPreviewJob\)/);
+  assert.match(setup, /const preparedArtifact = editorManager\.getPreparedPdfArtifact\(input\)/);
+  assert.match(setup, /await printTarget\.printArtifact\(preparedArtifact\)/);
+  assert.match(setup, /if \(preparedArtifact\) \{[\s\S]*?printArtifact\(preparedArtifact\)[\s\S]*?return;[\s\S]*?const \{ IsolatedPdfPreviewPipeline \} = await loadPdfPreviewPipeline\(\)/);
 });

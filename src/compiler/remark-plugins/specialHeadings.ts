@@ -49,14 +49,18 @@ export const specialHeadingsPlugin: Plugin<[], Root> = () => tree => {
 function replaceWithPageBreak(node: any): void {
   node.tagName = 'div';
   node.children = [];
-  node.properties = { ...(node.properties || {}), className: ['section-break'] };
+  node.properties = {
+    ...(node.properties || {}),
+    className: ['section-break'],
+    dataExplicitPageBreak: 'true'
+  };
 }
 
 function createPageBreakNode(): any {
   return {
     type: 'element',
     tagName: 'div',
-    properties: { className: ['section-break'] },
+    properties: { className: ['section-break'], dataExplicitPageBreak: 'true' },
     children: []
   };
 }

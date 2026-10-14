@@ -12,6 +12,10 @@ export const previewPanelTemplate = (): string => `
         <span class="status-dot"></span>
         ${toolbarButton({ id: 'btn-full-doc', variant: 'icon-text', classes: ['is-active'], ariaLabel: 'Merged preview', title: 'Merged preview', icon: previewEyeIconMarkup(), content: '<span class="toolbar-button-label">Preview</span>', attributes: { 'aria-pressed': 'true' } })}
       </div>
+      <div class="panel-actions">
+        ${toolbarButton({ id: 'btn-preview-page-setup', variant: 'icon', ariaLabel: 'Page setup', title: 'Page setup', icon: materialIcon('tune'), attributes: { 'aria-controls': 'page-setup-drawer' } })}
+        ${toolbarButton({ id: 'btn-preview-styles', variant: 'icon', ariaLabel: 'Styles', title: 'Styles', icon: materialIcon('palette'), attributes: { 'aria-controls': 'styles-drawer' } })}
+      </div>
     </div>
 
     <div class="preview-scroll-container panel-content">

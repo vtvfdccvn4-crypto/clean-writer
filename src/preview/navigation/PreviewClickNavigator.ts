@@ -34,7 +34,9 @@ export class PreviewClickNavigator {
   }
 
   private readonly handleClick = (event: MouseEvent): void => {
-    if (event.defaultPrevented || !this.index || !(event.target instanceof Element)) return;
+    if (event.defaultPrevented || !(event.target instanceof Element)) return;
+    if (navigatePreviewFragment(event, event.target, this.container)) return;
+    if (!this.index) return;
     if (shouldIgnorePreviewClick(event.target)) return;
 
     const selection = window.getSelection();
@@ -43,6 +45,15 @@ export class PreviewClickNavigator {
     const target = resolvePreviewClickTarget(event.target, this.index.getTargets());
     if (target) this.onNavigateToSourceLine(target.entry.range.startLine, target);
   };
+}
+
+/** Resolves an internal link against the installed preview, never against a stale or hidden source clone. */
+export function resolvePreviewFragmentTarget(container: HTMLElement, href: string): HTMLElement | null {
+  if (!href.startsWith('#') || href.length === 1) return null;
+  const id = decodeFragment(href.slice(1));
+  const matches = Array.from(container.querySelectorAll<HTMLElement>('[id]'))
+    .filter(candidate => candidate.id === id);
+  return matches.find(candidate => Boolean(candidate.closest('.pagedjs_page_content'))) ?? matches[0] ?? null;
 }
 
 /** Resolves the most specific source-backed rendered block containing a click. */
@@ -84,6 +95,26 @@ function chooseClosestTarget(clickedElement: Element, matches: readonly Committe
 
 function shouldIgnorePreviewClick(element: Element): boolean {
   return Boolean(element.closest('a, button, input, select, textarea, [data-preview-click-navigation-ignore]'));
+}
+
+function navigatePreviewFragment(event: MouseEvent, element: Element, container: HTMLElement): boolean {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+  const link = element.closest<HTMLAnchorElement>('a[href^="#"]');
+  if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return false;
+  const href = link.getAttribute('href') ?? '';
+  const target = resolvePreviewFragmentTarget(container, href);
+  if (!target) return false;
+  event.preventDefault();
+  target.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+  return true;
+}
+
+function decodeFragment(fragment: string): string {
+  try {
+    return decodeURIComponent(fragment);
+  } catch {
+    return fragment;
+  }
 }
 
 function elementDistance(descendant: Element, ancestor: Element): number {

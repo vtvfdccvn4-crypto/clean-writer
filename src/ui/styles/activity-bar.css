@@ -30,8 +30,11 @@
   border: 0;
   border-radius: var(--ui-radius-sm);
   background: transparent;
-  color: var(--ui-app-chrome-text);
+  color: var(--ui-text-muted);
   cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .activity-bar-button svg {
@@ -45,13 +48,33 @@
   font-size: 24px;
 }
 
-.activity-bar-button:hover,
+.activity-bar-button {
+  position: relative;
+}
+
+.activity-bar-button:hover {
+  background: var(--ui-surface-subtle);
+  color: var(--ui-text);
+}
+
 .activity-bar-button.is-active {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--ui-brand-tint);
+  color: var(--ui-brand);
+}
+
+.activity-bar-button.is-active::before {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--ui-brand);
+  content: '';
 }
 
 .activity-bar-button:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline: 2px solid var(--ui-focus-ring);
   outline-offset: -2px;
 }
 

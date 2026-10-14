@@ -6,6 +6,10 @@ import { previewMetrics } from '../perf/preview-metrics';
 
 import type { PreviewSourceManifestEntry } from '../compiler/rehype-plugins';
 import type { PdfPreviewFrameTimings, PdfPreviewJob } from '../pdf-preview/contracts';
+import { PdfArtifactStore } from '../pdf-preview/PdfArtifactStore';
+import { renderPdfArtifactContent, createPdfArtifactStyle } from '../pdf-preview/PdfArtifactRenderer';
+import type { PdfArtifact } from '../pdf-preview/PdfArtifact';
+import type { PdfArtifactKey } from '../pdf-preview/PdfRenderSnapshot';
 import { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
 import { PreviewNavigationCoordinator } from './navigation/PreviewNavigationCoordinator';
 import { PreviewClickNavigator } from './navigation/PreviewClickNavigator';
@@ -56,12 +60,14 @@ export class PreviewController {
   private lastSourceManifest: readonly PreviewSourceManifestEntry[] = [];
   private lastSourceRevision: number | null = null;
   private liveRenderGeneration = 0;
+  private readonly pdfArtifacts = new PdfArtifactStore();
 
   constructor(container: HTMLElement, options: PreviewControllerOptions = {}) {
     this.container = container;
     this.mode = options.mode ?? 'live';
     this.createIsolatedJob = options.createIsolatedJob;
     this.isolatedPaginationHost = options.paginationHost ?? new IsolatedPaginationHost();
+    this.isolatedPaginationHost.prewarm();
     this.liveRenderer = this.mode === 'live' ? new LivePreviewRenderer(container) : null;
     this.container.classList.toggle('is-live-preview', this.mode === 'live');
     this.container.parentElement?.classList.toggle('is-live-preview-scroll', this.mode === 'live');
@@ -105,6 +111,11 @@ export class PreviewController {
     this.viewport.updateZoomScale();
   }
 
+  /** Returns only an artifact whose full compiled input exactly matches the caller's job. */
+  public getPdfArtifact(artifactKey: PdfArtifactKey): PdfArtifact | null {
+    return this.pdfArtifacts.get(artifactKey);
+  }
+
   public applyPageSetup(setup: PageSetup, renderCachedDocument = true) {
     if (JSON.stringify(this.currentPageSetup) === JSON.stringify(setup)) return;
     const previousSetup = this.currentPageSetup;
@@ -144,6 +155,17 @@ export class PreviewController {
     applyImagePreviewStyle();
   }
 
+  /** Rebuilds the final preview when a print-layout input outside PageSetup changes. */
+  public refreshPaginatedPreview(): void {
+    if (this.mode !== 'paginated' || !this.createIsolatedJob || !this.lastCompiledHtml) return;
+    void this.forceRenderIsolated(
+      this.createIsolatedJob(this.lastCompiledHtml, this.currentPageSetup),
+      this.lastCompiledHtml,
+      this.lastSourceManifest,
+      this.lastSourceRevision
+    );
+  }
+
   /** Apply physical-page guides calculated by the isolated paginator. */
   public setCanonicalPageBreakGuides(guides: readonly CanonicalPageBreakGuide[]): void {
     this.liveRenderer?.setPageBreakGuides(guides);
@@ -161,6 +183,7 @@ export class PreviewController {
 
   public clear() {
     this.invalidatePendingRender();
+    this.pdfArtifacts.clear();
     this.lastCompiledHtml = '';
     this.lastSourceManifest = [];
     this.lastSourceRevision = null;
@@ -186,6 +209,7 @@ export class PreviewController {
     this.viewport.dispose();
     this.liveRenderer?.clear();
     this.clearIsolatedPaginationStyle();
+    this.isolatedPaginationHost.dispose();
   }
 
   /** Cancels superseded work without changing the cached document. */
@@ -299,6 +323,7 @@ export class PreviewController {
         return { status: 'degraded', pageCount: 0, error: new Error(outcome.message) };
       }
 
+      this.pdfArtifacts.replace(outcome.result.artifact);
       onPageTimings?.(outcome.result.pageTimings ?? []);
       if (outcome.result.frameTimings) {
         onPaginationStats?.({
@@ -307,20 +332,19 @@ export class PreviewController {
         });
       }
 
-      this.installIsolatedPaginationStyle(outcome.result.paginationCss);
+      this.installIsolatedPaginationStyle(outcome.result.artifact);
       const parseStartedAt = performance.now();
-      const artifact = document.createElement('template');
-      artifact.innerHTML = outcome.result.html;
+      const artifactContent = renderPdfArtifactContent(document, outcome.result.artifact);
       onPaginationPhase?.('parse-artifact', Math.round(performance.now() - parseStartedAt));
 
       const installStartedAt = performance.now();
-      this.commitPreparedPages(artifact.content, onPaginationPhase);
+      this.commitPreparedPages(artifactContent, onPaginationPhase);
       onPaginationPhase?.('install-pages', Math.round(performance.now() - installStartedAt));
 
       const indexStartedAt = performance.now();
       this.isolatedCommittedPreviewIndex = CommittedPreviewIndex.build(this.container, sourceManifest);
       onPaginationPhase?.('build-navigation-index', Math.round(performance.now() - indexStartedAt));
-      const result: RenderResult = { status: 'rendered', pageCount: outcome.result.pageCount };
+      const result: RenderResult = { status: 'rendered', pageCount: outcome.result.artifact.pageCount };
       this.updatePageIndicator();
       this.commitNavigation(sourceRevision, result);
       return result;
@@ -335,6 +359,10 @@ export class PreviewController {
 
   public scrollToTop() {
     this.viewport.scrollToTop();
+  }
+
+  public setViewportResizeSuspended(suspended: boolean): void {
+    this.viewport.setResponsiveZoomSuspended(suspended);
   }
 
   public navigateToSourceLine(line: number, sourceRevision: number) {
@@ -441,12 +469,11 @@ export class PreviewController {
     if (sourceRevision !== null) this.navigation.commitRender(sourceRevision, index);
   }
 
-  private installIsolatedPaginationStyle(css: string): void {
+  private installIsolatedPaginationStyle(artifact: PdfArtifact): void {
     this.clearIsolatedPaginationStyle();
     document.head.querySelectorAll('style[data-pagedjs-inserted-styles]').forEach(style => style.remove());
-    const style = document.createElement('style');
+    const style = createPdfArtifactStyle(document, artifact);
     style.dataset.clearWriterIsolatedPagination = 'true';
-    style.textContent = css;
     document.head.appendChild(style);
     this.isolatedPaginationStyle = style;
   }

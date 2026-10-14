@@ -35,12 +35,12 @@ export const DEFAULT_PAGE_SETUP: PageSetup = {
   toc: {
     maxLevel: 6,
     lineHeight: 1.2,
-    h1: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 14, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
-    h2: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 13, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
-    h3: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 12, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
-    h4: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
-    h5: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
-    h6: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
+    h1: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 14, indentation: 0, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
+    h2: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 13, indentation: 19.5, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
+    h3: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 12, indentation: 36, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
+    h4: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, indentation: 49.5, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
+    h5: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, indentation: 66, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
+    h6: { fontFamily: DEFAULT_BODY_FONT_FAMILY, fontSize: 11, indentation: 82.5, color: '#000000', isBold: false, isItalic: false, isAllCaps: false },
   },
   specialHeadings: [{
     id: 'exercise', name: 'Exercise', directive: ':::exercise', headingLevel: 3,

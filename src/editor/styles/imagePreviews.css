@@ -26,8 +26,8 @@
   display: inline-flex;
   width: min(320px, calc(100% - 8px));
   margin-left: 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--ui-text) 10%, var(--ui-surface));
-  border-radius: 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
   overflow: hidden;
   background: var(--ui-surface);
   vertical-align: middle;
@@ -56,12 +56,12 @@
   display: flex;
   width: 100%;
   box-sizing: border-box;
-  background: #f7f5ef;
+  background: var(--ui-surface);
 }
 
 .cm-image-preview-header {
   padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--ui-text) 5%, var(--ui-surface));
+  border-bottom: 1px solid var(--ui-border-subtle);
   color: var(--ui-text-muted, currentColor);
   font-size: 0.75rem;
   font-weight: 600;
@@ -73,12 +73,12 @@
   width: 100%;
   padding: 0.5rem;
   box-sizing: border-box;
-  background: #fff;
+  background: var(--ui-canvas);
 }
 
 .cm-image-preview-footer {
   padding: 0.4rem 0.5rem;
-  border-top: 1px solid color-mix(in srgb, var(--ui-text) 5%, var(--ui-surface));
+  border-top: 1px solid var(--ui-border-subtle);
 }
 
 .cm-image-preview-width {
@@ -90,8 +90,8 @@
   width: 4.5rem;
   padding: 0.08rem 0.25rem;
   border: 1px solid var(--ui-border);
-  border-radius: 3px;
-  background: transparent;
+  border-radius: 4px;
+  background: var(--ui-canvas);
   color: inherit;
   font: inherit;
 }
@@ -118,9 +118,9 @@
   justify-content: center;
   padding: 0;
   border: 1px solid var(--ui-border);
-  border-radius: 3px;
-  background: transparent;
-  color: #6b7280;
+  border-radius: 4px;
+  background: var(--ui-canvas);
+  color: var(--ui-text-muted);
   cursor: pointer;
   font: inherit;
   line-height: 1;
@@ -135,7 +135,7 @@
 }
 
 .cm-image-preview-align-button[aria-pressed="true"] {
-  border-color: var(--ui-accent);
-  background: color-mix(in srgb, var(--ui-accent) 14%, transparent);
-  color: #4b5563;
+  border-color: color-mix(in srgb, var(--ui-brand) 35%, var(--ui-border));
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand-strong);
 }

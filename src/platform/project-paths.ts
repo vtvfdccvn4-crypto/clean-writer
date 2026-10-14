@@ -1,7 +1,7 @@
 import type { ProjectSettingsData } from '../types';
 import { normalizeExplorerPath, replacePathPrefix } from '../utils/path-utils';
 
-export const PATH_SETTING_KEYS = [
+const PATH_SETTING_KEYS = [
   'order',
   'pageBreaks',
   'hiddenHeaders',
@@ -10,7 +10,7 @@ export const PATH_SETTING_KEYS = [
   'tocSections'
 ] as const;
 
-export function uniqueProjectPaths(values: string[] | undefined): string[] {
+function uniqueProjectPaths(values: string[] | undefined): string[] {
   if (!Array.isArray(values)) return [];
   return [...new Set(values.map(normalizeExplorerPath).filter(Boolean))];
 }

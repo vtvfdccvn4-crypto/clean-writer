@@ -53,7 +53,7 @@
   height: 100%;
   place-items: center;
   padding: 24px;
-  color: var(--ui-text-muted, currentColor);
+  color: var(--ui-text-muted);
   font: 500 12px var(--font-ui);
   text-align: center;
 }

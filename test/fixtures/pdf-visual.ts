@@ -1,5 +1,7 @@
 import { createIsolatedJob, countIsolatedFrames } from './helpers/isolated-pagination.ts';
 import { IsolatedPaginationHost } from '../../src/pdf-preview/IsolatedPaginationHost';
+import { createPdfArtifactStyle, renderPdfArtifactContent } from '../../src/pdf-preview/PdfArtifactRenderer';
+import { PreviewClickNavigator } from '../../src/preview/navigation/PreviewClickNavigator';
 import { state } from '../../src/state';
 import type { ListSetup, PageSetup, TypographySetup } from '../../src/types';
 
@@ -78,6 +80,7 @@ async function run() {
   });
   state.setFullDocMode();
   const html = `
+    <nav class="table-of-contents"><a class="toc-link" href="#forced-page-heading"><span class="toc-label">Forced page</span><span class="toc-leader"></span></a></nav>
     <section class="document-section" data-section-index="0" data-number-headings="true">
       <h1>Layout Contract</h1>
       <p><span class="visual-glyph">◆</span><strong>GLYPH_ANCHOR</strong> validates prefix alignment and Unicode rendering.</p>
@@ -86,7 +89,7 @@ async function run() {
     </section>
     <section class="document-section" data-section-index="1" data-number-headings="true">
       <div class="section-break" aria-hidden="true"></div>
-      <h1>Forced Section Page</h1>
+      <h1 id="forced-page-heading">Forced Section Page</h1>
       <p>PAGE_BREAK_ANCHOR must appear on the second physical page.</p>
       <p>The footer and header remain visible, aligned, and clear of body content.</p>
     </section>`;
@@ -98,7 +101,7 @@ async function run() {
   });
   const outcome = await new IsolatedPaginationHost().requestPrintArtifact(job);
   if (outcome.status !== 'success') throw new Error(`Isolated visual pagination failed: ${outcome.status}`);
-  const artifact = new DOMParser().parseFromString(outcome.result.html, 'text/html');
+  const artifact = new DOMParser().parseFromString(outcome.result.artifact.html, 'text/html');
   const pages = Array.from(artifact.querySelectorAll<HTMLElement>('.pagedjs_page'));
   const pageFor = (text: string) => pages.findIndex(page => page.textContent?.includes(text)) + 1;
   const generatedContent = (page: HTMLElement, selector: string) => {
@@ -108,6 +111,15 @@ async function run() {
   };
   const resolvedFooter = (page: HTMLElement) =>
     page.querySelector<HTMLElement>('.pagedjs_margin-bottom-center .pagedjs_margin-content')?.textContent?.trim() || '';
+  const stage = document.getElementById('stage')!;
+  stage.style.height = '180px';
+  stage.style.overflow = 'auto';
+  document.head.appendChild(createPdfArtifactStyle(document, outcome.result.artifact));
+  stage.appendChild(renderPdfArtifactContent(document, outcome.result.artifact));
+  const navigator = new PreviewClickNavigator(stage, () => undefined);
+  const tocLink = stage.querySelector<HTMLAnchorElement>('.toc-link');
+  tocLink?.click();
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   window.__HARNESS_RESULT__ = {
     ok: true,
     renderStatus: 'rendered',
@@ -115,11 +127,15 @@ async function run() {
     glyphPage: pageFor('GLYPH_ANCHOR'),
     forcedBreakPage: pageFor('PAGE_BREAK_ANCHOR'),
     headersPresent: pages.every(page => generatedContent(page, '.pagedjs_margin-top-center .pagedjs_margin-content').includes('Regression Spec')),
+    installedHeadersPresent: Array.from(stage.querySelectorAll<HTMLElement>('.pagedjs_page')).every(page => page.querySelector('.pagedjs_margin-top-center .pagedjs_margin-content')?.textContent?.includes('Regression Spec')),
     footersPresent: pages.every(page => generatedContent(page, '.pagedjs_margin-bottom-left .pagedjs_margin-content').includes('VISUAL QA')),
     chapterFootersResolved: pages.every((page, index) => resolvedFooter(page) === `Chapter  - Page ${index + 1}`),
+    tocPageNumber: stage.querySelector('.toc-page-number')?.textContent ?? '',
+    tocLinkScrolled: stage.scrollTop > 0,
     scrollHeight: artifact.documentElement.scrollHeight,
     orphanedFrames: countIsolatedFrames()
   };
+  navigator.destroy();
 }
 
 run().catch(error => {

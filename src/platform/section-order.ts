@@ -11,7 +11,7 @@ export interface CalculatedSectionMove {
   kind: SectionMoveKind;
 }
 
-export function canonicalizeSectionOrder(entries: FileNode[], preferredOrder: string[] = []): string[] {
+function canonicalizeSectionOrder(entries: FileNode[], preferredOrder: string[] = []): string[] {
   const preferredIndex = new Map<string, number>();
   preferredOrder.forEach((entry, index) => {
     const normalized = normalizeExplorerPath(entry);

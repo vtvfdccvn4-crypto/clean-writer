@@ -2,6 +2,18 @@ const CACHE_BUSTER = new URL(self.location.href).searchParams.get('v') || 'v3';
 const CACHE_NAME = `clear-writer-shell-${CACHE_BUSTER}`;
 const ASSET_ROOT_PATH = new URL('assets/', self.registration.scope).pathname;
 
+// The shell files that must survive offline, as scope-relative paths.
+// `install` caches exactly this list and `pruneStaleAssets` walks it to find the
+// hashed assets still in use, so the two must never drift apart.
+const APP_SHELL = [
+  new URL('./', self.registration.scope).pathname,
+  new URL('index.html', self.registration.scope).pathname,
+  new URL('favicon.svg', self.registration.scope).pathname,
+  new URL('icon-192.png', self.registration.scope).pathname,
+  new URL('icon-512.png', self.registration.scope).pathname,
+  new URL('manifest.webmanifest', self.registration.scope).pathname
+];
+
 function isScopedAsset(url) {
   return url.origin === self.location.origin && url.pathname.startsWith(ASSET_ROOT_PATH);
 }
@@ -60,27 +72,23 @@ async function pruneStaleAssets() {
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
-    const scope = self.registration.scope;
-    const appShell = [
-      scope,
-      new URL('index.html', scope).pathname,
-      new URL('favicon.svg', scope).pathname,
-      new URL('icon-192.png', scope).pathname,
-      new URL('icon-512.png', scope).pathname,
-      new URL('manifest.webmanifest', scope).pathname
-    ];
     const cache = await caches.open(CACHE_NAME);
-    await cache.addAll(appShell);
+    await cache.addAll(APP_SHELL);
   })());
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-    )).then(() => pruneStaleAssets()).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)));
+    // Pruning is an optimisation. It must never stop the new worker from taking
+    // control of open pages, so a failure here is reported and then ignored.
+    await pruneStaleAssets().catch(error => {
+      console.warn('[Clear Writer] Pruning stale cached assets failed:', error);
+    });
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', event => {
@@ -95,7 +103,10 @@ self.addEventListener('fetch', event => {
       fetch(request).then(response => {
         if (response.ok) {
           const copy = response.clone();
-          void caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).then(() => pruneStaleAssets());
+          void caches.open(CACHE_NAME)
+            .then(cache => cache.put(request, copy))
+            .then(() => pruneStaleAssets())
+            .catch(error => console.warn('[Clear Writer] Refreshing the cached shell failed:', error));
         }
         return response;
       }).catch(() => caches.match(request))

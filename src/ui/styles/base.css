@@ -1,0 +1,47 @@
+/* Element defaults for the light theme. Components refine these through their
+   own classes; nothing here sets layout. */
+body {
+  background: var(--ui-canvas);
+  color: var(--ui-text);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--ui-brand) 22%, transparent);
+}
+
+button {
+  background-color: transparent;
+  color: inherit;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background-color: var(--ui-canvas);
+  color: var(--ui-text);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: color-mix(in srgb, var(--ui-text-muted) 75%, transparent);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--ui-brand);
+  outline: 2px solid var(--ui-focus-ring);
+  outline-offset: 0;
+}
+
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: var(--ui-brand);
+}
+
+a {
+  color: var(--ui-brand);
+}

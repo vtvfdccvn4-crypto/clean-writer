@@ -54,7 +54,7 @@ async function run() {
     if (outcome.status !== 'success') throw new Error(`Cycle ${cycle} pagination failed: ${outcome.status}`);
     
     // Check page count immediately after rendering
-    const pageCount = outcome.result.pageCount;
+    const pageCount = outcome.result.artifact.pageCount;
     
     // Call GC and yield to task queue
     await forceGC();

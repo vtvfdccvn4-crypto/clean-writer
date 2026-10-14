@@ -1,5 +1,6 @@
 import { IsolatedPaginationHost } from '../../../src/pdf-preview/IsolatedPaginationHost';
 import type { PdfPreviewJob } from '../../../src/pdf-preview/contracts';
+import { PDF_RENDER_COMPILER_VERSION } from '../../../src/pdf-preview/PdfRenderSnapshot';
 import type { HeaderFooterRow, ProjectMetadata } from '../../../src/types';
 
 const emptyMetadata: ProjectMetadata = {
@@ -25,8 +26,18 @@ export function createIsolatedJob(
   return {
     html,
     css: options.css ?? '@page { size: A4; margin: 20mm; } body { font: 11pt serif; }',
+    artifactPrintCss: '@media print { @page { size: A4; margin: 0; } }',
+    key: {
+      compilerVersion: PDF_RENDER_COMPILER_VERSION,
+      document: html,
+      stylesheet: options.css ?? '@page { size: A4; margin: 20mm; } body { font: 11pt serif; }',
+      margins: '{}',
+      assets: '[]'
+    },
+    listMarkerStyles: { bulletIcon: 'decimal', parenthesized: { bulletIcon: 'decimal' } },
     margins: options.margins ?? { header: row(''), footer: row(''), metadata: emptyMetadata },
-    marginImageSources: options.marginImageSources ?? {}
+    marginImageSources: options.marginImageSources ?? {},
+    assets: []
   };
 }
 

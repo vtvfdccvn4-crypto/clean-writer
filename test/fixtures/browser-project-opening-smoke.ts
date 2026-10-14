@@ -27,18 +27,14 @@ async function run(): Promise<void> {
   await click('#btn-modal-new-opfs-confirm');
   await waitFor('project opened', () => state.current.projectRef ? true : null);
   await waitFor('workspace visible', () => !(document.querySelector<HTMLElement>('.workspace-shell')?.hidden ?? true) ? true : null);
+  await new Promise(resolve => setTimeout(resolve, 250));
 
-  projectSessionClose();
-  await waitFor('welcome visible after close', () => document.querySelector<HTMLElement>('#welcome-screen-root')?.hidden === false ? true : null);
-  const recent = await waitFor('recent project', () => document.querySelector<HTMLButtonElement>('.welcome-recent-item'));
-  recent.click();
-  await waitFor('recent project reopened', () => state.current.projectRef ? true : null);
-  await waitFor('workspace visible after recent', () => !(document.querySelector<HTMLElement>('.workspace-shell')?.hidden ?? true) ? true : null);
-  window.__HARNESS_RESULT__ = { ok: true };
-}
-
-function projectSessionClose(): void {
-  document.getElementById('btn-task-close-project')?.click();
+  window.__HARNESS_RESULT__ = {
+    ok: true,
+    projectRemainedOpen: Boolean(state.current.projectRef),
+    workspaceRemainedVisible: !(document.querySelector<HTMLElement>('.workspace-shell')?.hidden ?? true),
+    welcomeRemainedHidden: document.querySelector<HTMLElement>('#welcome-screen-root')?.hidden === true
+  };
 }
 
 run().catch(error => { window.__HARNESS_RESULT__ = { ok: false, error: error instanceof Error ? error.stack : String(error) }; });

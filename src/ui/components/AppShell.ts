@@ -1,15 +1,18 @@
+import { state } from '../../state';
 import { editorPanelTemplate } from './EditorPanel';
 import { previewPanelTemplate } from './PreviewPanel';
 import { taskPanelTemplate } from './TaskPanel';
 import { projectMetadataDrawerTemplate } from './ProjectMetadataDrawer';
 import { symbolPickerDrawerTemplate } from './SymbolPickerDrawer';
-import { settingsDrawerTemplate } from './SettingsDrawer';
+import { pageSetupDrawerTemplate, stylesDrawerTemplate } from './SettingsDrawer';
+import { editorPreferencesDrawerTemplate } from './PreferencesDrawer';
+import { shellPreferencesDrawerTemplate } from './ShellPreferencesDrawer';
 import { projectSearchDrawerTemplate } from './ProjectSearchDrawer';
 import { projectReviewDrawerTemplate } from './ProjectReviewDrawer';
 import { materialIcon } from './icon';
 import { toolbarButton } from './toolbarButton';
 
-function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'settings'): string {
+function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'preferences'): string {
   switch (kind) {
     case 'explorer':
       return materialIcon('account_tree');
@@ -17,12 +20,12 @@ function activityIconMarkup(kind: 'explorer' | 'images' | 'outline' | 'settings'
       return materialIcon('photo_library');
     case 'outline':
       return materialIcon('library_books');
-    case 'settings':
-      return materialIcon('build_circle');
+    case 'preferences':
+      return materialIcon('settings');
   }
 }
 
-export const appShellTemplate = (): string => `
+const appShellTemplate = (): string => `
   <div id="app-layout" class="app-layout">
     <header class="app-bar">
       <div class="brand">
@@ -57,8 +60,8 @@ export const appShellTemplate = (): string => `
                 ${activityIconMarkup('outline')}
               </button>
             </div>
-            <button class="activity-bar-button activity-bar-settings" id="btn-activity-settings" type="button" aria-label="Settings" title="Settings">
-              ${activityIconMarkup('settings')}
+            <button class="activity-bar-button activity-bar-settings" id="btn-activity-preferences" type="button" aria-label="Shell preferences" title="Shell preferences" aria-controls="shell-preferences-drawer">
+              ${activityIconMarkup('preferences')}
             </button>
           </nav>
           <div id="task-panel">
@@ -69,6 +72,7 @@ export const appShellTemplate = (): string => `
             <div class="shared-panel-split shared-panel-split--editor">
               ${editorPanelTemplate()}
             </div>
+            <div id="editor-preview-resizer" class="editor-preview-resizer" role="separator" aria-orientation="vertical" aria-label="Resize editor and preview" tabindex="0"></div>
             <div class="shared-panel-split shared-panel-split--preview">
               ${previewPanelTemplate()}
             </div>
@@ -89,7 +93,10 @@ export const appShellTemplate = (): string => `
     </footer>
     <div id="drawer-container" class="drawer-container">
       <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
-      ${settingsDrawerTemplate()}
+      ${pageSetupDrawerTemplate()}
+      ${stylesDrawerTemplate()}
+      ${editorPreferencesDrawerTemplate()}
+      ${shellPreferencesDrawerTemplate()}
       ${projectSearchDrawerTemplate()}
       ${projectReviewDrawerTemplate()}
       ${projectMetadataDrawerTemplate()}
@@ -103,3 +110,13 @@ export const appShellTemplate = (): string => `
 export const renderAppShell = (root: HTMLElement): void => {
   root.innerHTML = appShellTemplate();
 };
+
+export function initProjectNameDisplay(): void {
+  const el = document.getElementById('project-name');
+  if (!el) return;
+  const update = () => {
+    el.textContent = state.current.projectRef?.displayName ?? 'No project open';
+  };
+  update();
+  state.onProjectChanged(update);
+}

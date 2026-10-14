@@ -1,6 +1,6 @@
 import '../style.css';
 import type { EditorManager } from '../ui/editor-manager';
-import { renderAppShell } from '../ui/components/AppShell';
+import { renderAppShell, initProjectNameDisplay } from '../ui/components/AppShell';
 import { initializeSymbolPicker } from '../ui/symbolPicker';
 import { projectSession } from '../services/ProjectSessionStore';
 import { registerServiceWorker } from '../sw-registration';
@@ -13,6 +13,7 @@ import { setupAppLifecycle } from './setupAppLifecycle';
 import { setupWritingWorkflow } from './setupWritingWorkflow';
 import { restoreInitialWorkspace } from './restoreInitialWorkspace';
 import { initTaskPanelResizer } from '../ui/task-panel-resizer';
+import { initEditorPreviewResizer } from '../ui/editor-preview-resizer';
 import { initTaskPanelActions } from '../ui/task-panel-actions';
 import { initTaskPanelViews } from '../ui/task-panel-views';
 
@@ -85,7 +86,9 @@ export async function bootApp(platform: Platform) {
   if (appContainer) {
     renderAppShell(appContainer);
   }
+  initProjectNameDisplay();
   initTaskPanelResizer();
+  initEditorPreviewResizer();
   initTaskPanelActions(platform);
 
   editorManager = new EditorManager(platform);
@@ -120,33 +123,37 @@ export async function bootApp(platform: Platform) {
   setupWritingWorkflow(editorManager);
 
   let settingsReady: Promise<void> | null = null;
-  const ensureSettings = async () => {
-    settingsReady ??= Promise.all([
-      import('../ui/settings-drawer'),
-      import('./setupSettingsFeatures')
-    ]).then(([{ initSettingsDrawer }, { setupSettingsFeatures }]) => {
-      initSettingsDrawer(false);
-      setupSettingsFeatures(platform, saveSettingsWithNotice, async (imageSetup) => {
-        try {
-          // Include the active editor's unsaved changes in the project-wide reset.
-          await editorManager.flushCurrentDocument();
-          const changed = await projectSession.resetImagePresentation(imageSetup);
-          changed.forEach(section => editorManager.replaceCurrentDocument(section.path, section.content));
-          showNotice(
-            changed.length === 0
-              ? 'Image settings saved. No existing image attributes needed updating.'
-              : `Image settings applied to ${changed.length} section${changed.length === 1 ? '' : 's'}.`
-          );
-        } catch (error) {
-          console.error('Image settings were not applied:', error);
-          showNotice(describeWorkspaceError(error, 'settings'), 'error');
-          throw error;
-        }
+  const loadSettingsFeatures = async () => {
+    settingsReady ??= import('./setupSettingsFeatures')
+      .then(({ setupSettingsFeatures }) => {
+        setupSettingsFeatures(platform, saveSettingsWithNotice, async (imageSetup) => {
+          try {
+            // Include the active editor's unsaved changes in the project-wide reset.
+            await editorManager.flushCurrentDocument();
+            const changed = await projectSession.resetImagePresentation(imageSetup);
+            changed.forEach(section => editorManager.replaceCurrentDocument(section.path, section.content));
+            showNotice(
+              changed.length === 0
+                ? 'Image settings saved. No existing image attributes needed updating.'
+                : `Image settings applied to ${changed.length} section${changed.length === 1 ? '' : 's'}.`
+            );
+          } catch (error) {
+            console.error('Image settings were not applied:', error);
+            showNotice(describeWorkspaceError(error, 'settings'), 'error');
+            throw error;
+          }
+        });
       });
-    });
     await settingsReady;
-    const { openSettingsDrawer } = await import('../ui/settings-drawer');
-    openSettingsDrawer();
+  };
+
+  const ensureSettings = async (targetId: string) => {
+    await loadSettingsFeatures();
+    const { openPageSetupDrawer, openStylesDrawer, openEditorPreferencesDrawer, openShellPreferencesDrawer } = await import('../ui/settings-drawer');
+    if (targetId === 'btn-preview-styles') openStylesDrawer();
+    else if (targetId === 'btn-editor-preferences') openEditorPreferencesDrawer();
+    else if (targetId === 'btn-activity-preferences') openShellPreferencesDrawer();
+    else openPageSetupDrawer();
   };
 
   let writingToolsReady: Promise<void> | null = null;
@@ -158,17 +165,32 @@ export async function bootApp(platform: Platform) {
 
   document.addEventListener('click', event => {
     const target = event.target instanceof Element
-      ? event.target.closest<HTMLElement>('#btn-activity-settings, #btn-activity-outline, #btn-open-project-search, #btn-open-project-review')
+      ? event.target.closest<HTMLElement>('#btn-preview-page-setup, #btn-preview-styles, #btn-editor-preferences, #btn-activity-preferences, #btn-project-metadata, #btn-activity-outline, #btn-open-project-search, #btn-open-project-review')
       : null;
     if (!target) return;
 
-    if (target.id === 'btn-activity-settings') {
+    if (target.id === 'btn-preview-page-setup' || target.id === 'btn-preview-styles' || target.id === 'btn-editor-preferences' || target.id === 'btn-activity-preferences') {
       event.preventDefault();
       event.stopImmediatePropagation();
-      void ensureSettings().catch(error => {
+      void ensureSettings(target.id).catch(error => {
         console.error('Clear Writer settings features failed to load:', error);
         showNotice('Settings are temporarily unavailable.', 'error');
       });
+      return;
+    }
+
+    // The metadata drawer's own click handler is registered by the lazy settings
+    // chunk, so bootstrap that chunk and replay the click once it is listening.
+    if (target.id === 'btn-project-metadata') {
+      if (settingsReady) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void loadSettingsFeatures()
+        .then(() => target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })))
+        .catch(error => {
+          console.error('Clear Writer settings features failed to load:', error);
+          showNotice('Settings are temporarily unavailable.', 'error');
+        });
       return;
     }
 

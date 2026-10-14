@@ -62,6 +62,7 @@ export function generateTocCss(
         color: ${style.color};
         font-weight: ${style.isBold ? 'bold' : 'normal'};
         font-style: ${style.isItalic ? 'italic' : 'normal'};
+        margin-left: ${style.indentation}pt;
       }
       ${toc} .toc-item.toc-level-${level} .toc-label {
         text-transform: ${style.isAllCaps ? 'uppercase' : 'none'};
@@ -73,12 +74,7 @@ export function generateTocCss(
     ${toc} { margin-bottom: 2em; }
     ${toc} .toc-list { list-style: none; padding-left: 0; }
     ${toc} .toc-item { margin: 0.2em 0; line-height: ${lineHeight}; }
-    ${toc} .toc-item.toc-level-1 { margin-left: 0; margin-top: 1em; }
-    ${toc} .toc-item.toc-level-2 { margin-left: 1.5em; }
-    ${toc} .toc-item.toc-level-3 { margin-left: 3em; }
-    ${toc} .toc-item.toc-level-4 { margin-left: 4.5em; }
-    ${toc} .toc-item.toc-level-5 { margin-left: 6em; }
-    ${toc} .toc-item.toc-level-6 { margin-left: 7.5em; }
+    ${toc} .toc-item.toc-level-1 { margin-top: 1em; }
     ${levelStyles}
     ${toc} .toc-link {
       display: flex;

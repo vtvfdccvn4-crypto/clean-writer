@@ -4,27 +4,13 @@ import { listsDrawerContentTemplate } from './ListsDrawer';
 import { tablesDrawerContentTemplate } from './TablesDrawer';
 import { imageSettingsDrawerContentTemplate } from './ImageSettingsDrawer';
 import { tocSetupDrawerContentTemplate } from './TocSetupDrawer';
-import { editorSettingsDrawerContentTemplate } from './EditorSettingsDrawer';
 import { specialHeadingsDrawerContentTemplate } from './SpecialHeadingsDrawer';
 import {
   customInlineStylesContentTemplate,
   customQuoteStylesContentTemplate
 } from './CustomStylesDrawerTemplate';
 
-const settingsTabs = [
-  ['page-setup', 'Page setup'],
-  ['typography', 'Typography styles'],
-  ['lists', 'Lists'],
-  ['tables', 'Tables'],
-  ['images', 'Images'],
-  ['toc', 'TOC'],
-  ['special-headings', 'Special headings'],
-  ['editor', 'Editor settings'],
-  ['inline-styles', 'Custom inline styles'],
-  ['quote-styles', 'Custom quote styles']
-] as const;
-
-const renderSettingsTab = (id: string, label: string, active = false): string => `
+const renderDrawerTab = (id: string, label: string, active = false): string => `
   <button
     class="settings-tab${active ? ' active' : ''}"
     type="button"
@@ -35,7 +21,7 @@ const renderSettingsTab = (id: string, label: string, active = false): string =>
   >${label}</button>
 `;
 
-const renderSettingsPanel = (id: string, content: string, active = false): string => `
+const renderDrawerPanel = (id: string, content: string, active = false): string => `
   <section
     id="settings-panel-${id}"
     class="settings-tab-panel${active ? '' : ' hidden'}"
@@ -46,31 +32,59 @@ const renderSettingsPanel = (id: string, content: string, active = false): strin
   </section>
 `;
 
-export const settingsDrawerTemplate = (): string => `
-  <aside id="settings-drawer" class="drawer settings-drawer hidden" aria-label="Settings">
+export const pageSetupDrawerTemplate = (): string => `
+  <aside id="page-setup-drawer" class="drawer settings-drawer hidden" aria-label="Page setup">
     <div class="drawer-header">
       <div class="drawer-title-block">
         <span class="drawer-eyebrow">Document</span>
-        <span>Settings</span>
+        <span>Page Setup</span>
       </div>
-      <button id="btn-close-settings-drawer" class="ui-button ui-button--icon-compact drawer-close-button" type="button" aria-label="Close settings">✕</button>
+      <button id="btn-close-page-setup-drawer" class="ui-button ui-button--icon-compact drawer-close-button" type="button" aria-label="Close page setup">✕</button>
     </div>
     <div class="settings-drawer-layout">
-      <nav class="settings-tab-list" role="tablist" aria-label="Settings sections">
-        ${settingsTabs.map(([id, label], index) => renderSettingsTab(id, label, index === 0)).join('')}
+      <nav class="settings-tab-list" role="tablist" aria-label="Page setup sections">
+        ${renderDrawerTab('page-setup', 'Page', true)}
+        ${renderDrawerTab('toc', 'Table of contents')}
+        ${renderDrawerTab('special-headings', 'Special headings')}
       </nav>
       <div class="settings-tab-panels">
-        ${renderSettingsPanel('page-setup', pageSetupDrawerContentTemplate(), true)}
-        ${renderSettingsPanel('typography', typographyDrawerContentTemplate())}
-        ${renderSettingsPanel('lists', listsDrawerContentTemplate())}
-        ${renderSettingsPanel('tables', tablesDrawerContentTemplate())}
-        ${renderSettingsPanel('images', imageSettingsDrawerContentTemplate())}
-        ${renderSettingsPanel('toc', tocSetupDrawerContentTemplate())}
-        ${renderSettingsPanel('special-headings', specialHeadingsDrawerContentTemplate())}
-        ${renderSettingsPanel('editor', editorSettingsDrawerContentTemplate())}
-        ${renderSettingsPanel('inline-styles', customInlineStylesContentTemplate())}
-        ${renderSettingsPanel('quote-styles', customQuoteStylesContentTemplate())}
+        ${renderDrawerPanel('page-setup', pageSetupDrawerContentTemplate(), true)}
+        ${renderDrawerPanel('toc', tocSetupDrawerContentTemplate())}
+        ${renderDrawerPanel('special-headings', specialHeadingsDrawerContentTemplate())}
       </div>
     </div>
   </aside>
 `;
+
+export const stylesDrawerTemplate = (): string => `
+  <aside id="styles-drawer" class="drawer settings-drawer hidden" aria-label="Styles">
+    <div class="drawer-header">
+      <div class="drawer-title-block">
+        <span class="drawer-eyebrow">Document</span>
+        <span>Styles</span>
+      </div>
+      <button id="btn-close-styles-drawer" class="ui-button ui-button--icon-compact drawer-close-button" type="button" aria-label="Close styles">✕</button>
+    </div>
+    <div class="settings-drawer-layout">
+      <nav class="settings-tab-list" role="tablist" aria-label="Style sections">
+        ${renderDrawerTab('typography', 'Typography', true)}
+        ${renderDrawerTab('lists', 'Lists')}
+        ${renderDrawerTab('tables', 'Tables')}
+        ${renderDrawerTab('images', 'Images')}
+        ${renderDrawerTab('inline-styles', 'Inline styles')}
+        ${renderDrawerTab('quote-styles', 'Block styles')}
+      </nav>
+      <div class="settings-tab-panels">
+        ${renderDrawerPanel('typography', typographyDrawerContentTemplate(), true)}
+        ${renderDrawerPanel('lists', listsDrawerContentTemplate())}
+        ${renderDrawerPanel('tables', tablesDrawerContentTemplate())}
+        ${renderDrawerPanel('images', imageSettingsDrawerContentTemplate())}
+        ${renderDrawerPanel('inline-styles', customInlineStylesContentTemplate())}
+        ${renderDrawerPanel('quote-styles', customQuoteStylesContentTemplate())}
+      </div>
+    </div>
+  </aside>
+`;
+
+/** @deprecated Use pageSetupDrawerTemplate() or stylesDrawerTemplate() instead. */
+export const settingsDrawerTemplate = pageSetupDrawerTemplate;

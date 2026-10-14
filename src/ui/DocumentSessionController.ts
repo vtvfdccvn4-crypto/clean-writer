@@ -6,11 +6,16 @@ type ViewState = { selectionFrom: number; selectionTo: number; scrollTop: number
 
 /** Owns the live CodeMirror instance, document identity, and per-document view state. */
 export class DocumentSessionController {
+  private readonly onEditorAvailabilityChanged: (available: boolean) => void;
   private editor: MarkdownEditor | null = null;
   private filePath: string | null = null;
   private projectRef: WorkspaceRef | null = null;
   private readonly viewStates: Record<string, ViewState> = {};
   private pendingFocusLine: { path: string; line: number } | null = null;
+
+  constructor(onEditorAvailabilityChanged: (available: boolean) => void = () => {}) {
+    this.onEditorAvailabilityChanged = onEditorAvailabilityChanged;
+  }
 
   get currentEditor(): MarkdownEditor | null {
     return this.editor;
@@ -30,16 +35,20 @@ export class DocumentSessionController {
         scrollTop: this.editor.view.scrollDOM.scrollTop
       };
     }
+    const wasAvailable = this.editor !== null;
     this.editor?.destroy();
     this.editor = null;
     this.filePath = null;
     this.projectRef = null;
+    if (wasAvailable) this.onEditorAvailabilityChanged(false);
   }
 
   activate(projectRef: WorkspaceRef, filePath: string, editor: MarkdownEditor): void {
+    const wasAvailable = this.editor !== null;
     this.editor = editor;
     this.filePath = filePath;
     this.projectRef = projectRef;
+    if (!wasAvailable) this.onEditorAvailabilityChanged(true);
   }
 
   clearPendingFocus(): void {

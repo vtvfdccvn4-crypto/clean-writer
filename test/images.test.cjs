@@ -11,6 +11,7 @@ let parseMarkdownImages;
 let parseEditorMarkdownImages;
 let getProjectImageLookupPaths;
 let resolveImageSource;
+let resolvePdfPreviewMarginText;
 let state;
 
 before(async () => {
@@ -22,6 +23,7 @@ before(async () => {
   ({ parseMarkdownImages } = await server.ssrLoadModule('/src/images/markdownImages.ts'));
   ({ parseEditorMarkdownImages } = await server.ssrLoadModule('/src/editor/markdown/parseMarkdownImage.ts'));
   ({ getProjectImageLookupPaths, resolveImageSource } = await server.ssrLoadModule('/src/images/imageSources.ts'));
+  ({ resolvePdfPreviewMarginText } = await server.ssrLoadModule('/src/pdf-preview/PdfPreviewMarginRenderer.ts'));
   ({ state } = await server.ssrLoadModule('/src/state.ts'));
 });
 
@@ -242,12 +244,56 @@ test('CSS header content preserves quotes and Windows image paths in one string 
   assert.equal(headerContentValue.children.toArray()[0].type, 'String');
   assert.match(css, /\.pagedjs_margin-content\.has-markdown-image::after\s*\{\s*content: none !important;/);
   assert.match(css, /\.toc-item\.toc-level-1\s*\{[^}]*font-family: "Georgia", serif;[^}]*font-size: 14pt;[^}]*color: #123456;[^}]*font-weight: bold;[^}]*font-style: italic;/s);
+  assert.match(css, /\.toc-item\.toc-level-1\s*\{[^}]*margin-left: 0pt;/s);
   assert.match(css, /\.toc-item\.toc-level-1 \.toc-label\s*\{[^}]*text-transform: uppercase;/s);
   assert.match(css, /\.toc-item\.toc-level-2\s*\{[^}]*font-family: "Arial", serif;[^}]*font-size: 10pt;[^}]*font-weight: normal;/s);
+  assert.match(css, /\.toc-item\.toc-level-2\s*\{[^}]*margin-left: 19\.5pt;/s);
   assert.match(css, /\.toc-item\.toc-level-2 \.toc-label\s*\{[^}]*text-transform: none;/s);
   assert.match(css, /\.toc-leader\s*\{[^}]*border-bottom: 1px dotted currentColor;/s);
   assert.match(css, /\.toc-link::after\s*\{[^}]*content: target-counter\(attr\(href\), page\);[^}]*text-align: right;/s);
   assert.doesNotMatch(css, /leader\(/);
+});
+
+test('page margins support current and total page counters', () => {
+  global.window = { location: { search: '' } };
+  state.setFullDocMode();
+  const cell = (content) => ({
+    content,
+    fontFamily: 'Inter',
+    fontSize: 9,
+    color: '#000',
+    isBold: false,
+    isItalic: false
+  });
+  const css = generatePageCss({
+    paperWidth: 210,
+    paperHeight: 297,
+    marginTop: 25,
+    marginRight: 20,
+    marginBottom: 25,
+    marginLeft: 20,
+    header: { centerWidth: '100px', left: cell(''), center: cell(''), right: cell('') },
+    footer: {
+      centerWidth: '100px',
+      left: cell(''),
+      center: cell(''),
+      right: cell('Page {page} of {pages}')
+    }
+  });
+
+  assert.match(css, /@bottom-right\s*\{\s*content: "Page " counter\(page\) " of " counter\(pages\)/);
+});
+
+test('PDF preview margin text resolves the total after pagination', () => {
+  const metadata = {
+    author: '', documentTitle: '', documentName: '', documentNumber: '', documentRevision: '',
+    documentType: '', productName: '', productModule: '', productVersion: ''
+  };
+
+  assert.equal(
+    resolvePdfPreviewMarginText('Page {page} of {pages}', { metadata }, 3, 12, ''),
+    'Page 3 of 12'
+  );
 });
 
 test('chapter-aware footers defer all content to the resolved page DOM', () => {

@@ -19,12 +19,14 @@ import { WelcomeController } from './WelcomeController';
 import { AppScreenController } from './AppScreenController';
 import { importPastedImage } from '../images/importPastedImage';
 import { createPrintLayoutSettings } from '../print/PrintLayoutSettings';
-import { PdfPreviewPageGuidePaginator } from '../pdf-preview/PdfPreviewPageGuidePaginator';
 import { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
-import { createPdfPreviewGuideJob, createPdfPreviewJob } from '../pdf-preview/PdfPreviewJobFactory';
+import { createPdfPreviewJob } from '../pdf-preview/PdfPreviewJobFactory';
+import type { PdfPreviewJob } from '../pdf-preview/contracts';
+import type { PdfArtifact } from '../pdf-preview/PdfArtifact';
 import type { CommittedPreviewTarget } from '../preview/navigation/CommittedPreviewIndex';
 import { PageGuideCoordinator, type PageGuideComputation, type PageGuideSnapshot } from './PageGuideCoordinator';
 import { createWelcomeProjectActions } from './WelcomeProjectActions';
+import { projectSession } from '../services/ProjectSessionStore';
 import { PreviewPhaseTimer } from '../perf/preview-phase-timer';
 import { previewMetrics } from '../perf/preview-metrics';
 
@@ -34,7 +36,9 @@ export class EditorManager {
   private pagedStage: HTMLElement;
   private previewPane: HTMLElement;
   private statsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly documentSession = new DocumentSessionController();
+  private readonly documentSession = new DocumentSessionController(
+    available => this.syncMarkdownToolbarAvailability(available)
+  );
   private readonly activation: DocumentActivationCoordinator;
   private readonly welcome: WelcomeController;
   private readonly screens: AppScreenController;
@@ -42,13 +46,13 @@ export class EditorManager {
   private readonly statusController = new EditorStatusController();
   private readonly saveCoordinator: EditorSaveCoordinator;
   private suppressPreviewSelectionNavigation = false;
-  /** A selected document opens in paginated form until the first edit. */
+  /** The selected document stays in the user-selected preview mode while editing. */
   private isFinalPrintPreview = true;
-  private canonicalEditTransitionInFlight: Promise<void> | null = null;
   private readonly pageGuides: PageGuideCoordinator;
   private pageGuideLayoutRevision = 0;
+  /** The screen currently on display, so screen syncs stay idempotent. */
+  private renderedScreen: 'welcome' | 'workspace' | null = null;
   private readonly isolatedPaginationHost = new IsolatedPaginationHost();
-  private readonly pdfPreviewPageGuidePaginator: PdfPreviewPageGuidePaginator;
   private latestCompiledPreview: {
     projectId: string;
     documentPath: string;
@@ -75,7 +79,6 @@ export class EditorManager {
       isCurrent: snapshot => this.isCurrentPageGuideSnapshot(snapshot),
       apply: guides => this.preview.setCanonicalPageBreakGuides(guides)
     });
-    this.pdfPreviewPageGuidePaginator = new PdfPreviewPageGuidePaginator(this.isolatedPaginationHost);
     const welcomeScreen = document.getElementById('welcome-screen-root')!;
     this.welcome = new WelcomeController({
       welcomeContainer: welcomeScreen,
@@ -100,7 +103,9 @@ export class EditorManager {
       reportError: error => console.error('[EditorManager] Save failed.', error),
       reportNavigationBlocked: () => showNotice('The current section could not be saved. Your changes remain open. Reconnect the project and try again before continuing.', 'error')
     });
-    this.setPreviewVisible(Boolean(state.current.projectRef));
+    this.setPreviewVisible(projectSession.isProjectPresent());
+    // The project lifecycle is the only authority on which screen shows.
+    projectSession.onStatusChanged(() => this.syncScreen());
 
     state.onEditorSetupChanged(() => {
       this.editorContainer.style.setProperty('--editor-font-size', state.current.editorSetup.fontSize);
@@ -119,22 +124,11 @@ export class EditorManager {
     });
     state.onProjectChanged(() => {
       this.clearCanonicalPageBreakGuides();
-      if (state.current.projectRef) {
-        // Switch screens as soon as the project is selected. Snapshot loading
-        // and document activation can continue asynchronously without leaving
-        // the welcome screen covering an already-open project.
-        this.welcome.destroy();
-        this.screens.showWorkspace();
-        this.setPreviewVisible(true);
-      } else {
-        this.setPreviewVisible(false);
-        this.screens.showWelcome();
-        this.welcome.render();
-      }
+      this.syncScreen();
     });
     state.onProjectSnapshotChanged(() => {
       this.applySnapshotSettings();
-      this.setPreviewVisible(Boolean(state.current.projectRef));
+      this.setPreviewVisible(projectSession.isProjectPresent());
       this.activation.request('project snapshot change');
     });
     state.onProjectTreeChanged(() => {
@@ -145,32 +139,43 @@ export class EditorManager {
       this.activation.request('settings snapshot change');
     });
     state.onPageSetupChanged(() => {
-      this.preview.applyPageSetup(state.current.pageSetup);
+      this.preview.applyPageSetup(state.current.pageSetup, false);
+      this.preview.schedulePaginatedRefresh();
       this.applyDocumentContentWidth();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onTypographySetupChanged(() => {
       this.preview.applyTypographySetup(state.current.typographySetup);
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onListSetupChanged(() => {
       this.preview.applyListSetup(state.current.listSetup);
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onTableSetupChanged(() => {
       this.preview.applyTableSetup(state.current.tableSetup);
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onImageSetupChanged(() => {
       this.preview.applyImageSetup(state.current.imageSetup);
+      this.preview.schedulePaginatedRefresh();
       this.scheduleCanonicalPageBreakGuides(true);
     });
     state.onProjectMetadataChanged(() => {
       this.scheduleCanonicalPageBreakGuides(true);
       this.activation.request('project metadata change');
     });
-    state.onCustomStylesChanged(() => this.scheduleCanonicalPageBreakGuides(true));
-    state.onCustomBlockStylesChanged(() => this.scheduleCanonicalPageBreakGuides(true));
+    state.onCustomStylesChanged(() => {
+      this.preview.schedulePaginatedRefresh();
+      this.scheduleCanonicalPageBreakGuides(true);
+    });
+    state.onCustomBlockStylesChanged(() => {
+      this.preview.schedulePaginatedRefresh();
+      this.scheduleCanonicalPageBreakGuides(true);
+    });
 
     // Apply initial defaults
     this.preview.applyPageSetup(state.current.pageSetup);
@@ -237,16 +242,18 @@ export class EditorManager {
     this.updateActiveSectionLabel(null);
     
     if (!isLatest()) return;
-    const { isFullDocMode, activeFile, projectRef } = state.current;
+    const { isFullDocMode, activeFile } = state.current;
 
-    if (!projectRef) {
+    if (!projectSession.isProjectPresent()) {
       this.renderEmptyWorkspace();
       return;
     }
 
-    this.welcome.destroy();
-    this.screens.showWorkspace();
-    this.setPreviewVisible(true);
+    this.syncScreen();
+
+    // A project is present but its snapshot has not been published yet. The
+    // activation loading it requests rendering again once it lands.
+    if (!state.current.projectRef) return;
 
     if (isFullDocMode) {
       await this.renderFullDocument(isLatest);
@@ -256,17 +263,49 @@ export class EditorManager {
 
   }
 
+  /**
+   * Puts the correct screen on display for the current project lifecycle.
+   *
+   * This is the only code that switches between the welcome screen and the
+   * workspace, and it reads the lifecycle rather than being told what to show,
+   * so no caller, however stale, can hide a project that is open or opening.
+   */
+  private syncScreen(): void {
+    const target = projectSession.isProjectPresent() ? 'workspace' : 'welcome';
+    if (target === this.renderedScreen) return;
+    this.renderedScreen = target;
+
+    if (target === 'workspace') {
+      this.welcome.destroy();
+      this.screens.showWorkspace();
+      this.setPreviewVisible(true);
+      return;
+    }
+
+    this.setPreviewVisible(false);
+    this.screens.showWelcome();
+    this.welcome.render();
+  }
+
   public renderEmptyWorkspace() {
+    // This method is also called by asynchronous startup/activation work. A
+    // project may have become present while that work was awaiting storage, so
+    // an obsolete empty-state render must neither tear down the live document
+    // nor cover the workspace.
+    if (projectSession.isProjectPresent()) {
+      this.syncScreen();
+      return;
+    }
+
+    this.syncMarkdownToolbarAvailability(false);
     this.clearCanonicalPageBreakGuides();
     this.preview.beginRevision();
-    this.setPreviewVisible(false);
     this.updateSaveStatus('idle');
     this.updateActiveSectionLabel(null);
     this.documentSession.clearPendingFocus();
     this.documentSession.destroyActive();
     this.latestCompiledPreview = null;
-    this.screens.showWelcome();
-    this.welcome.render();
+    this.syncScreen();
 
     this.preview.clear();
   }
@@ -410,7 +449,6 @@ export class EditorManager {
     // Callbacks for CodeMirror
     const callbacks = {
       onDirty: (newDoc: string) => {
-        if (this.isFinalPrintPreview) void this.enterCanonicalEditingMode();
         if (this.currentFilePath === filename && state.current.activeFile === filename) {
           DraftRecoveryStore.saveDraft(projectRef.id, filename, newDoc);
           this.updateSaveStatus('dirty');
@@ -426,7 +464,6 @@ export class EditorManager {
         }
       },
       onChange: async (newDoc: string) => {
-        if (this.canonicalEditTransitionInFlight) await this.canonicalEditTransitionInFlight;
         const changeRevision = this.preview.beginRevision();
         const sections = state.current.sections;
         const markdownToCompile = renderDocumentSection(
@@ -460,12 +497,22 @@ export class EditorManager {
               markdown: newDoc,
               compiled: compiledPreview
             };
-            this.preview.publish(compiledPreview, changeRevision);
+            if (this.isFinalPrintPreview) {
+              this.pageGuides.cancel();
+              void this.preview.forceRenderIsolated(
+                createPdfPreviewJob(compiledPreview.html, this.capturePrintLayout(), this.platform.assetResolver),
+                compiledPreview.html,
+                compiledPreview.manifest,
+                changeRevision
+              );
+            } else {
+              this.preview.publish(compiledPreview, changeRevision);
+            }
           })
           .catch(previewError => {
             console.warn(`[EditorManager] Preview refresh failed for ${filename}.`, previewError);
           });
-        this.scheduleCanonicalPageBreakGuides();
+        if (!this.isFinalPrintPreview) this.scheduleCanonicalPageBreakGuides();
 
         try {
           let saved = await session.writeSection(filename, newDoc);
@@ -565,6 +612,11 @@ export class EditorManager {
     return this.currentEditorView;
   }
 
+  /** Suspend preview-only viewport scaling while a workspace splitter moves. */
+  public setPreviewViewportResizeSuspended(suspended: boolean): void {
+    this.preview.setViewportResizeSuspended(suspended);
+  }
+
   /**
    * Resolves when the requested document activation has completed its editor,
    * preview, and view-state restoration phases.
@@ -609,6 +661,17 @@ export class EditorManager {
     if (!this.currentEditorView) return false;
     applyMarkdownCommand(this.currentEditorView.view, command);
     return true;
+  }
+
+  /**
+   * The Markdown toolbar sits above the editor pane and stays visible while a
+   * project has no open document, where every command is a silent no-op. The
+   * buttons ship disabled and only enable while an editor exists.
+   */
+  private syncMarkdownToolbarAvailability(available: boolean): void {
+    document.querySelectorAll<HTMLButtonElement>('[data-markdown-command]').forEach(button => {
+      button.disabled = !available;
+    });
   }
 
   public focusLine(line: number): void {
@@ -656,44 +719,6 @@ export class EditorManager {
     await this.flushCurrentDocument();
     if (!state.current.projectRef) return;
     state.setFullDocMode();
-  }
-
-  /** Switches the selected document from its initial print view into editing mode. */
-  private async enterCanonicalEditingMode(): Promise<void> {
-    if (!this.isFinalPrintPreview || this.canonicalEditTransitionInFlight) return;
-    const { projectRef, activeFile } = state.current;
-    const editor = this.currentEditorView;
-    if (!projectRef || !activeFile || !editor) return;
-
-    const transition = (async () => {
-      const guides = this.preview.getPaginatedPageBreakGuides();
-      const revision = this.preview.beginRevision();
-      this.isFinalPrintPreview = false;
-      this.syncFinalPrintPreviewToggle();
-      this.preview.setMode('live');
-      this.preview.clearVisiblePreview();
-
-      const cached = this.latestCompiledPreview;
-      const compiled = cached
-        && cached.projectId === projectRef.id
-        && cached.documentPath === activeFile
-        ? cached.compiled
-        : await this.preview.compileDocument(
-          renderDocumentSection({ path: activeFile, markdown: editor.getValue() }, state.current.sections, 0),
-          'single-document-load'
-        );
-      if (!this.preview.isCurrent(revision) || state.current.activeFile !== activeFile) return;
-      await this.preview.forceRender(compiled.html, compiled.manifest, revision);
-      if (!this.preview.isCurrent(revision) || state.current.activeFile !== activeFile) return;
-      if (guides.length > 0) this.preview.setCanonicalPageBreakGuides(guides);
-      this.scheduleCanonicalPageBreakGuides();
-    })();
-    this.canonicalEditTransitionInFlight = transition;
-    try {
-      await transition;
-    } finally {
-      if (this.canonicalEditTransitionInFlight === transition) this.canonicalEditTransitionInFlight = null;
-    }
   }
 
   /** Toggles the active section's canonical and final paginated preview forms. */
@@ -766,15 +791,15 @@ export class EditorManager {
   }
 
   /** Builds input for the isolated PDF preview pipeline. */
-  public async compilePdfPreviewInput(signal?: AbortSignal): Promise<{
-    html: string;
-    css: string;
-    margins: import('../pdf-preview/contracts').PdfPreviewMarginData;
-    marginImageSources: Record<string, string>;
-  }> {
+  public async compilePdfPreviewInput(signal?: AbortSignal): Promise<PdfPreviewJob> {
     const html = await this.compileExportSnapshot(signal);
     const layout = this.capturePrintLayout();
     return createPdfPreviewJob(html, layout, this.platform.assetResolver);
+  }
+
+  /** A matching paginated preview is already the final PDF rendering product. */
+  public getPreparedPdfArtifact(input: PdfPreviewJob): PdfArtifact | null {
+    return this.preview.getPdfArtifact(input.key);
   }
 
   private updateActiveSectionLabel(filename: string | null, customLabel?: string) {
@@ -856,21 +881,21 @@ export class EditorManager {
       if (signal.aborted) return { status: 'cancelled', guides: [] };
 
       const layout = this.capturePrintLayout();
-      const outcome = await this.pdfPreviewPageGuidePaginator.paginate(
-        createPdfPreviewGuideJob(compiled.html, layout),
+      const outcome = await this.isolatedPaginationHost.requestPrintArtifact(
+        createPdfPreviewJob(compiled.html, layout, this.platform.assetResolver),
+        undefined,
         signal
       );
       if (signal.aborted || outcome.status === 'cancelled') return { status: 'cancelled', guides: [] };
       if (outcome.status !== 'success') throw new Error(outcome.message);
-      const result = outcome.result;
-
       const manifestByAnchor = new Map(compiled.manifest.map(entry => [entry.anchor, entry]));
       return {
         status: 'rendered',
-        guides: result.pageBoundaries.map(boundary => ({
-        ...boundary,
-        sourceLine: manifestByAnchor.get(boundary.anchor)?.range.startLine
-        }))
+        guides: outcome.result.artifact.pages.flatMap(page => page.anchor ? [{
+          pageNumber: page.number,
+          anchor: page.anchor,
+          sourceLine: manifestByAnchor.get(page.anchor)?.range.startLine
+        }] : [])
       };
     } catch (error) {
       if (signal.aborted) return { status: 'cancelled', guides: [] };

@@ -1,3 +1,5 @@
+import { escapeAttribute } from '../../utils/escapeHtml';
+
 export type ToolbarButtonVariant = 'icon' | 'text' | 'icon-text';
 
 export interface ToolbarButtonOptions {
@@ -25,6 +27,3 @@ export function toolbarButton(options: ToolbarButtonOptions): string {
   return `<button ${attributes}>${options.icon ?? ''}${options.content ?? ''}</button>`;
 }
 
-function escapeAttribute(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}

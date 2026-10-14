@@ -24,7 +24,7 @@ type ActivePhaseStarts = Map<PreviewTimingPhase, number[]>;
 let operationSequence = 0;
 
 /** Creates an operation ID without requiring UUID support in older browsers. */
-export function createPreviewOperationId(): PreviewOperationId {
+function createPreviewOperationId(): PreviewOperationId {
   const randomUuid = globalThis.crypto?.randomUUID;
   if (randomUuid) return randomUuid.call(globalThis.crypto);
   operationSequence += 1;

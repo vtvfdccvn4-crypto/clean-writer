@@ -13,6 +13,22 @@ const fixtureTimeoutMs = Number(process.env.CLEAR_WRITER_SMOKE_TIMEOUT_MS ?? 60_
 
 const fixtures = [
   {
+    name: 'browser-custom-quote-cursor-smoke',
+    path: '/test/fixtures/browser-custom-quote-cursor-smoke.html',
+    viewport: { width: 900, height: 700, deviceScaleFactor: 1 },
+    validate(result) {
+      expect(result.ok === true, 'Custom quote cursor geometry smoke reported failure.');
+      expect(result.inheritsEditorFontSize === true, 'Custom quote lines did not inherit the configured editor font size.');
+      expect(result.usesMeasuredPadding === true, 'Custom quote spacing was not included in measured line geometry.');
+      expect(result.hasNoBottomPadding === true, 'Custom quote lines still have unwanted bottom padding.');
+      expect(result.avoidsUnmeasuredMargins === true, 'A custom quote line still uses unsupported vertical margins.');
+      expect(result.firstConfiguredStyleWins === true, 'Overlapping quote prefixes did not use deterministic configured order.');
+      expect(result.initialRoundTrips === true && result.exactClick === true, 'Click coordinates did not resolve to exact source positions.');
+      expect(result.wrappedRoundTrips === true, 'Wrapped custom quote lines corrupted cursor coordinates.');
+      expect(result.liveStyleRemeasured === true, 'Live quote-style changes were not remeasured.');
+    }
+  },
+  {
     name: 'preview-click-navigator-smoke',
     path: '/test/fixtures/preview-click-navigator-smoke.html',
     validate(result) {
@@ -26,6 +42,39 @@ const fixtures = [
     path: '/test/fixtures/browser-image-block-drag-smoke.html',
     validate(result) {
       expect(result.ok === true && result.moved === true, 'Long-press image block drag did not move the Markdown block.');
+    }
+  },
+  {
+    name: 'browser-editor-preview-resizer-smoke',
+    path: '/test/fixtures/browser-editor-preview-resizer-smoke.html',
+    viewport: { width: 1600, height: 900, deviceScaleFactor: 1 },
+    validate(result) {
+      expect(result.ok === true, 'Editor/preview resizer smoke reported failure.');
+      expect(result.separatorRole === 'separator' && result.separatorEnabled === true, 'Editor/preview separator is not accessible or enabled.');
+      expect(result.editorGrewOnDrag === true && result.previewShrankOnDrag === true, 'Dragging the editor/preview separator did not resize both panes.');
+      expect(result.keyboardResized === true, 'Keyboard resizing did not change the editor pane.');
+      expect(result.resetRestoredBalance === true, 'Double-click did not restore an even split.');
+      expect(result.persistedRatio === true, 'Editor/preview split ratio was not persisted.');
+      expect(result.previewScalePausedDuringDrag === true, 'Preview scale updated during separator dragging.');
+      expect(result.previewScaleSettledAfterDrag === true, 'Preview scale did not update after separator dragging ended.');
+    }
+  },
+  {
+    name: 'browser-table-helper-smoke',
+    path: '/test/fixtures/browser-table-helper-smoke.html',
+    validate(result) {
+      expect(result.ok === true && result.rendered === true, 'The table helper control did not render above a Markdown table.');
+      expect(result.renderedAboveTable === true, 'The table helper did not render inside the editor content.');
+      expect(result.columnGroups === 2, 'The table helper did not show one alignment group per column.');
+      expect(result.centred === true, 'Centring a column did not reach the delimiter row.');
+      expect(result.columnGroupsAfterEdits === 3, 'The table helper did not redraw after a column was added.');
+      expect(result.rowsAfterEdits === 4, 'Adding a row did not extend the table.');
+      expect(result.aligned === true, 'Helper edits did not leave the table source aligned.');
+      expect(result.preservedSurroundingText === true, 'Helper edits disturbed text around the table.');
+      expect(result.insertedColumns === true, 'The Table insert command did not build a three column starter table.');
+      expect(result.insertedRows === 4, 'The inserted table did not have a header, delimiter and two body rows.');
+      expect(result.keptExistingProse === true, 'The Table insert command discarded existing text.');
+      expect(result.insertedHelper === true, 'An inserted table did not get its own helper control.');
     }
   },
   {
@@ -43,6 +92,9 @@ const fixtures = [
     path: '/test/fixtures/browser-project-opening-smoke.html',
     validate(result) {
       expect(result.ok === true, 'Project opening smoke reported failure.');
+      expect(result.projectRemainedOpen === true, 'The first-run project closed after opening.');
+      expect(result.workspaceRemainedVisible === true, 'The workspace was hidden after the first-run project opened.');
+      expect(result.welcomeRemainedHidden === true, 'The welcome screen covered the first-run project after opening.');
     }
   },
   {
@@ -92,6 +144,8 @@ const fixtures = [
       if (typeof result.initialPageCount === 'number') {
         expect(result.initialPageCount > 0, 'Full-document preview did not render.');
         expect(result.pageSetupUsedIsolatedPipeline === true, 'Page setup did not trigger an isolated preview rerender.');
+        expect(result.finalPreviewStayedPaginated === true, 'Editing silently switched the final preview to continuous mode.');
+        expect(result.customHeaderUpdated === true, 'Custom header changes did not reach the installed preview.');
         expect(result.sourceNavigationAvailable === true, 'Preview source navigation target was unavailable.');
         expect(result.previewCleanAfterClose === true, 'Preview resources were not cleaned after project close.');
         return;
@@ -239,8 +293,11 @@ const fixtures = [
       expect(result.glyphPage === 1, `Expected glyph anchor on page 1, got ${result.glyphPage}.`);
       expect(result.forcedBreakPage === 2, `Expected forced page-break anchor on page 2, got ${result.forcedBreakPage}.`);
       expect(result.headersPresent === true, 'PDF visual smoke lost expected header content.');
+      expect(result.installedHeadersPresent === true, 'Installed preview pages lost expected header content.');
       expect(result.footersPresent === true, 'PDF visual smoke lost expected footer content.');
       expect(result.chapterFootersResolved === true, 'PDF visual smoke duplicated or lost the resolved chapter footer.');
+      expect(result.tocPageNumber === '2', `Expected the TOC to resolve page 2, got ${result.tocPageNumber}.`);
+      expect(result.tocLinkScrolled === true, 'The installed preview did not scroll when its TOC link was clicked.');
     }
   }
 ];

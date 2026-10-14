@@ -101,6 +101,13 @@ test('list CSS applies independently configured line heights', () => {
   assert.match(css, /ol\[data-marker="period"\] > li \{[\s\S]*?line-height: 1\.8 !important/);
 });
 
+test('loose-list paragraphs inherit the list metrics used by their markers', () => {
+  const css = generateListCss(listSetup());
+
+  assert.match(css, /ul\[data-marker="asterisk"\] > li > \.document-list-content > p \{[\s\S]*?font-size: inherit !important;[\s\S]*?line-height: inherit !important/);
+  assert.match(css, /ol\[data-marker="period"\] > li > \.document-list-content > p \{[\s\S]*?font-size: inherit !important;[\s\S]*?line-height: inherit !important/);
+});
+
 test('list CSS keeps configured vertical margins on first and last lists', () => {
   const css = generateListCss(listSetup({
     ulAsterisk: listStyle({ marginTop: 13, marginBottom: 17 }),

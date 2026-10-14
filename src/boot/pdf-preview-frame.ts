@@ -1,10 +1,10 @@
 import { materializePdfPreviewMargins } from '../pdf-preview/PdfPreviewMarginRenderer';
 import { paginatePreviewFrame } from '../pdf-preview/PdfPreviewFramePaginator';
-import { materializePdfPreviewListMarkers } from '../pdf-preview/PdfPreviewListMarkers';
+import { materializePdfListMarkers } from '../pdf-preview/PdfPreviewListMarkers';
 import { materializePdfPreviewTocPageNumbers } from '../pdf-preview/PdfPreviewTocPageNumbers';
+import { PDF_ARTIFACT_SCHEMA_VERSION, createPdfArtifact } from '../pdf-preview/PdfArtifact';
 import {
   PDF_PREVIEW_FRAME_READY,
-  type PdfPreviewGuideRequest,
   type PdfPreviewRenderRequest
 } from '../pdf-preview/contracts';
 
@@ -25,16 +25,30 @@ export function bootPdfPreviewFrame(): void {
           phase: 'paginate',
           pagesCompleted
         }, window.location.origin);
-      });
-      if (input.layout) materializePdfPreviewListMarkers(stage, input.layout);
+      }, source => materializePdfListMarkers(source, input.listMarkerStyles));
       materializePdfPreviewTocPageNumbers(stage);
       const marginMetrics = materializePdfPreviewMargins(stage, input.margins, input.marginImageSources);
       const artifactStartedAt = performance.now();
       const html = stage.innerHTML;
+      const pages = Array.from(stage.querySelectorAll<HTMLElement>('.pagedjs_page')).map((page, index) => {
+        const sourceElement = page.querySelector<HTMLElement>('[data-ref], [data-split-from]');
+        const anchor = sourceElement?.getAttribute('data-ref') ?? sourceElement?.getAttribute('data-split-from') ?? undefined;
+        return { number: index + 1, ...(anchor !== undefined ? { anchor } : {}) };
+      });
+      // Freeze the artifact here, after every page-dependent value has been
+      // materialized, so an incomplete render fails inside the frame.
+      const artifact = createPdfArtifact({
+        schemaVersion: PDF_ARTIFACT_SCHEMA_VERSION,
+        artifactId: crypto.randomUUID(),
+        key: input.key,
+        html,
+        css: pagination.paginationCss + '\n' + input.artifactPrintCss,
+        pageCount: pagination.pageCount,
+        pages
+      });
       const artifactSerializationMs = Math.round(performance.now() - artifactStartedAt);
       window.parent.postMessage({
-        type: 'clear-writer-pdf-preview-result', requestId, html,
-        paginationCss: pagination.paginationCss, pageCount: pagination.pageCount, paginationMs: pagination.durationMs,
+        type: 'clear-writer-pdf-preview-result', requestId, artifact, paginationMs: pagination.durationMs,
         frameTimings: {
           sourceInstallMs: pagination.sourceInstallMs,
           pagedJsInitializationMs: pagination.pagedJsInitializationMs,
@@ -56,27 +70,8 @@ export function bootPdfPreviewFrame(): void {
       }, window.location.origin);
     } catch (error) {
       window.parent.postMessage({
-        type: 'clear-writer-pdf-preview-result', requestId, html: '', paginationCss: '', pageCount: 0,
-        error: error instanceof Error ? error.message : String(error)
-      }, window.location.origin);
-    }
-  });
-
-  window.addEventListener('message', async (event: MessageEvent<PdfPreviewGuideRequest>) => {
-    if (event.origin !== window.location.origin || event.data?.type !== 'clear-writer-pdf-preview-guide-request') return;
-    const { requestId, input } = event.data;
-    try {
-      const pagination = await paginatePreviewFrame(stage, input.html, input.css);
-      const pageBoundaries = Array.from(stage.querySelectorAll<HTMLElement>('.pagedjs_page')).flatMap((page, index) => {
-        if (index === 0) return [];
-        const source = page.querySelector<HTMLElement>('[data-ref], [data-split-from]');
-        const anchor = source?.getAttribute('data-ref') ?? source?.getAttribute('data-split-from');
-        return anchor ? [{ pageNumber: index + 1, anchor }] : [];
-      });
-      window.parent.postMessage({ type: 'clear-writer-pdf-preview-guide-result', requestId, pageBoundaries, paginationMs: pagination.durationMs }, window.location.origin);
-    } catch (error) {
-      window.parent.postMessage({
-        type: 'clear-writer-pdf-preview-guide-result', requestId, pageBoundaries: [],
+        type: 'clear-writer-pdf-preview-result', requestId,
+        artifact: undefined as never,
         error: error instanceof Error ? error.message : String(error)
       }, window.location.origin);
     }

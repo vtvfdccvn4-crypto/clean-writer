@@ -1,4 +1,6 @@
 /** Owns the browser window used to display and print one completed PDF artifact. */
+import type { PdfArtifact } from './PdfArtifact';
+import { createPdfArtifactStyle, renderPdfArtifactContent } from './PdfArtifactRenderer';
 // Project assets are normally local/blob URLs and settle quickly. Keep a
 // short safety cap so a broken image or font cannot make the preview appear
 // frozen for ten seconds before the browser print dialog opens.
@@ -26,10 +28,10 @@ export class PdfPreviewPrintTarget {
     return new PdfPreviewPrintTarget(target);
   }
 
-  async printArtifact(html: string, paginationCss: string): Promise<PdfPreviewPrintTimings> {
+  async printArtifact(artifact: PdfArtifact): Promise<PdfPreviewPrintTimings> {
     try {
       const installStartedAt = performance.now();
-      installPrintDocument(this.target.document, html, paginationCss);
+      installPrintDocument(this.target.document, artifact);
       const installDocumentMs = Math.round(performance.now() - installStartedAt);
       const resourcesStartedAt = performance.now();
       await waitForPrintResources(this.target.document);
@@ -57,7 +59,7 @@ function installPreparingDocument(doc: Document): void {
   const title = doc.createElement('title');
   title.textContent = 'Clear Writer PDF Preview';
   const style = doc.createElement('style');
-  style.textContent = 'body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px system-ui,sans-serif;color:#263238;background:#f7f8f9}.status{padding:1rem 1.25rem;border:1px solid #d5d9dc;border-radius:.5rem;background:#fff;box-shadow:0 1px 4px #0001}';
+  style.textContent = 'body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px system-ui,sans-serif;color:#1d2433;background:#f3f5f8}.status{padding:1rem 1.25rem;border:1px solid #e2e6ec;border-left:3px solid #2f6fde;border-radius:.5rem;background:#fff;box-shadow:0 1px 2px #1018280d}';
   const status = doc.createElement('p');
   status.className = 'status';
   status.textContent = 'Preparing PDF preview…';
@@ -67,20 +69,19 @@ function installPreparingDocument(doc: Document): void {
   if (!doc.documentElement) doc.appendChild(root);
 }
 
-function installPrintDocument(doc: Document, html: string, paginationCss: string): void {
+function installPrintDocument(doc: Document, artifact: PdfArtifact): void {
   const root = doc.documentElement ?? doc.createElement('html');
   const head = doc.createElement('head');
   const body = doc.createElement('body');
   const title = doc.createElement('title');
   title.textContent = 'Clear Writer PDF Preview';
-  const paginationStyle = doc.createElement('style');
-  paginationStyle.textContent = paginationCss;
-  const printStyle = doc.createElement('style');
-  printStyle.textContent = '@page { margin: 0; } .pagedjs_page { break-after: page; } .pagedjs_page:last-child { break-after: auto; }';
+  const paginationStyle = createPdfArtifactStyle(doc, artifact);
   const stage = doc.createElement('main');
   stage.id = 'clear-writer-pdf-preview-document';
-  stage.innerHTML = html;
-  head.append(title, paginationStyle, printStyle);
+  stage.dataset.pdfArtifactId = artifact.artifactId;
+  stage.dataset.pdfArtifactPages = String(artifact.pageCount);
+  stage.appendChild(renderPdfArtifactContent(doc, artifact));
+  head.append(title, paginationStyle);
   body.appendChild(stage);
   root.replaceChildren(head, body);
   if (!doc.documentElement) doc.appendChild(root);

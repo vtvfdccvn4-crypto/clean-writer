@@ -8,14 +8,12 @@ const editor = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'editor-m
 
 test('PDF preview job factory owns immutable print-job assembly', () => {
   assert.match(factory, /createPdfPreviewJob/);
-  assert.match(factory, /createPdfPreviewGuideJob/);
-  assert.match(factory, /compilePrintDocument/);
-  assert.match(factory, /compilePrintCss/);
-  assert.match(factory, /resolveMarginImageSources/);
+  assert.match(factory, /createPdfRenderSnapshot/);
+  assert.doesNotMatch(factory, /createPdfArtifactSourceKey/);
 });
 
 test('EditorManager delegates PDF job assembly to the factory', () => {
   assert.match(editor, /createPdfPreviewJob\(html, layout, this\.platform\.assetResolver\)/);
-  assert.match(editor, /createPdfPreviewGuideJob\(compiled\.html, layout\)/);
+  assert.doesNotMatch(editor, /createPdfPreviewGuideJob/);
   assert.doesNotMatch(editor, /function collectPrintMarginImageSources/);
 });

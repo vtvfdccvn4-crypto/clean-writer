@@ -6,6 +6,8 @@
 - `extensions/editorBehavior.ts` owns one compartment per editor behavior preference.
 - `images/resolveEditorImageSource.ts` resolves standalone project images without creating a widget.
 - `extensions/imagePreviews.ts` inserts a bounded, non-replacing preview after standalone image syntax.
+- `extensions/tableHelpers.ts` inserts a non-replacing column and row builder above Markdown tables.
 - `imagePreviews.css` owns the preview thumbnail's size only.
+- `tableHelpers.css` owns the table helper's control block and the table row backdrop only.
 
 No UI or global stylesheet may target `.cm-*` selectors.

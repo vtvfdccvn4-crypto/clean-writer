@@ -48,7 +48,7 @@ window.__RUN_MEMORY_PROFILE__ = async ({ scenarios, samples }) => {
       // Re-trigger render
       const outcome = await paginateIsolated(scenario.html);
       if (outcome.status !== 'success') throw new Error(`Memory profile pagination failed: ${outcome.status}`);
-      pageCount = outcome.result.pageCount;
+      pageCount = outcome.result.artifact.pageCount;
 
       // Yield and run GC
       await forceGC();

@@ -4,12 +4,13 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 
 let server;
 let resolvePreviewClickTarget;
+let resolvePreviewFragmentTarget;
 let CommittedPreviewIndex;
 let collectVisiblePageSourceElements;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24687 } } });
-  ({ resolvePreviewClickTarget } = await server.ssrLoadModule('/src/preview/navigation/PreviewClickNavigator.ts'));
+  ({ resolvePreviewClickTarget, resolvePreviewFragmentTarget } = await server.ssrLoadModule('/src/preview/navigation/PreviewClickNavigator.ts'));
   ({ CommittedPreviewIndex, collectVisiblePageSourceElements } = await server.ssrLoadModule('/src/preview/navigation/CommittedPreviewIndex.ts'));
 });
 
@@ -62,6 +63,15 @@ test('returns no source target for preview areas without source metadata', () =>
   const unrelated = { contains: () => false };
 
   assert.equal(resolvePreviewClickTarget(clicked, [target(unrelated, 3)]), null);
+});
+
+test('resolves internal preview links to the visible paginated target', () => {
+  const hidden = { id: 'chapter', closest: () => null };
+  const visible = { id: 'chapter', closest: selector => selector === '.pagedjs_page_content' ? {} : null };
+  const container = { querySelectorAll: selector => selector === '[id]' ? [hidden, visible] : [] };
+
+  assert.equal(resolvePreviewFragmentTarget(container, '#chapter'), visible);
+  assert.equal(resolvePreviewFragmentTarget(container, '#missing'), null);
 });
 
 test('resolves a visible first-page clone through its stable source anchor', () => {

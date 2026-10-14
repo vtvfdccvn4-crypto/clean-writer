@@ -246,7 +246,7 @@ Should cover:
   - Preview guidelines.
   - Header and footer rows with left, center, and right cells.
   - Cell content, font family, size, color, bold, italic, and alignment.
-  - `{page}` placeholder and line breaks.
+  - `{page}` and `{pages}` placeholders and line breaks.
   - Per-section header/footer visibility.
   - Special heading definitions.
 - Typography styles:

@@ -5,12 +5,13 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 let server;
 let createPrintLayoutSettings;
 let compilePrintCss;
+let compilePdfArtifactPrintCss;
 let defaults;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24719 } } });
   ({ createPrintLayoutSettings } = await server.ssrLoadModule('/src/print/PrintLayoutSettings.ts'));
-  ({ compilePrintCss } = await server.ssrLoadModule('/src/print/PrintCssCompiler.ts'));
+  ({ compilePrintCss, compilePdfArtifactPrintCss } = await server.ssrLoadModule('/src/print/PrintCssCompiler.ts'));
   defaults = await server.ssrLoadModule('/src/config/defaults.ts');
 });
 
@@ -32,7 +33,7 @@ test('compiles paper geometry and body typography from the frozen print snapshot
     content: 'Document ${documentNumber} / {page}', fontFamily: 'Aptos Display', fontSize: 8,
     color: '#112233', isBold: true, isItalic: true, horizontalAlign: 'left', verticalAlign: 'top'
   };
-  pageSetup.toc.h2 = { fontFamily: 'Verdana', fontSize: 17, color: '#445566', isBold: true, isItalic: true, isAllCaps: true };
+  pageSetup.toc.h2 = { fontFamily: 'Verdana', fontSize: 17, indentation: 27, color: '#445566', isBold: true, isItalic: true, isAllCaps: true };
   typographySetup.h1 = { fontFamily: 'Calibri', fontSize: 29, color: '#123456', isBold: false, isItalic: true, lineHeight: 1.8, marginTop: 21, marginBottom: 13 };
   tableSetup.table1.verticalAlign = 'middle';
 
@@ -72,19 +73,22 @@ test('compiles paper geometry and body typography from the frozen print snapshot
   assert.match(css, /custom-block-style\[data-custom-block-id="callout"\]/);
   assert.match(css, /font-family: "Cambria"/);
   assert.match(css, /line-height: 1\.6/);
+  assert.match(css, /margin-top: 7pt/);
+  assert.match(css, /margin-bottom: 9pt/);
   assert.match(css, /custom-block-glyph/);
   assert.match(css, /\[data-print-break-before="true"\]/);
   assert.match(css, /break-before: page/);
   assert.doesNotMatch(css, /special-heading\[data-special-heading-id=/);
   assert.match(css, /font-family: "Verdana"/);
+  assert.match(css, /\.toc-level-2\s*\{[^}]*margin-left: 27pt;/s);
   assert.match(css, /table-of-contents/);
   assert.match(css, /\.toc-leader\s*\{[^}]*border-bottom: 1px dotted currentColor;/s);
-  assert.match(css, /\.toc-page-number\s*\{[^}]*min-width: 2ch;[^}]*text-align: right;/s);
+  assert.match(css, /\.toc-page-number\s*\{[^}]*flex: 0 0 4ch;[^}]*inline-size: 4ch;[^}]*text-align: right;/s);
   assert.doesNotMatch(css, /target-counter\(/);
   assert.match(css, /data-print-break-before/);
 });
 
-test('does not import preview defaults or browser-level page breaks', () => {
+test('print stylesheet preserves list-marker and empty-cell geometry', () => {
   const layout = createPrintLayoutSettings({
     pageSetup: structuredClone(defaults.DEFAULT_PAGE_SETUP),
     typographySetup: structuredClone(defaults.DEFAULT_TYPOGRAPHY_SETUP),
@@ -96,7 +100,27 @@ test('does not import preview defaults or browser-level page breaks', () => {
   });
   const css = compilePrintCss(layout);
 
-  assert.doesNotMatch(css, /break-after:\s*page/);
+  assert.match(css, /document-list-marker \{[\s\S]*?line-height: 1\.4/);
+  assert.match(css, /document-list-content > p \{[\s\S]*?font-size: inherit;[\s\S]*?line-height: inherit/);
+  assert.match(css, /table\[data-table-style="1"\] td:empty::before \{[\s\S]*?content: "\\00a0"/);
+  assert.match(css, /table\[data-table-style="1"\] td:empty::before \{[\s\S]*?min-height: 1\.2em/);
+});
+
+test('keeps artifact print policy separate from Paged.js input CSS', () => {
+  const layout = createPrintLayoutSettings({
+    pageSetup: structuredClone(defaults.DEFAULT_PAGE_SETUP),
+    typographySetup: structuredClone(defaults.DEFAULT_TYPOGRAPHY_SETUP),
+    listSetup: structuredClone(defaults.DEFAULT_LIST_SETUP),
+    tableSetup: structuredClone(defaults.DEFAULT_TABLE_SETUP),
+    imageSetup: structuredClone(defaults.DEFAULT_IMAGE_SETUP),
+    projectMetadata: structuredClone(defaults.DEFAULT_PROJECT_METADATA),
+    customStyles: [], customBlockStyles: [], sections: []
+  });
+  const css = compilePrintCss(layout);
+
+  assert.doesNotMatch(css, /@media print/);
+  const artifactCss = compilePdfArtifactPrintCss(layout);
+  assert.match(artifactCss, /@media print[\s\S]*?\.pagedjs_page \{ break-after: page; \}/);
   assert.doesNotMatch(css, /page-break-after/);
   assert.doesNotMatch(css, /paged-stage\.is-live-preview/);
   assert.doesNotMatch(css, /@(top|bottom)-(left|center|right)\s*\{/);

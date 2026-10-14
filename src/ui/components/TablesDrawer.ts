@@ -11,14 +11,8 @@ const renderTableStyle = (prefix: string, title: string, secondary = false) => `
         ${renderDrawerControl('Font family', `<select id="${prefix}-font">${renderFontFamilyOptions()}</select>`)}
         ${renderDrawerControl('Font size (pt)', renderDrawerSizeSelect(`${prefix}-font-size`, 10))}
       </div>
-      ${renderDrawerControl('Vertical alignment', `
-        <select id="${prefix}-vertical-align">
-          <option value="top">Top</option>
-          <option value="middle">Middle</option>
-          <option value="bottom">Bottom</option>
-        </select>
-      `)}
       ${renderDrawerControl('Bold header', renderDrawerSwitchControl(`${prefix}-header-bold`, 'Bold header'))}
+      ${renderDrawerControl('Cell alignment', `<select id="${prefix}-vertical-align"><option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option></select>`)}
       <div class="drawer-grid drawer-grid-2">
         ${renderDrawerControl('Header text', renderDrawerColorControl(`${prefix}-header-text-color`, 'Header text colour', '#FFFFFF'))}
         ${renderDrawerControl('Header background', renderDrawerColorControl(`${prefix}-header-background`, 'Header background colour', secondary ? '#E8ECE8' : '#405A78'))}
@@ -39,6 +33,6 @@ export const tablesDrawerContentTemplate = (): string => `
     <div class="drawer-body">
       ${renderTableStyle('table-1', 'Table style 1')}
       ${renderTableStyle('table-2', 'Table style 2', true)}
-      <button id="btn-apply-tables" class="ui-button ui-button--block" type="button">Apply settings</button>
+      <button id="btn-apply-tables" class="ui-button ui-button--block ui-button--primary" type="button">Apply settings</button>
     </div>
 `;

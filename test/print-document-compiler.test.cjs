@@ -70,6 +70,23 @@ test('breaks a later H1 even when it belongs to the first section', () => {
   assert.deepEqual(compiled.breakManifest[0].reasons, ['h1']);
 });
 
+test('preserves explicit page-break directives while removing legacy section markers', () => {
+  const source = '<div class="document-section" data-section-path="one.md"><p>Before</p><div class="section-break" data-explicit-page-break="true"></div><p>After</p><div class="section-break">legacy</div></div>';
+  const compiled = compilePrintDocument(source, layout());
+
+  assert.match(compiled.html, /class="print-page-break"[^>]*data-print-break-before="true"/);
+  assert.doesNotMatch(compiled.html, /data-explicit-page-break|>legacy</);
+  assert.deepEqual(compiled.breakManifest.map(entry => entry.reasons), [['explicit']]);
+});
+
+test('deduplicates an explicit break immediately before an automatic heading break', () => {
+  const source = '<div class="document-section" data-section-path="two.md"><div class="section-break" data-explicit-page-break="true"></div><h1>Chapter</h1></div>';
+  const compiled = compilePrintDocument(source, layout());
+
+  assert.equal((compiled.html.match(/data-print-break-before="true"/g) ?? []).length, 1);
+  assert.deepEqual(compiled.breakManifest.map(entry => entry.reasons), [['explicit']]);
+});
+
 test('annotates image-only paragraphs without CSS :has()', () => {
   const source = '<div class="document-section" data-section-path="one.md"><p><img data-image-source="screen.png" src="file:///screen.png"></p></div>';
   const compiled = compilePrintDocument(source, layout());

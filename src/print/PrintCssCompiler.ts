@@ -1,5 +1,15 @@
-import type { ImageSetup, ListStyle, TableStyle, TocSetup, TypographyStyle } from '../types';
+import type { ImageSetup, TocSetup } from '../types';
 import type { PrintLayoutSettings } from './PrintLayoutSettings';
+import {
+  cssStringLiteral,
+  orderedListStructureCss,
+  tableScopedCss,
+  typographyElementCss,
+  unorderedListCss,
+  type DocumentCssScope,
+} from '../styles/document-style-css';
+
+const PRINT_SCOPE: DocumentCssScope = { scope: '.clear-writer-print-content' };
 
 /** Compiles the isolated stylesheet for the immutable print-layout snapshot. */
 export function compilePrintCss(layout: PrintLayoutSettings): string {
@@ -12,20 +22,20 @@ export function compilePrintCss(layout: PrintLayoutSettings): string {
       ${marginBoxes}
     }
     ${marginStyles}
-    ${typographyCss('p', layout.typography.paragraph)}
-    ${typographyCss('h1', layout.typography.h1)}
-    ${typographyCss('h2', layout.typography.h2)}
-    ${typographyCss('h3', layout.typography.h3)}
-    ${typographyCss('h4', layout.typography.h4)}
-    ${typographyCss('h5', layout.typography.h5)}
-    ${typographyCss('h6', layout.typography.h6)}
-    ${unorderedListCss('ul[data-marker="asterisk"]', layout.lists.ulAsterisk)}
-    ${unorderedListCss('ul[data-marker="dash"]', layout.lists.ulDash)}
-    ${unorderedListCss('ul[data-marker="plus"]', layout.lists.ulPlus)}
-    ${orderedListCss('ol[data-marker="period"]', layout.lists.ol)}
-    ${orderedListCss('ol[data-marker="paren"]', layout.lists.olParen)}
-    ${tableCss(1, layout.tables.table1)}
-    ${tableCss(2, layout.tables.table2)}
+    ${typographyElementCss('p', layout.typography.paragraph, PRINT_SCOPE)}
+    ${typographyElementCss('h1', layout.typography.h1, PRINT_SCOPE)}
+    ${typographyElementCss('h2', layout.typography.h2, PRINT_SCOPE)}
+    ${typographyElementCss('h3', layout.typography.h3, PRINT_SCOPE)}
+    ${typographyElementCss('h4', layout.typography.h4, PRINT_SCOPE)}
+    ${typographyElementCss('h5', layout.typography.h5, PRINT_SCOPE)}
+    ${typographyElementCss('h6', layout.typography.h6, PRINT_SCOPE)}
+    ${unorderedListCss('ul[data-marker="asterisk"]', layout.lists.ulAsterisk, PRINT_SCOPE)}
+    ${unorderedListCss('ul[data-marker="dash"]', layout.lists.ulDash, PRINT_SCOPE)}
+    ${unorderedListCss('ul[data-marker="plus"]', layout.lists.ulPlus, PRINT_SCOPE)}
+    ${orderedListStructureCss('ol[data-marker="period"]', layout.lists.ol, PRINT_SCOPE)}
+    ${orderedListStructureCss('ol[data-marker="paren"]', layout.lists.olParen, PRINT_SCOPE)}
+    ${tableScopedCss(1, layout.tables.table1, PRINT_SCOPE)}
+    ${tableScopedCss(2, layout.tables.table2, PRINT_SCOPE)}
     ${imageCss(layout.images)}
     ${layout.customStyles.map(customStyleCss).join('\n')}
     ${layout.customBlockStyles.map(style => customBlockStyleCss(style, layout.typography.paragraph)).join('\n')}
@@ -34,6 +44,22 @@ export function compilePrintCss(layout: PrintLayoutSettings): string {
     .clear-writer-print-content [data-print-break-before="true"] {
       break-before: page;
       page-break-before: always;
+    }
+  `;
+}
+
+/**
+ * The completed Paged.js pages are printed as physical sheets. Keep this
+ * output rule in the artifact stylesheet so print cannot silently add its own
+ * geometry or break policy after pagination has completed.
+ */
+export function compilePdfArtifactPrintCss(layout: PrintLayoutSettings): string {
+  return `
+    @media print {
+      @page { size: ${layout.paper.widthMm}mm ${layout.paper.heightMm}mm; margin: 0; }
+      html, body { margin: 0; padding: 0; }
+      .pagedjs_page { break-after: page; }
+      .pagedjs_page:last-child { break-after: auto; }
     }
   `;
 }
@@ -90,7 +116,6 @@ function marginStyleCss(layout: PrintLayoutSettings): string {
       overflow: hidden;
     }
     .pagedjs_margin-content.clear-writer-print-margin-content > img {
-      display: block;
       box-sizing: border-box;
       flex: 0 1 auto;
       min-width: 0;
@@ -112,107 +137,6 @@ function marginCells(layout: PrintLayoutSettings) {
     ['bottom-center', layout.footer.center.content],
     ['bottom-right', layout.footer.right.content]
   ] as const;
-}
-
-function typographyCss(selector: string, style: TypographyStyle): string {
-  return `
-    .clear-writer-print-content ${selector} {
-      font-family: ${cssString(style.fontFamily)};
-      font-size: ${style.fontSize}pt;
-      color: ${style.color};
-      font-weight: ${style.isBold ? 'bold' : 'normal'};
-      font-style: ${style.isItalic ? 'italic' : 'normal'};
-      line-height: ${style.lineHeight};
-      margin-top: ${style.marginTop}pt;
-      margin-bottom: ${style.marginBottom}pt;
-    }
-  `;
-}
-
-function listBaseCss(selector: string, style: ListStyle): string {
-  return `
-    .clear-writer-print-content ${selector} {
-      margin: 0;
-      margin-top: ${style.marginTop}pt;
-      margin-bottom: ${style.marginBottom}pt;
-      padding-inline-start: ${style.marginLeft}pt;
-      list-style: none;
-    }
-    .clear-writer-print-content ${selector} > li {
-      display: grid;
-      grid-template-columns: max-content minmax(0, 1fr);
-      column-gap: ${style.paddingLeft}pt;
-      padding: 0;
-      font-family: ${cssString(style.fontFamily)};
-      font-size: ${style.fontSize}pt;
-      color: ${style.color};
-      font-weight: ${style.isBold ? 'bold' : 'normal'};
-      font-style: ${style.isItalic ? 'italic' : 'normal'};
-      line-height: ${style.lineHeight};
-    }
-    .clear-writer-print-content ${selector} > li > .document-list-marker {
-      grid-column: 1;
-      grid-row: 1;
-      min-width: 0;
-      color: ${style.bulletColor || style.color || 'inherit'};
-      align-self: start;
-      display: inline-flex;
-      align-items: center;
-      min-height: 1em;
-      line-height: 1;
-    }
-    .clear-writer-print-content ${selector} > li > .document-list-content {
-      grid-column: 2;
-      grid-row: 1;
-      min-width: 0;
-    }
-    .clear-writer-print-content ${selector} > li > .document-list-content > :first-child { margin-top: 0; }
-    .clear-writer-print-content ${selector} > li > .document-list-content > :last-child { margin-bottom: 0; }
-  `;
-}
-
-function unorderedListCss(selector: string, style: ListStyle): string {
-  return `${listBaseCss(selector, style)}
-    .clear-writer-print-content ${selector} > li > .document-list-marker::before {
-      content: ${cssString(style.bulletIcon)};
-    }
-  `;
-}
-
-function orderedListCss(selector: string, style: ListStyle): string {
-  return listBaseCss(selector, style);
-}
-
-function tableCss(styleNumber: 1 | 2, style: TableStyle): string {
-  const selector = `.clear-writer-print-content table[data-table-style="${styleNumber}"]`;
-  return `
-    ${selector} {
-      width: 100%;
-      margin-top: ${style.marginTop}pt;
-      margin-bottom: ${style.marginBottom}pt;
-      border-collapse: collapse;
-      border-spacing: 0;
-      font-family: ${cssString(style.fontFamily)};
-      font-size: ${style.fontSize}pt;
-    }
-    ${selector} th, ${selector} td {
-      padding: ${style.cellPadding}pt;
-      border: ${style.borderWidth}pt solid ${style.borderColor};
-      vertical-align: ${style.verticalAlign};
-    }
-    ${selector} thead th {
-      color: ${style.headerTextColor};
-      background-color: ${style.headerBackground};
-      font-weight: ${style.headerBold ? 'bold' : 'normal'};
-    }
-    ${selector} tbody td {
-      color: ${style.bodyTextColor};
-      background-color: ${style.bodyBackground};
-    }
-    ${selector} tbody tr:nth-child(even) td {
-      background-color: ${style.alternateRowColor};
-    }
-  `;
 }
 
 function imageCss(image: ImageSetup): string {
@@ -240,7 +164,7 @@ function imageMarginCss(image: ImageSetup): string {
 
 function customStyleCss(style: PrintLayoutSettings['customStyles'][number]): string {
   return `
-    .clear-writer-print-content .custom-style[data-custom-style-id=${cssString(style.id)}] {
+    .clear-writer-print-content .custom-style[data-custom-style-id=${cssStringLiteral(style.id)}] {
       ${style.color ? `color: ${style.color};` : ''}
       font-weight: ${style.isBold ? 'bold' : 'normal'};
       font-style: ${style.isItalic ? 'italic' : 'normal'};
@@ -250,11 +174,11 @@ function customStyleCss(style: PrintLayoutSettings['customStyles'][number]): str
 
 function customBlockStyleCss(
   style: PrintLayoutSettings['customBlockStyles'][number],
-  paragraph: TypographyStyle
+  paragraph: PrintLayoutSettings['typography']['paragraph']
 ): string {
   return `
-    .clear-writer-print-content .custom-block-style[data-custom-block-id=${cssString(style.id)}] {
-      font-family: ${cssString(style.fontFamily)};
+    .clear-writer-print-content .custom-block-style[data-custom-block-id=${cssStringLiteral(style.id)}] {
+      font-family: ${cssStringLiteral(style.fontFamily)};
       font-size: ${style.fontSize}pt;
       ${style.color ? `color: ${style.color};` : ''}
       font-weight: ${style.isBold ? 'bold' : 'normal'};
@@ -263,11 +187,11 @@ function customBlockStyleCss(
       margin-top: ${style.marginTop ?? paragraph.marginTop}pt;
       margin-bottom: ${style.marginBottom ?? paragraph.marginBottom}pt;
     }
-    .clear-writer-print-content .custom-block-style[data-custom-block-id=${cssString(style.id)}] > .custom-block-icon {
+    .clear-writer-print-content .custom-block-style[data-custom-block-id=${cssStringLiteral(style.id)}] > .custom-block-icon {
       display: inline-block;
       margin-inline-end: .5em;
     }
-    .clear-writer-print-content .custom-block-style[data-custom-block-id=${cssString(style.id)}] > img.custom-block-glyph {
+    .clear-writer-print-content .custom-block-style[data-custom-block-id=${cssStringLiteral(style.id)}] > img.custom-block-glyph {
       width: 1em;
       height: 1em;
       object-fit: contain;
@@ -277,15 +201,17 @@ function customBlockStyleCss(
 }
 
 function tocCss(toc: TocSetup): string {
+  const defaultIndentations = [0, 19.5, 36, 49.5, 66, 82.5];
   const levels = ([1, 2, 3, 4, 5, 6] as const).map(level => {
     const style = toc[`h${level}`];
     return `
       .clear-writer-print-content .toc-level-${level} {
-        font-family: ${cssString(style.fontFamily)};
+        font-family: ${cssStringLiteral(style.fontFamily)};
         font-size: ${style.fontSize}pt;
         color: ${style.color};
         font-weight: ${style.isBold ? 'bold' : 'normal'};
         font-style: ${style.isItalic ? 'italic' : 'normal'};
+        margin-left: ${style.indentation ?? defaultIndentations[level - 1]}pt;
       }
       .clear-writer-print-content .toc-level-${level} .toc-label {
         text-transform: ${style.isAllCaps ? 'uppercase' : 'none'};
@@ -296,12 +222,7 @@ function tocCss(toc: TocSetup): string {
     .clear-writer-print-content .table-of-contents { margin-bottom: 2em; }
     .clear-writer-print-content .toc-list { margin: 0; padding: 0; list-style: none; }
     .clear-writer-print-content .toc-item { margin: .2em 0; line-height: ${toc.lineHeight}; }
-    .clear-writer-print-content .toc-level-1 { margin-left: 0; margin-top: 1em; }
-    .clear-writer-print-content .toc-level-2 { margin-left: 1.5em; }
-    .clear-writer-print-content .toc-level-3 { margin-left: 3em; }
-    .clear-writer-print-content .toc-level-4 { margin-left: 4.5em; }
-    .clear-writer-print-content .toc-level-5 { margin-left: 6em; }
-    .clear-writer-print-content .toc-level-6 { margin-left: 7.5em; }
+    .clear-writer-print-content .toc-level-1 { margin-top: 1em; }
     .clear-writer-print-content .toc-link {
       display: flex;
       align-items: baseline;
@@ -317,16 +238,13 @@ function tocCss(toc: TocSetup): string {
       transform: translateY(-0.2em);
     }
     .clear-writer-print-content .toc-page-number {
-      flex: 0 0 auto;
-      min-width: 2ch;
+      flex: 0 0 4ch;
+      inline-size: 4ch;
       text-align: right;
+      font-variant-numeric: tabular-nums;
     }
     ${levels}
   `;
-}
-
-function cssString(value: string): string {
-  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\n\r\f]/g, ' ')}"`;
 }
 
 function cssDimension(value: string): string {

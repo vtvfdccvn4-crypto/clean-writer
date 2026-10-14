@@ -1,7 +1,7 @@
 import type { HeaderFooterCell, ListStyle, PageSetup, SpecialHeadingDefinition, TableStyle, TocStyle, TypographySetup } from '../types';
 import { DEFAULT_BODY_FONT_FAMILY, DEFAULT_HEADER_FOOTER_FONT_FAMILY, DEFAULT_LIST_FONT_FAMILY } from '../config/font-families';
 
-export type ResolvedTocStyle = Required<Pick<TocStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'isAllCaps'>>;
+export type ResolvedTocStyle = Required<Pick<TocStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'isAllCaps' | 'indentation'>>;
 export type ResolvedTypographyStyle = Required<Pick<TypographySetup['paragraph'], 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'lineHeight' | 'marginTop' | 'marginBottom'>>;
 export type ResolvedListStyle = Required<Pick<ListStyle, 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic' | 'lineHeight' | 'bulletIcon' | 'bulletColor' | 'marginTop' | 'marginBottom' | 'marginLeft' | 'paddingLeft'>>;
 export type ResolvedHeaderFooterCell = Required<Pick<HeaderFooterCell, 'content' | 'fontFamily' | 'fontSize' | 'color' | 'isBold' | 'isItalic'>> & Pick<HeaderFooterCell, 'horizontalAlign' | 'verticalAlign'>;
@@ -25,31 +25,51 @@ export function resolveTypographyStyle(style: Partial<TypographySetup['paragraph
   };
 }
 
+/** Clamp a point measurement into the range list layout can render safely. */
+function listPoints(value: number | undefined, fallback: number): number {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? Math.max(0, Math.min(100, numericValue)) : fallback;
+}
+
 export function resolveListStyle(style: Partial<ListStyle> | undefined, fallbackFamily = DEFAULT_LIST_FONT_FAMILY): ResolvedListStyle {
   return {
     fontFamily: hexOr(style?.fontFamily, fallbackFamily),
-    fontSize: style?.fontSize ?? 11,
+    fontSize: listPoints(style?.fontSize, 11),
     color: hexOr(style?.color, '#000000'),
     isBold: !!style?.isBold,
     isItalic: !!style?.isItalic,
-    lineHeight: style?.lineHeight ?? 1.6,
+    lineHeight: Math.min(5, Math.max(0.5, Number(style?.lineHeight) || 1.6)),
     bulletIcon: style?.bulletIcon ?? '•',
     bulletColor: hexOr(style?.bulletColor, hexOr(style?.color, '#000000')),
-    marginTop: style?.marginTop ?? 0,
-    marginBottom: style?.marginBottom ?? 0,
-    marginLeft: style?.marginLeft ?? 20,
-    paddingLeft: style?.paddingLeft ?? 8
+    marginTop: listPoints(style?.marginTop, 0),
+    marginBottom: listPoints(style?.marginBottom, 0),
+    marginLeft: listPoints(style?.marginLeft, 20),
+    paddingLeft: listPoints(style?.paddingLeft, 8)
   };
 }
 
-export function resolveTocStyle(style: Partial<TocStyle> | undefined, fallbackFamily = DEFAULT_BODY_FONT_FAMILY): ResolvedTocStyle {
+export type TocHeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
+/** Per-level entry indent used when a TOC style omits its own indentation. */
+const DEFAULT_TOC_INDENTATION: readonly number[] = [0, 19.5, 36, 49.5, 66, 82.5];
+
+export function defaultTocIndentation(level: TocHeadingLevel): number {
+  return DEFAULT_TOC_INDENTATION[level - 1] ?? 0;
+}
+
+export function resolveTocStyle(
+  style: Partial<TocStyle> | undefined,
+  fallbackFamily = DEFAULT_BODY_FONT_FAMILY,
+  level: TocHeadingLevel = 1
+): ResolvedTocStyle {
   return {
     fontFamily: hexOr(style?.fontFamily, fallbackFamily),
     fontSize: style?.fontSize ?? 11,
     color: hexOr(style?.color, '#000000'),
     isBold: !!style?.isBold,
     isItalic: !!style?.isItalic,
-    isAllCaps: !!style?.isAllCaps
+    isAllCaps: !!style?.isAllCaps,
+    indentation: style?.indentation ?? defaultTocIndentation(level)
   };
 }
 
@@ -70,7 +90,6 @@ export function resolveTableStyle(style: Partial<TableStyle> | undefined, fallba
   return {
     fontFamily: hexOr(style?.fontFamily, fallbackFamily),
     fontSize: style?.fontSize ?? 10,
-    verticalAlign: style?.verticalAlign ?? 'top',
     headerTextColor: hexOr(style?.headerTextColor, '#FFFFFF'),
     headerBackground: hexOr(style?.headerBackground, '#405A78'),
     headerBold: !!style?.headerBold,
@@ -80,6 +99,7 @@ export function resolveTableStyle(style: Partial<TableStyle> | undefined, fallba
     borderColor: hexOr(style?.borderColor, '#808080'),
     borderWidth: style?.borderWidth ?? 0.75,
     cellPadding: style?.cellPadding ?? 6,
+    verticalAlign: style?.verticalAlign ?? 'top',
     marginTop: style?.marginTop ?? 8,
     marginBottom: style?.marginBottom ?? 12
   };
@@ -102,11 +122,11 @@ export function resolveSpecialHeadingStyle(style: Partial<SpecialHeadingDefiniti
 export function resolvePageTocStyles(pageSetup: PageSetup): Record<'h1'|'h2'|'h3'|'h4'|'h5'|'h6', ResolvedTocStyle> {
   const toc = pageSetup.toc;
   return {
-    h1: resolveTocStyle(toc?.h1),
-    h2: resolveTocStyle(toc?.h2),
-    h3: resolveTocStyle(toc?.h3),
-    h4: resolveTocStyle(toc?.h4),
-    h5: resolveTocStyle(toc?.h5),
-    h6: resolveTocStyle(toc?.h6)
+    h1: resolveTocStyle(toc?.h1, DEFAULT_BODY_FONT_FAMILY, 1),
+    h2: resolveTocStyle(toc?.h2, DEFAULT_BODY_FONT_FAMILY, 2),
+    h3: resolveTocStyle(toc?.h3, DEFAULT_BODY_FONT_FAMILY, 3),
+    h4: resolveTocStyle(toc?.h4, DEFAULT_BODY_FONT_FAMILY, 4),
+    h5: resolveTocStyle(toc?.h5, DEFAULT_BODY_FONT_FAMILY, 5),
+    h6: resolveTocStyle(toc?.h6, DEFAULT_BODY_FONT_FAMILY, 6)
   };
 }

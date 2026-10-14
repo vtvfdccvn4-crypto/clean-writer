@@ -1,7 +1,7 @@
 import { normalizeExplorerPath } from '../utils/path-utils';
 import type { AssetResolver } from '../platform/types';
 
-export const IMAGE_FALLBACK_SRC = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='100'><rect width='200' height='100' fill='%23fce4e4' stroke='%23f87171' stroke-width='2' stroke-dasharray='4'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%23ef4444'>Image Not Found</text></svg>";
+const IMAGE_FALLBACK_SRC ="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='100'><rect width='200' height='100' fill='%23fce4e4' stroke='%23f87171' stroke-width='2' stroke-dasharray='4'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%23ef4444'>Image Not Found</text></svg>";
 
 const URI_SCHEME = /^[a-z][a-z\d+.-]*:/i;
 

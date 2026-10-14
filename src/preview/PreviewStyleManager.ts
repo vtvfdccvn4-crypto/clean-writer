@@ -1,5 +1,7 @@
 import type { ListSetup, PageSetup, TableSetup, TypographySetup } from '../state';
-import { generateListCss, generateTableCss, generateTypographyCss } from './CssGenerator';
+import { generateTypographyCss } from './css/typography-css';
+import { generateListCss } from './css/list-css';
+import { generateTableCss } from './css/table-css';
 import { generateSpecialHeadingCss, generateTocCss } from './css/document-features-css';
 
 /** Shared live/print style application, deliberately independent of Paged.js. */

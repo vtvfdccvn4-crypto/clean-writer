@@ -1,21 +1,29 @@
+/* The symbol picker is a .drawer, so it inherits every --drawer-* token from
+   drawers.css. Only the tile grid is specific to it. */
+#symbol-picker {
+  --symbol-tile-size: 30px;
+  --symbol-tile-gap: var(--drawer-gap-xs);
+  --symbol-tile-glyph-size: 12pt;
+}
+
 .symbol-search-field {
   display: grid;
-  gap: 6px;
+  gap: var(--drawer-gap-sm);
   font-size: inherit;
 }
 
 .symbol-search-field input {
   width: 100%;
-  min-height: 30px;
+  min-height: var(--drawer-control-height);
   padding: 5px 8px;
-  border: 1px solid var(--ui-border-soft);
-  border-radius: 4px;
+  border: 1px solid var(--drawer-border);
+  border-radius: var(--drawer-radius-md);
   font-size: var(--drawer-font-size);
 }
 
 .symbol-picker-section {
   display: grid;
-  gap: 8px;
+  gap: var(--drawer-gap-md);
   margin-top: 0;
 }
 
@@ -23,7 +31,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--drawer-gap-lg);
 }
 
 .symbol-picker-section-head > :first-child,
@@ -40,62 +48,67 @@
 
 .symbol-picker-categories {
   display: grid;
-  gap: 10px;
+  gap: var(--drawer-gap-lg);
 }
 
 .symbol-group {
   display: grid;
-  gap: 6px;
+  gap: var(--drawer-gap-sm);
 }
 
 .symbol-grid {
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--symbol-tile-size), 1fr));
+  gap: var(--symbol-tile-gap);
+  align-content: start;
 }
 
 .symbol-tile {
   display: grid;
-  min-width: 0;
-  min-height: 32px;
   place-items: center;
+  aspect-ratio: 1 / 1;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: 4px;
+  border: 1px solid var(--drawer-divider);
+  border-radius: var(--drawer-radius-sm);
+  background: var(--drawer-control-surface);
+  color: var(--ui-text);
+  font: inherit;
   cursor: pointer;
   transition:
-    transform 120ms ease;
+    background-color var(--drawer-state-transition),
+    border-color var(--drawer-state-transition),
+    color var(--drawer-state-transition);
+}
+
+.symbol-tile[hidden] {
+  display: none;
+}
+
+.symbol-tile:hover,
+.symbol-tile:focus-visible {
+  border-color: color-mix(in srgb, var(--ui-brand) 35%, var(--drawer-border));
+  background: var(--ui-brand-tint);
+  color: var(--ui-brand-strong);
+}
+
+.symbol-tile:active {
+  border-color: var(--ui-brand);
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand-strong);
 }
 
 .symbol-tile-glyph {
   display: block;
+  font-size: var(--symbol-tile-glyph-size);
   line-height: 1;
+}
+
+.symbol-grid > .symbol-picker-empty {
+  grid-column: 1 / -1;
 }
 
 .symbol-picker-empty {
   margin: 0;
-}
-
-.drawer-details summary {
-  cursor: pointer;
-}
-
-.drawer-spacer {
-  min-height: 1px;
-}
-
-@media print {
-  .drawer-container {
-    display: none !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .drawer {
-    width: 100vw;
-  }
-
-  .drawer-grid-2,
-  .drawer-grid-3 {
-    grid-template-columns: 1fr;
-  }
 }

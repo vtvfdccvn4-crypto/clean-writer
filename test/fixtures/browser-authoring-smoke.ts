@@ -8,7 +8,10 @@ declare global {
     __CLEAR_WRITER_READY__?: boolean;
     __CLEAR_WRITER_BOOT_ERROR__?: string;
     clearWriterPerf?: { reset(): void; snapshot(): { buckets: Record<string, { count: number; lastMs: number }> } };
-    __CLEAR_WRITER_EDITOR_MANAGER__?: { openDocument(path: string): Promise<void> };
+    __CLEAR_WRITER_EDITOR_MANAGER__?: {
+      openDocument(path: string): Promise<void>;
+      replaceCurrentDocument(path: string, markdown: string): void;
+    };
   }
 }
 
@@ -51,6 +54,37 @@ async function run(): Promise<void> {
   }
   await waitFor('section created', () => state.current.activeFile === 'sections/AuthoringSection.md');
   await waitFor('current explorer item', () => document.querySelector('.task-explorer-item--file'));
+  await waitFor('initial single-document preview', () => document.querySelectorAll('.pagedjs_page').length > 0 ? true : null, 60_000);
+
+  window.clearWriterPerf?.reset();
+  window.__CLEAR_WRITER_EDITOR_MANAGER__?.replaceCurrentDocument(
+    'sections/AuthoringSection.md',
+    '# Authoring section\n\nUpdated final-preview content.'
+  );
+  await waitFor('edited final preview rerender', () => {
+    const stage = document.getElementById('paged-stage');
+    return renderCount() > 0
+      && document.querySelectorAll('.pagedjs_page').length > 0
+      && stage?.classList.contains('is-live-preview') === false
+      && stage.textContent?.includes('Updated final-preview content')
+      ? true
+      : null;
+  }, 60_000);
+  const finalPreviewStayedPaginated = document.getElementById('paged-stage')?.classList.contains('is-live-preview') === false;
+  const editedRenderCount = renderCount();
+  const header = state.current.pageSetup.header!;
+  state.setPageSetup({
+    ...state.current.pageSetup,
+    header: {
+      ...header,
+      center: { ...header.center, content: 'UPDATED PREVIEW HEADER' }
+    }
+  });
+  await waitFor('custom header preview rerender', () => renderCount() > editedRenderCount
+    && document.querySelector('.pagedjs_margin-top-center .pagedjs_margin-content')?.textContent?.includes('UPDATED PREVIEW HEADER')
+    ? true
+    : null, 60_000);
+  const customHeaderUpdated = true;
 
   window.clearWriterPerf?.reset();
   state.setFullDocMode();
@@ -84,6 +118,8 @@ async function run(): Promise<void> {
     initialRenderCount,
     pageSetupRenderCount,
     pageSetupUsedIsolatedPipeline: pageSetupRenderCount > initialRenderCount,
+    finalPreviewStayedPaginated,
+    customHeaderUpdated,
     sourceNavigationAvailable,
     previewCleanAfterClose: document.querySelectorAll('iframe[src*="pdf-preview"]').length === 0
   };

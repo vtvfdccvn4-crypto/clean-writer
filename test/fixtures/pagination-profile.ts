@@ -1,5 +1,6 @@
 import { IsolatedPaginationHost } from '../../src/pdf-preview/IsolatedPaginationHost';
 import type { PdfPreviewJob } from '../../src/pdf-preview/contracts';
+import { PDF_RENDER_COMPILER_VERSION } from '../../src/pdf-preview/PdfRenderSnapshot';
 
 type ProfileScenario = {
   name: string;
@@ -66,10 +67,10 @@ async function runScenario(scenario: ProfileScenario): Promise<ScaleResult> {
       diagnostics: createDiagnostic(outcome.status, outcome.diagnostics, initialHeapUsedBytes, progress, 'message' in outcome ? outcome.message : undefined)
     };
   }
-  const artifact = new DOMParser().parseFromString(outcome.result.html, 'text/html');
+  const artifact = new DOMParser().parseFromString(outcome.result.artifact.html, 'text/html');
   const pages = Array.from(artifact.querySelectorAll<HTMLElement>('.pagedjs_page'));
   const lastPage = pages.at(-1);
-  const pageCount = outcome.result.pageCount;
+  const pageCount = outcome.result.artifact.pageCount;
   const lastPageContainsSentinel = scenario.sentinel === undefined || lastPage?.textContent?.includes(scenario.sentinel) === true;
   const headerImageRendered = pages.every(page => page.querySelector('.pagedjs_margin-top-left img[src]') !== null);
   const expectsHeaderImage = scenario.layoutVariant === undefined
@@ -121,12 +122,22 @@ function createJob(scenario: ProfileScenario): PdfPreviewJob {
     // even if normal document-section markup changes in the editor compiler.
     html: scenario.html.replace(/<h1\b/gi, '<div class="scale-force-break"></div><h1'),
     css: layoutCss(scenario.layoutVariant),
+    key: {
+      compilerVersion: PDF_RENDER_COMPILER_VERSION,
+      document: scenario.html,
+      stylesheet: layoutCss(scenario.layoutVariant),
+      margins: '{}',
+      assets: '[]'
+    },
+    artifactPrintCss: '@media print { @page { size: A4; margin: 0; } }',
+    listMarkerStyles: { bulletIcon: 'decimal', parenthesized: { bulletIcon: 'decimal' } },
     margins: scenario.layoutVariant === 'no-margin-boxes'
       ? { header: row(''), footer: row(''), metadata: metadata() }
       : scenario.layoutVariant === 'all-margin-boxes'
         ? populatedMargins()
         : { header: sparseHeader(), footer: sparseFooter(), metadata: metadata() },
-    marginImageSources: { 'scale-logo': logoSource }
+    marginImageSources: { 'scale-logo': logoSource },
+    assets: []
   };
 }
 

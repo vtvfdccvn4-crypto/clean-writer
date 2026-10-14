@@ -19,6 +19,15 @@ test('workspace breakpoints do not redefine the base grid', () => {
   assert.match(css, /grid-template-columns:\s*50px var\(--task-panel-width\)/);
 });
 
+test('editor and preview use an accessible dedicated split separator', () => {
+  const shell = read('src/ui/components/AppShell.ts');
+  const css = read('src/ui/styles/editor-preview-split.css');
+  assert.match(shell, /id="editor-preview-resizer"[\s\S]*?role="separator"[\s\S]*?aria-orientation="vertical"/);
+  assert.match(css, /--editor-pane-width/);
+  assert.match(css, /\.editor-preview-resizer\s*\{/);
+  assert.match(css, /\.is-editor-preview-compact/);
+});
+
 test('preview feature generators retain separate live and paginated options', () => {
   const source = read('src/preview/css/document-features-css.ts');
   assert.match(source, /includePageBreaks/);

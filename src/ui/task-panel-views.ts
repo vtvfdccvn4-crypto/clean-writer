@@ -5,6 +5,7 @@ import { renderTaskImages } from './task-images';
 import type { AssetResolver } from '../platform/types';
 import { projectSession } from '../services/ProjectSessionStore';
 import { showNotice } from './components/Notice';
+import { showInputDialog } from './input-dialog';
 
 type TaskPanelView = 'explorer' | 'images' | 'outline' | null;
 const OUTLINE_ACTIVATED_EVENT = 'clear-writer-task-outline-activated';
@@ -91,7 +92,11 @@ export function initTaskPanelViews(editorManager: EditorManager, assetResolver: 
   const createTreeItem = async (kind: 'folder' | 'section') => {
     const label = kind === 'folder' ? 'folder' : 'section file';
     const parentPath = getExplorerCreationParentPath();
-    const name = window.prompt(`New ${label}${parentPath ? ' in selected folder' : ''}`, kind === 'folder' ? 'New folder' : 'New section')?.trim();
+    const name = await showInputDialog({
+      title: `New ${label}${parentPath ? ' in selected folder' : ''}`,
+      initialValue: kind === 'folder' ? 'New folder' : 'New section',
+      confirmLabel: 'Create',
+    });
     if (!name) return;
     const path = parentPath ? `${parentPath}/${name}` : name;
     const button = kind === 'folder' ? newFolderButton : newSectionButton;
