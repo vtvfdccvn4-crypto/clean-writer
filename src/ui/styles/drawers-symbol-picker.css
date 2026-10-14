@@ -1,27 +1,29 @@
+/* The symbol picker is a .drawer, so it inherits every --drawer-* token from
+   drawers.css. Only the tile grid is specific to it. */
 #symbol-picker {
   --symbol-tile-size: 30px;
-  --symbol-tile-gap: 4px;
+  --symbol-tile-gap: var(--drawer-gap-xs);
   --symbol-tile-glyph-size: 12pt;
 }
 
 .symbol-search-field {
   display: grid;
-  gap: 6px;
+  gap: var(--drawer-gap-sm);
   font-size: inherit;
 }
 
 .symbol-search-field input {
   width: 100%;
-  min-height: 30px;
+  min-height: var(--drawer-control-height);
   padding: 5px 8px;
-  border: 1px solid var(--ui-border);
-  border-radius: 8px;
+  border: 1px solid var(--drawer-border);
+  border-radius: var(--drawer-radius-md);
   font-size: var(--drawer-font-size);
 }
 
 .symbol-picker-section {
   display: grid;
-  gap: 8px;
+  gap: var(--drawer-gap-md);
   margin-top: 0;
 }
 
@@ -29,7 +31,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--drawer-gap-lg);
 }
 
 .symbol-picker-section-head > :first-child,
@@ -46,12 +48,12 @@
 
 .symbol-picker-categories {
   display: grid;
-  gap: 10px;
+  gap: var(--drawer-gap-lg);
 }
 
 .symbol-group {
   display: grid;
-  gap: 6px;
+  gap: var(--drawer-gap-sm);
 }
 
 .symbol-grid {
@@ -68,16 +70,16 @@
   min-width: 0;
   min-height: 0;
   padding: 0;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-canvas);
+  border: 1px solid var(--drawer-divider);
+  border-radius: var(--drawer-radius-sm);
+  background: var(--drawer-control-surface);
   color: var(--ui-text);
   font: inherit;
   cursor: pointer;
   transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
+    background-color var(--drawer-state-transition),
+    border-color var(--drawer-state-transition),
+    color var(--drawer-state-transition);
 }
 
 .symbol-tile[hidden] {
@@ -86,7 +88,7 @@
 
 .symbol-tile:hover,
 .symbol-tile:focus-visible {
-  border-color: color-mix(in srgb, var(--ui-brand) 35%, var(--ui-border));
+  border-color: color-mix(in srgb, var(--ui-brand) 35%, var(--drawer-border));
   background: var(--ui-brand-tint);
   color: var(--ui-brand-strong);
 }
@@ -109,29 +111,4 @@
 
 .symbol-picker-empty {
   margin: 0;
-}
-
-.drawer-details summary {
-  cursor: pointer;
-}
-
-.drawer-spacer {
-  min-height: 1px;
-}
-
-@media print {
-  .drawer-container {
-    display: none !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .drawer {
-    width: 100vw;
-  }
-
-  .drawer-grid-2,
-  .drawer-grid-3 {
-    grid-template-columns: 1fr;
-  }
 }
