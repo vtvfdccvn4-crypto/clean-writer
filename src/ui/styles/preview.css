@@ -232,6 +232,15 @@
   border: 1px solid color-mix(in srgb, var(--ui-border) 12%, transparent);
 }
 
+/* The sheet floats above the preview backdrop on screen only. .pagedjs_page
+   is the printed page box, so an unscoped shadow would paint into exported
+   PDFs; the print block below also clears it as a belt-and-braces guard. */
+@media screen {
+  .pagedjs_page {
+    box-shadow: var(--ui-sheet-shadow);
+  }
+}
+
 .pagedjs_page_content {
   font-family: var(--font-serif, Georgia, serif);
   font-size: 11pt;
@@ -277,6 +286,7 @@
 
   .pagedjs_page {
     margin: 0 !important;
+    box-shadow: none !important;
   }
 }
 .preview-diagnostics-panel {
