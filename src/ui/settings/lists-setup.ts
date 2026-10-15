@@ -1,5 +1,5 @@
 import { state } from '../../state';
-import type { ListSetup, ListStyle } from '../../state';
+import type { ListSetup, ListStyle } from '../../types';
 import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from '../components/drawerControls';
 import { DEFAULT_LIST_FONT_FAMILY, setFontFamilySelectValue } from '../../config/font-families';
 import { bindProjectSettingsPanel } from './project-settings-panel';

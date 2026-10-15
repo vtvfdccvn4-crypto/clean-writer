@@ -1,4 +1,4 @@
-import type { FileNode } from '../state';
+import type { FileNode } from '../types';
 import { getPathChain, normalizeExplorerPath } from '../utils/path-utils';
 
 export interface ResolvedSectionVisibility {

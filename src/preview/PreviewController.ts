@@ -1,4 +1,4 @@
-import type { PageSetup, TypographySetup, ListSetup, TableSetup, ImageSetup } from '../state';
+import type { PageSetup, TypographySetup, ListSetup, TableSetup, ImageSetup } from '../types';
 import { DEFAULT_PAGE_SETUP } from '../config/defaults';
 import type { RenderResult } from './contracts';
 import { PreviewViewport } from './PreviewViewport';

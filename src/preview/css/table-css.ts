@@ -1,4 +1,4 @@
-import type { TableSetup } from '../../state';
+import type { TableSetup } from '../../types';
 import { resolveTableStyle } from '../../styles/resolved-document-styles';
 import { tableScopedCss, type DocumentCssScope } from '../../styles/document-style-css';
 

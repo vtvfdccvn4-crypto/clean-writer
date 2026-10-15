@@ -16,7 +16,6 @@ import type {
 import type { WorkspaceRef } from './platform/types';
 import { DEFAULT_APP_STATE } from './config/defaults';
 
-export * from './types';
 
 const APP_STATE_EVENTS = {
   projectChanged: 'project-changed',

@@ -1,4 +1,4 @@
-import type { FileNode } from '../../state';
+import type { FileNode } from '../../types';
 import { getParentPath } from '../../utils/path-utils';
 import { resolveSectionVisibility } from '../../visibility/sectionVisibility';
 import { escapeAttribute } from '../../utils/escapeHtml';

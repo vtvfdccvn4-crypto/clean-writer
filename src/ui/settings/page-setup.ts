@@ -1,5 +1,5 @@
 import { state } from '../../state';
-import type { PageSetup, HeaderFooterRow, HeaderFooterCell } from '../../state';
+import type { PageSetup, HeaderFooterRow, HeaderFooterCell } from '../../types';
 import {
   bindDrawerToggleButton,
   getDrawerToggleButtonState,

@@ -1,4 +1,4 @@
-import type { FileNode } from '../state';
+import type { FileNode } from '../types';
 import { getBaseName, getParentPath, normalizeExplorerPath } from './path-utils';
 
 export type ExplorerTreeNode = {

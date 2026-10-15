@@ -1,4 +1,5 @@
-import { state, type FileNode } from '../../state';
+import { state } from '../../state';
+import type { FileNode } from '../../types';
 import type { EditorManager } from '../editor-manager';
 import { getBaseName, getParentPath } from '../../utils/path-utils';
 import { getExplorerDisplayRoots, type ExplorerTreeNode } from '../../utils/tree-utils';

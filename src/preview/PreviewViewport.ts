@@ -1,4 +1,4 @@
-import type { PageSetup } from '../state';
+import type { PageSetup } from '../types';
 
 /** Owns viewport-only concerns; it deliberately has no source-document mapping. */
 export class PreviewViewport {

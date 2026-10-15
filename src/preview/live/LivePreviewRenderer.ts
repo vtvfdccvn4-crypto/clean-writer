@@ -1,5 +1,5 @@
 import type { PreviewSourceManifestEntry } from '../../compiler/rehype-plugins';
-import type { PageSetup } from '../../state';
+import type { PageSetup } from '../../types';
 import { bindImageFallbacks } from '../../images/imageSources';
 import { applyHeadingNumbering } from '../headingNumbering';
 import { applySpecialHeadings } from '../specialHeadings';

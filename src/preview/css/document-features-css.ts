@@ -1,4 +1,4 @@
-import type { PageSetup } from '../../state';
+import type { PageSetup } from '../../types';
 import { resolvePageTocStyles, resolveSpecialHeadingStyle } from '../../styles/resolved-document-styles';
 
 interface DocumentFeatureCssOptions {

@@ -1,5 +1,5 @@
 import { state } from '../../state';
-import type { PageSetup, TocSetup, TocStyle } from '../../state';
+import type { PageSetup, TocSetup, TocStyle } from '../../types';
 import { DEFAULT_BODY_FONT_FAMILY, setFontFamilySelectValue } from '../../config/font-families';
 import { projectSession } from '../../services/ProjectSessionStore';
 import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from '../components/drawerControls';

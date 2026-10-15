@@ -1,4 +1,4 @@
-import type { FileNode } from '../../state';
+import type { FileNode } from '../../types';
 import type { DocumentSectionInput } from './common';
 import { buildDocumentPreviewInput, classifyDocumentMode } from './common';
 

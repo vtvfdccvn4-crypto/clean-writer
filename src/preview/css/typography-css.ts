@@ -1,4 +1,4 @@
-import type { TypographySetup } from '../../state';
+import type { TypographySetup } from '../../types';
 import { resolveTypographyStyle } from '../../styles/resolved-document-styles';
 import { typographyElementCss, type DocumentCssScope } from '../../styles/document-style-css';
 

@@ -1,5 +1,5 @@
 import { state } from '../../state';
-import type { ProjectMetadata } from '../../state';
+import type { ProjectMetadata } from '../../types';
 import { closeDrawer, toggleDrawer } from '../drawer-manager';
 import { bindProjectSettingsPanel } from './project-settings-panel';
 

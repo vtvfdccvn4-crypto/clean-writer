@@ -1,4 +1,4 @@
-import type { ListSetup, PageSetup, TableSetup, TypographySetup } from '../state';
+import type { ListSetup, PageSetup, TableSetup, TypographySetup } from '../types';
 import { generateTypographyCss } from './css/typography-css';
 import { generateListCss } from './css/list-css';
 import { generateTableCss } from './css/table-css';

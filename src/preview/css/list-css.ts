@@ -1,4 +1,4 @@
-import type { ListSetup, ListStyle } from '../../state';
+import type { ListSetup, ListStyle } from '../../types';
 import { resolveListStyle } from '../../styles/resolved-document-styles';
 import {
   listStructureCss,
