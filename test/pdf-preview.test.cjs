@@ -21,6 +21,7 @@ const diagnostics = fs.readFileSync(path.join(__dirname, '..', 'src', 'pdf-previ
 const controller = fs.readFileSync(path.join(__dirname, '..', 'src', 'preview', 'PreviewController.ts'), 'utf8');
 const coordinator = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'PreviewCoordinator.ts'), 'utf8');
 const editorManager = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'editor-manager.ts'), 'utf8');
+const renderCoordinator = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'DocumentRenderCoordinator.ts'), 'utf8');
 
 test('isolated PDF preview has an independent frame and protocol', () => {
   assert.match(pipeline, /IsolatedPaginationHost/);
@@ -94,16 +95,16 @@ test('paginated page-setup changes rebuild the isolated preview job', () => {
   assert.match(controller, /this\.mode === 'paginated' && this\.createIsolatedJob/);
   assert.match(controller, /this\.forceRenderIsolated\(/);
   assert.match(coordinator, /createIsolatedJob\?: \(sourceHtml: string, pageSetup: PageSetup\) => PdfPreviewJob/);
-  assert.match(editorManager, /createPdfPreviewJob\(sourceHtml, this\.capturePrintLayout\(pageSetup\)/);
+  assert.match(editorManager, /createPdfPreviewJob\(sourceHtml, this\.renderCoordinator\.capturePrintLayout\(pageSetup\)/);
 });
 
 test('single-document print preview uses the isolated paginator', () => {
-  assert.match(editorManager, /createPdfPreviewJob\(initialPreview\.html, this\.capturePrintLayout\(\)/);
-  assert.match(editorManager, /this\.preview\.forceRenderIsolated\(/);
-  assert.match(editorManager, /if \(this\.isFinalPrintPreview\)/);
+  assert.match(renderCoordinator, /createPdfPreviewJob\(initialPreview\.html, this\.capturePrintLayout\(\)/);
+  assert.match(renderCoordinator, /this\.preview\.forceRenderIsolated\(/);
+  assert.match(renderCoordinator, /if \(this\.opts\.getIsFinalPrintPreview\(\)\)/);
   assert.doesNotMatch(editorManager, /enterCanonicalEditingMode/);
-  assert.match(editorManager, /if \(this\.isFinalPrintPreview\) \{[\s\S]*?this\.preview\.forceRenderIsolated\(/);
-  assert.match(editorManager, /createPdfPreviewJob\(compiledPreview\.html, this\.capturePrintLayout\(\)/);
+  assert.match(renderCoordinator, /if \(this\.opts\.getIsFinalPrintPreview\(\)\) \{[\s\S]*?this\.preview\.forceRenderIsolated\(/);
+  assert.match(renderCoordinator, /createPdfPreviewJob\(compiledPreview\.html, this\.capturePrintLayout\(\)/);
 });
 
 test('print-layout settings invalidate an installed paginated artifact', () => {
