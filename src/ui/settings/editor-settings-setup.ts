@@ -1,5 +1,5 @@
-import { state } from '../state';
-import type { EditorSetup } from '../types';
+import { state } from '../../state';
+import type { EditorSetup } from '../../types';
 import { bindProjectSettingsPanel } from './project-settings-panel';
 
 function normalizeEditorFontSize(value: string | null | undefined, fallback: string): string {

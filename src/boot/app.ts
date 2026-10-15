@@ -12,10 +12,10 @@ import { setupEditorControls } from './setupEditorControls';
 import { setupAppLifecycle } from './setupAppLifecycle';
 import { setupWritingWorkflow } from './setupWritingWorkflow';
 import { restoreInitialWorkspace } from './restoreInitialWorkspace';
-import { initTaskPanelResizer } from '../ui/task-panel-resizer';
+import { initTaskPanelResizer } from '../ui/explorer/resizer';
 import { initEditorPreviewResizer } from '../ui/editor-preview-resizer';
-import { initTaskPanelActions } from '../ui/task-panel-actions';
-import { initTaskPanelViews } from '../ui/task-panel-views';
+import { initTaskPanelActions } from '../ui/explorer/actions';
+import { initTaskPanelViews } from '../ui/explorer/views';
 
 let editorManager: EditorManager;
 type StartupWindow = Window & {
@@ -149,7 +149,7 @@ export async function bootApp(platform: Platform) {
 
   const ensureSettings = async (targetId: string) => {
     await loadSettingsFeatures();
-    const { openPageSetupDrawer, openStylesDrawer, openEditorPreferencesDrawer, openShellPreferencesDrawer } = await import('../ui/settings-drawer');
+    const { openPageSetupDrawer, openStylesDrawer, openEditorPreferencesDrawer, openShellPreferencesDrawer } = await import('../ui/settings/settings-drawer');
     if (targetId === 'btn-preview-styles') openStylesDrawer();
     else if (targetId === 'btn-editor-preferences') openEditorPreferencesDrawer();
     else if (targetId === 'btn-activity-preferences') openShellPreferencesDrawer();

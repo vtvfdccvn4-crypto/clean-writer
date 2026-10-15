@@ -1,9 +1,9 @@
-import { state } from '../state';
-import type { PageSetup, TocSetup, TocStyle } from '../state';
-import { DEFAULT_BODY_FONT_FAMILY, setFontFamilySelectValue } from '../config/font-families';
-import { projectSession } from '../services/ProjectSessionStore';
-import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
-import { createSectionToggle, getSectionVisibilityNodes } from './components/SectionVisibilityDrawer';
+import { state } from '../../state';
+import type { PageSetup, TocSetup, TocStyle } from '../../state';
+import { DEFAULT_BODY_FONT_FAMILY, setFontFamilySelectValue } from '../../config/font-families';
+import { projectSession } from '../../services/ProjectSessionStore';
+import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from '../components/drawerControls';
+import { createSectionToggle, getSectionVisibilityNodes } from '../components/SectionVisibilityDrawer';
 import { bindProjectSettingsPanel, bindProjectTreePanel } from './project-settings-panel';
 
 const tocLevels = [1, 2, 3, 4, 5, 6] as const;

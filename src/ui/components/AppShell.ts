@@ -1,7 +1,7 @@
 import { state } from '../../state';
 import { editorPanelTemplate } from './EditorPanel';
 import { previewPanelTemplate } from './PreviewPanel';
-import { taskPanelTemplate } from './TaskPanel';
+import { explorerPanelTemplate } from './ExplorerPanel';
 import { projectMetadataDrawerTemplate } from './ProjectMetadataDrawer';
 import { symbolPickerDrawerTemplate } from './SymbolPickerDrawer';
 import { pageSetupDrawerTemplate, stylesDrawerTemplate } from './SettingsDrawer';
@@ -65,7 +65,7 @@ const appShellTemplate = (): string => `
             </button>
           </nav>
           <div id="task-panel">
-            ${taskPanelTemplate()}
+            ${explorerPanelTemplate()}
           </div>
           <div id="task-panel-resizer" class="task-panel-resizer" role="separator" aria-orientation="vertical" aria-label="Resize task panel"></div>
           <div id="shared-panel">

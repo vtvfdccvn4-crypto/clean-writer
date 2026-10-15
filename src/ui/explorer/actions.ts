@@ -1,9 +1,9 @@
-import type { Platform } from '../platform/types';
-import { state } from '../state';
-import { projectSession } from '../services/ProjectSessionStore';
-import { ProjectService } from '../services/ProjectService';
-import { showNewProjectModal, showOpenProjectModal } from './project-flow-modal';
-import { openProjectWithRecovery } from './project-opening';
+import type { Platform } from '../../platform/types';
+import { state } from '../../state';
+import { projectSession } from '../../services/ProjectSessionStore';
+import { ProjectService } from '../../services/ProjectService';
+import { showNewProjectModal, showOpenProjectModal } from '../project-flow-modal';
+import { openProjectWithRecovery } from '../project-opening';
 
 export function initTaskPanelActions(platform: Platform): void {
   const btnNew = document.getElementById('btn-task-new-project');
@@ -14,7 +14,7 @@ export function initTaskPanelActions(platform: Platform): void {
   btnNew?.addEventListener('click', async () => {
     const choice = await showNewProjectModal();
     if (!choice) return;
-    let ref: import('../platform/types').WorkspaceRef | null = null;
+    let ref: import('../../platform/types').WorkspaceRef | null = null;
     if (choice.action === 'directory') {
       ref = await platform.workspaceRepository.selectDirectory({ kind: 'directory' });
     } else if (choice.action === 'opfs') {
@@ -30,7 +30,7 @@ export function initTaskPanelActions(platform: Platform): void {
       : [];
     const choice = await showOpenProjectModal(recents);
     if (!choice) return;
-    let ref: import('../platform/types').WorkspaceRef | null = null;
+    let ref: import('../../platform/types').WorkspaceRef | null = null;
     if (choice.action === 'directory-picker') {
       ref = await platform.workspaceRepository.selectDirectory({ kind: 'directory' });
     } else if (choice.action === 'open-ref') {

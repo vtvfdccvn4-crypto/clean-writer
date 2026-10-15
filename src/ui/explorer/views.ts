@@ -1,11 +1,11 @@
-import { state } from '../state';
-import type { EditorManager } from './editor-manager';
-import { getExplorerCreationParentPath, renderTaskExplorer } from './task-explorer';
-import { renderTaskImages } from './task-images';
-import type { AssetResolver } from '../platform/types';
-import { projectSession } from '../services/ProjectSessionStore';
-import { showNotice } from './components/Notice';
-import { showInputDialog } from './input-dialog';
+import { state } from '../../state';
+import type { EditorManager } from '../editor-manager';
+import { getExplorerCreationParentPath, renderTaskExplorer } from './explorer';
+import { renderTaskImages } from './images';
+import type { AssetResolver } from '../../platform/types';
+import { projectSession } from '../../services/ProjectSessionStore';
+import { showNotice } from '../components/Notice';
+import { showInputDialog } from '../input-dialog';
 
 type TaskPanelView = 'explorer' | 'images' | 'outline' | null;
 const OUTLINE_ACTIVATED_EVENT = 'clear-writer-task-outline-activated';

@@ -1,5 +1,5 @@
 import { EditorView, ViewPlugin } from '@codemirror/view';
-import { buildImageBlockMove, getImageBlockAtPosition, type ImageBlockRange } from '../images/imageBlockMove';
+import { buildImageBlockMove, getImageBlockAtPosition, type ImageBlockRange } from '../imageBlockMove';
 
 const HOLD_DELAY_MS = 200;
 const MOVE_THRESHOLD_PX = 6;

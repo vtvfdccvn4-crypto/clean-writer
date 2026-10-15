@@ -8,7 +8,7 @@ let buildImageBlockMove;
 
 before(async () => {
   server = await createTestServer();
-  ({ getImageBlockAtPosition, buildImageBlockMove } = await server.ssrLoadModule('/src/editor/images/imageBlockMove.ts'));
+  ({ getImageBlockAtPosition, buildImageBlockMove } = await server.ssrLoadModule('/src/editor/imageBlockMove.ts'));
 });
 
 after(async () => server?.close());

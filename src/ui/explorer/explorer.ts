@@ -1,12 +1,12 @@
-import { state, type FileNode } from '../state';
-import type { EditorManager } from './editor-manager';
-import { getBaseName, getParentPath } from '../utils/path-utils';
-import { getExplorerDisplayRoots, type ExplorerTreeNode } from '../utils/tree-utils';
-import { projectSession } from '../services/ProjectSessionStore';
-import { showConfirmDialog } from './confirm-dialog';
-import { showNotice } from './components/Notice';
-import { bindExplorerDragAndDrop, bindExplorerRootDropZone, type ExplorerDropPlacement } from './task-explorer-drag-and-drop';
-import { fontAwesomeIcon, materialIcon } from './components/icon';
+import { state, type FileNode } from '../../state';
+import type { EditorManager } from '../editor-manager';
+import { getBaseName, getParentPath } from '../../utils/path-utils';
+import { getExplorerDisplayRoots, type ExplorerTreeNode } from '../../utils/tree-utils';
+import { projectSession } from '../../services/ProjectSessionStore';
+import { showConfirmDialog } from '../confirm-dialog';
+import { showNotice } from '../components/Notice';
+import { bindExplorerDragAndDrop, bindExplorerRootDropZone, type ExplorerDropPlacement } from './drag-and-drop';
+import { fontAwesomeIcon, materialIcon } from '../components/icon';
 
 const expandedExplorerNodes = new Set<string>();
 let selectedExplorerPath: string | null = null;

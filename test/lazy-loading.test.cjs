@@ -18,7 +18,7 @@ test('application entry keeps feature-heavy modules behind dynamic imports', () 
   assert.match(app, /import\('\.\.\/ui\/editor-manager'\)/);
   assert.match(app, /import\('\.\/setupPdfPreview'\)/);
   assert.match(app, /import\('\.\/setupWritingTools'\)/);
-  assert.match(app, /import\('\.\.\/ui\/settings-drawer'\)/);
+  assert.match(app, /import\('\.\.\/ui\/settings\/settings-drawer'\)/);
   assert.match(app, /import\('\.\/setupSettingsFeatures'\)/);
 });
 

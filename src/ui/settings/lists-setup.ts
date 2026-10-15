@@ -1,7 +1,7 @@
-import { state } from '../state';
-import type { ListSetup, ListStyle } from '../state';
-import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
-import { DEFAULT_LIST_FONT_FAMILY, setFontFamilySelectValue } from '../config/font-families';
+import { state } from '../../state';
+import type { ListSetup, ListStyle } from '../../state';
+import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from '../components/drawerControls';
+import { DEFAULT_LIST_FONT_FAMILY, setFontFamilySelectValue } from '../../config/font-families';
 import { bindProjectSettingsPanel } from './project-settings-panel';
 
 const unorderedListKeys = ['ulAsterisk', 'ulDash', 'ulPlus'] as const;

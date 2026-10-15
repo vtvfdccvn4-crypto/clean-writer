@@ -1,4 +1,4 @@
-import { state } from '../state';
+import { state } from '../../state';
 import type { SettingsTabId } from './settings-drawer';
 import { onSettingsTabActivated } from './settings-drawer';
 

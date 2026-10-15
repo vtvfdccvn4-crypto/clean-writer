@@ -1,4 +1,4 @@
-import { closeAllDrawers, closeDrawer, openDrawer } from './drawer-manager';
+import { closeAllDrawers, closeDrawer, openDrawer } from '../drawer-manager';
 
 const SETTINGS_TAB_ACTIVATED_EVENT = 'clear-writer-settings-tab-activated';
 

@@ -1,6 +1,6 @@
-import { state } from '../state';
-import type { ImageSetup } from '../types';
-import { readDrawerNumber } from './components/drawerControls';
+import { state } from '../../state';
+import type { ImageSetup } from '../../types';
+import { readDrawerNumber } from '../components/drawerControls';
 import { bindProjectSettingsPanel } from './project-settings-panel';
 
 export function initImageSettingsDrawer(onSave: (setup: ImageSetup) => Promise<void>): void {

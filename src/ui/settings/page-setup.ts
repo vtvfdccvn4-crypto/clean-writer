@@ -1,5 +1,5 @@
-import { state } from '../state';
-import type { PageSetup, HeaderFooterRow, HeaderFooterCell } from '../state';
+import { state } from '../../state';
+import type { PageSetup, HeaderFooterRow, HeaderFooterCell } from '../../state';
 import {
   bindDrawerToggleButton,
   getDrawerToggleButtonState,
@@ -7,11 +7,11 @@ import {
   setDrawerToggleButtonState,
   resolveDrawerAlignmentPreset,
   resolveDrawerAlignmentValues
-} from './components/drawerControls';
-import { DEFAULT_HEADER_FOOTER_FONT_FAMILY, setFontFamilySelectValue } from '../config/font-families';
-import { initSectionVisibilityControls } from './components/SectionVisibilityDrawer';
+} from '../components/drawerControls';
+import { DEFAULT_HEADER_FOOTER_FONT_FAMILY, setFontFamilySelectValue } from '../../config/font-families';
+import { initSectionVisibilityControls } from '../components/SectionVisibilityDrawer';
 import { bindProjectSettingsPanel } from './project-settings-panel';
-import { resolveHeaderFooterCell } from '../styles/resolved-document-styles';
+import { resolveHeaderFooterCell } from '../../styles/resolved-document-styles';
 
 type HeaderFooterCellKey = 'left' | 'center' | 'right';
 

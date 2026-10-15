@@ -1,4 +1,4 @@
-import type { ExplorerTreeNode } from '../utils/tree-utils';
+import type { ExplorerTreeNode } from '../../utils/tree-utils';
 
 export const EXPLORER_SECTION_DRAG_TYPE = 'application/x-clear-writer-section-path';
 

@@ -1,7 +1,7 @@
-import { state } from '../state';
-import type { TableSetup, TableStyle } from '../types';
-import { setFontFamilySelectValue } from '../config/font-families';
-import { readDrawerNumber } from './components/drawerControls';
+import { state } from '../../state';
+import type { TableSetup, TableStyle } from '../../types';
+import { setFontFamilySelectValue } from '../../config/font-families';
+import { readDrawerNumber } from '../components/drawerControls';
 import { bindProjectSettingsPanel } from './project-settings-panel';
 
 export function initTablesDrawer(onSave: (setup: TableSetup) => Promise<void>) {

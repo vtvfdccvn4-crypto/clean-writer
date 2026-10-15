@@ -1,4 +1,4 @@
-import { state } from '../state';
+import { state } from '../../state';
 
 const DEFAULT_WIDTH = 380;
 const MIN_WIDTH = 240;

@@ -1,7 +1,7 @@
 import { materialIcon } from './icon';
 import { toolbarButton } from './toolbarButton';
 
-export const taskPanelTemplate = (): string => `
+export const explorerPanelTemplate = (): string => `
   <section class="shared-task-pane pane" aria-label="Task panel">
     <div class="task-toolbar panel-bar panel-header">
       <div class="toolbar-status task-toolbar-title">

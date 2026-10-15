@@ -1,7 +1,7 @@
-import { state } from '../state';
-import type { PageSetup, SpecialHeadingDefinition } from '../types';
-import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
-import { setFontFamilySelectValue } from '../config/font-families';
+import { state } from '../../state';
+import type { PageSetup, SpecialHeadingDefinition } from '../../types';
+import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from '../components/drawerControls';
+import { setFontFamilySelectValue } from '../../config/font-families';
 import { bindProjectSettingsPanel } from './project-settings-panel';
 
 export function initSpecialHeadingsDrawer(onSave: (setup: PageSetup) => Promise<void>) {

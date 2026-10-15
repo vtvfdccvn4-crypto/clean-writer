@@ -1,6 +1,6 @@
-import { state } from '../state';
-import type { ProjectMetadata } from '../state';
-import { closeDrawer, toggleDrawer } from './drawer-manager';
+import { state } from '../../state';
+import type { ProjectMetadata } from '../../state';
+import { closeDrawer, toggleDrawer } from '../drawer-manager';
 import { bindProjectSettingsPanel } from './project-settings-panel';
 
 export function initProjectMetadataDrawer(onSaveMetadata: (metadata: ProjectMetadata) => Promise<void>) {

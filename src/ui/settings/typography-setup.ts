@@ -1,7 +1,7 @@
-import { state } from '../state';
-import type { TypographySetup } from '../state';
-import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
-import { DEFAULT_BODY_FONT_FAMILY, DEFAULT_HEADING_FONT_FAMILY, setFontFamilySelectValue } from '../config/font-families';
+import { state } from '../../state';
+import type { TypographySetup } from '../../state';
+import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from '../components/drawerControls';
+import { DEFAULT_BODY_FONT_FAMILY, DEFAULT_HEADING_FONT_FAMILY, setFontFamilySelectValue } from '../../config/font-families';
 import { bindProjectSettingsPanel } from './project-settings-panel';
 
 let currentElementKey: keyof TypographySetup = 'paragraph';

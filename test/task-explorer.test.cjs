@@ -11,7 +11,7 @@ let EXPLORER_SECTION_DRAG_TYPE;
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24689 } } });
   ({ calculateSectionMove } = await server.ssrLoadModule('/src/platform/section-order.ts'));
-  ({ EXPLORER_SECTION_DRAG_TYPE } = await server.ssrLoadModule('/src/ui/task-explorer-drag-and-drop.ts'));
+  ({ EXPLORER_SECTION_DRAG_TYPE } = await server.ssrLoadModule('/src/ui/explorer/drag-and-drop.ts'));
 });
 
 after(async () => {
@@ -41,7 +41,7 @@ test('explorer placements support sibling ordering and folder moves', () => {
 });
 
 test('task panel resizing batches pointer updates into animation frames', () => {
-  const resizer = fs.readFileSync(path.join(__dirname, '../src/ui/task-panel-resizer.ts'), 'utf8');
+  const resizer = fs.readFileSync(path.join(__dirname, '../src/ui/explorer/resizer.ts'), 'utf8');
 
   assert.match(resizer, /let resizeFrame: number \| null = null/);
   assert.match(resizer, /window\.requestAnimationFrame/);

@@ -1,10 +1,10 @@
-import { state } from '../state';
-import type { CustomStyle, CustomBlockStyle } from '../types';
-import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from './components/drawerControls';
-import { setFontFamilySelectValue } from '../config/font-families';
-import { createBlockIcon, initBlockGlyphPicker, loadBlockGlyphOptions, updateBlockGlyphPreview } from './block-glyph-picker';
-import { showConfirmDialog } from './confirm-dialog';
-import type { Platform } from '../platform/types';
+import { state } from '../../state';
+import type { CustomStyle, CustomBlockStyle } from '../../types';
+import { bindDrawerToggleButton, getDrawerToggleButtonState, readDrawerNumber, setDrawerToggleButtonState } from '../components/drawerControls';
+import { setFontFamilySelectValue } from '../../config/font-families';
+import { createBlockIcon, initBlockGlyphPicker, loadBlockGlyphOptions, updateBlockGlyphPreview } from '../block-glyph-picker';
+import { showConfirmDialog } from '../confirm-dialog';
+import type { Platform } from '../../platform/types';
 import { onSettingsTabActivated } from './settings-drawer';
 import { bindProjectSettingsPanel } from './project-settings-panel';
 

@@ -11,7 +11,7 @@ let ProjectService;
 let InMemoryWorkspaceSession;
 let bindProjectSettingsPanel;
 let DocumentSessionController;
-let taskPanelTemplate;
+let explorerPanelTemplate;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24683 } } });
@@ -19,15 +19,15 @@ before(async () => {
   ({ ProjectSessionStore } = await server.ssrLoadModule('/src/services/ProjectSessionStore.ts'));
   ({ ProjectService } = await server.ssrLoadModule('/src/services/ProjectService.ts'));
   ({ InMemoryWorkspaceSession } = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts'));
-  ({ bindProjectSettingsPanel } = await server.ssrLoadModule('/src/ui/project-settings-panel.ts'));
+  ({ bindProjectSettingsPanel } = await server.ssrLoadModule('/src/ui/settings/project-settings-panel.ts'));
   ({ DocumentSessionController } = await server.ssrLoadModule('/src/ui/DocumentSessionController.ts'));
-  ({ taskPanelTemplate } = await server.ssrLoadModule('/src/ui/components/TaskPanel.ts'));
+  ({ explorerPanelTemplate } = await server.ssrLoadModule('/src/ui/components/ExplorerPanel.ts'));
   ({ escapeRegExp } = await server.ssrLoadModule('/src/utils/regex.ts'));
   ({ readDrawerNumber } = await server.ssrLoadModule('/src/ui/components/drawerControls.ts'));
 });
 
 test('task panel does not expose a manual Save action', () => {
-  const panel = taskPanelTemplate();
+  const panel = explorerPanelTemplate();
   assert.doesNotMatch(panel, /id="btn-save"/);
   assert.doesNotMatch(panel, /Save project/);
 });

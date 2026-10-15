@@ -1,4 +1,4 @@
-import { parseEditorMarkdownImages, type EditorMarkdownImage } from '../markdown/parseMarkdownImage';
+import { parseEditorMarkdownImages, type EditorMarkdownImage } from './markdown/parseMarkdownImage';
 
 export interface ImageBlockRange {
   from: number;

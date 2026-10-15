@@ -1,9 +1,9 @@
-import { state, type FileNode } from '../state';
-import { getBaseName, normalizeExplorerPath } from '../utils/path-utils';
-import { getExplorerDisplayRoots, type ExplorerTreeNode } from '../utils/tree-utils';
-import { buildProjectImageMarkdown } from '../images/imageMarkdown';
-import { applyImageFallback, resolveImageSource } from '../images/imageSources';
-import type { AssetResolver } from '../platform/types';
+import { state, type FileNode } from '../../state';
+import { getBaseName, normalizeExplorerPath } from '../../utils/path-utils';
+import { getExplorerDisplayRoots, type ExplorerTreeNode } from '../../utils/tree-utils';
+import { buildProjectImageMarkdown } from '../../images/imageMarkdown';
+import { applyImageFallback, resolveImageSource } from '../../images/imageSources';
+import type { AssetResolver } from '../../platform/types';
 
 const expandedImageNodes = new Set<string>();
 
