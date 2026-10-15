@@ -50,10 +50,19 @@ export interface MarkdownEditor {
   readonly view: EditorView;
 }
 
+/** Caret and selection as the status bar reports them, 1-based for display. */
+export interface EditorCaretStatus {
+  line: number;
+  column: number;
+  selectedCharacters: number;
+}
+
 export interface EditorCallbacks {
   onChange: (doc: string) => void | Promise<void>;
   onError?: (error: unknown) => void;
   onSelectionChange?: (line: number) => void;
+  /** Fires for caret moves and edits alike: typing moves the caret too. */
+  onCaretStatusChange?: (status: EditorCaretStatus) => void;
   onDirty?: (doc: string) => void;
   resolveImageSource?: EditorImageSourceResolver;
   onImageFile?: (file: File) => Promise<PastedImageResult | null>;
@@ -74,6 +83,10 @@ export function createEditor(
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.selectionSet && !update.docChanged) {
       callbacks.onSelectionChange?.(update.state.doc.lineAt(update.state.selection.main.head).number);
+    }
+
+    if (update.selectionSet || update.docChanged) {
+      callbacks.onCaretStatusChange?.(readCaretStatus(update.state));
     }
 
     if (update.docChanged) {
@@ -290,5 +303,18 @@ export function createEditor(
     },
     openSearchPanel: () => openSearchPanel(view),
     get view() { return view; }
+  };
+}
+
+/** Reads caret position and selection size from editor state. */
+function readCaretStatus(state: EditorState): EditorCaretStatus {
+  const main = state.selection.main;
+  const line = state.doc.lineAt(main.head);
+  // Every range counts, so a multi-cursor selection does not under-report.
+  const selectedCharacters = state.selection.ranges.reduce((total, range) => total + (range.to - range.from), 0);
+  return {
+    line: line.number,
+    column: main.head - line.from + 1,
+    selectedCharacters
   };
 }

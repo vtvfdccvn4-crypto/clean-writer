@@ -1,5 +1,6 @@
 import { state } from '../state';
 import { createEditor, DraftRecoveryStore } from '../editor';
+import type { EditorCaretStatus } from '../editor/createEditor';
 import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
 import { renderDocumentSection } from '../preview/document-rendering';
 import { showNotice } from './components/Notice';
@@ -30,6 +31,7 @@ export interface DocumentRenderCoordinatorOptions {
   updateActiveSectionLabel: (filename: string | null, customLabel?: string) => void;
   reportWorkflowError: (message: string, error: unknown) => void;
   updateSectionStats: (markdown: string | null) => void;
+  updateCaretStatus: (status: EditorCaretStatus | null) => void;
 }
 
 export class DocumentRenderCoordinator {
@@ -282,6 +284,7 @@ export class DocumentRenderCoordinator {
         if (this.opts.getIsSupressingPreviewNavigation()) return;
         this.preview.navigateToSourceLine(line);
       },
+      onCaretStatusChange: (status: EditorCaretStatus) => this.opts.updateCaretStatus(status),
       resolveImageSource: async (source: string) => {
         await this.platform.assetResolver.preloadImages([source]);
         return this.platform.assetResolver.resolveSync(source);

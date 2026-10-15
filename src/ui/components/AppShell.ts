@@ -89,6 +89,10 @@ const appShellTemplate = (): string => `
       <div class="workspace-status-right">
         <span id="workspace-word-count">0 words</span>
         <span id="workspace-line-count">0 lines</span>
+        <span id="workspace-char-count">0 chars</span>
+        <span id="workspace-selection-count" hidden></span>
+        <span id="workspace-reading-time"></span>
+        <span id="workspace-caret-position">Line 1, Column 1</span>
       </div>
     </footer>
     <div id="drawer-container" class="drawer-container">

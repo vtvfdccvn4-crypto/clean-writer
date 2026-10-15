@@ -1,5 +1,6 @@
 import { state } from '../state';
 import { extractWritingStatistics } from '../editor/writing-statistics';
+import type { EditorCaretStatus } from '../editor/createEditor';
 import type { MarkdownEditor } from '../editor';
 import { compileMarkdown } from '../compiler';
 import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
@@ -79,7 +80,8 @@ export class EditorManager {
       updateSaveStatus: status => this.updateSaveStatus(status),
       updateActiveSectionLabel: (filename, customLabel) => this.updateActiveSectionLabel(filename, customLabel),
       reportWorkflowError: (message, error) => this.reportWorkflowError(message, error),
-      updateSectionStats: markdown => this.updateSectionStats(markdown)
+      updateSectionStats: markdown => this.updateSectionStats(markdown),
+      updateCaretStatus: status => this.updateCaretStatus(status)
     });
     this.paginatedRenderer = new PaginatedPreviewRenderer({
       preview: this.preview,
@@ -502,17 +504,48 @@ export class EditorManager {
   private updateSectionStats(markdown: string | null) {
     const wordCount = document.getElementById('workspace-word-count');
     const lineCount = document.getElementById('workspace-line-count');
-    if (!wordCount || !lineCount) return;
-    
+    const charCount = document.getElementById('workspace-char-count');
+    const readingTime = document.getElementById('workspace-reading-time');
+    if (!wordCount || !lineCount || !charCount || !readingTime) return;
+
     if (markdown === null) {
       wordCount.textContent = '0 words';
       lineCount.textContent = '0 lines';
+      charCount.textContent = '0 chars';
+      readingTime.textContent = '';
+      readingTime.hidden = true;
+      this.updateCaretStatus(null);
       return;
     }
 
     const stats = extractWritingStatistics(markdown);
     wordCount.textContent = `${stats.words.toLocaleString()} words`;
     lineCount.textContent = `${markdown ? markdown.split(/\r?\n/).length : 0} lines`;
+    charCount.textContent = `${stats.charactersWithSpaces.toLocaleString()} chars`;
+    readingTime.hidden = stats.estimatedReadingTimeMinutes <= 0;
+    readingTime.textContent = stats.estimatedReadingTimeMinutes > 0
+      ? `~${stats.estimatedReadingTimeMinutes} min read`
+      : '';
+  }
+
+  /** Caret and selection move on their own cadence, so they own their own spans. */
+  private updateCaretStatus(status: EditorCaretStatus | null) {
+    const caret = document.getElementById('workspace-caret-position');
+    const selection = document.getElementById('workspace-selection-count');
+    if (!caret || !selection) return;
+
+    if (status === null) {
+      caret.textContent = 'Line 1, Column 1';
+      selection.hidden = true;
+      selection.textContent = '';
+      return;
+    }
+
+    caret.textContent = `Line ${status.line}, Column ${status.column}`;
+    selection.hidden = status.selectedCharacters === 0;
+    selection.textContent = status.selectedCharacters > 0
+      ? `${status.selectedCharacters.toLocaleString()} selected`
+      : '';
   }
 
   private updateSaveStatus(status: EditorSaveStatus) {

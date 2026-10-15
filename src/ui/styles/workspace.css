@@ -123,8 +123,20 @@
 .workspace-status-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
+  font-size: var(--ui-text-xs);
+  font-weight: 500;
+  color: var(--ui-app-chrome-text-muted);
+  /* These numbers change under the cursor; tabular figures stop the row
+     shuffling sideways every keystroke. */
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-status-right > span + span::before {
+  margin-right: 8px;
+  content: '·';
+  opacity: 0.55;
 }
 
 .workspace-status-bar .status-dot {
