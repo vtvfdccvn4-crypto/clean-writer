@@ -5,13 +5,15 @@
 @import './editor/styles/tableHelpers.css';
 @import '@fortawesome/fontawesome-free/css/all.min.css';
 @import 'material-symbols/outlined.css';
-/* The application uses Inter Tight for UI and Courier Prime for the editor.
- * Restrict these imports to the shipped Latin subsets; generic Fontsource
- * entries pull every Unicode subset and several unused font families. */
-@import '@fontsource/inter-tight/latin-400.css';
-@import '@fontsource/inter-tight/latin-500.css';
-@import '@fontsource/inter-tight/latin-600.css';
-@import '@fontsource/inter-tight/latin-700.css';
+/* The application uses IBM Plex Sans for UI and Courier Prime for the editor.
+ * IBM Plex Sans comes in as one variable upright face: the UI asks for 550 and
+ * 650, which no static face provides, and the variable weight axis renders them
+ * exactly. Fontsource publishes no Latin-only entry for the variable package,
+ * so this one import declares every subset as its own @font-face with a
+ * unicode-range -- the browser still fetches only Latin. Courier Prime stays on
+ * its Latin subsets; generic Fontsource entries pull every Unicode subset and
+ * several unused font families. */
+@import '@fontsource-variable/ibm-plex-sans/wght.css';
 @import '@fontsource/courier-prime/latin-400.css';
 @import '@fontsource/courier-prime/latin-400-italic.css';
 @import '@fontsource/courier-prime/latin-700.css';
