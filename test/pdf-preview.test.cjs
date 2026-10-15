@@ -22,6 +22,7 @@ const controller = fs.readFileSync(path.join(__dirname, '..', 'src', 'preview', 
 const coordinator = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'PreviewCoordinator.ts'), 'utf8');
 const editorManager = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'editor-manager.ts'), 'utf8');
 const renderCoordinator = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'DocumentRenderCoordinator.ts'), 'utf8');
+const paginatedRenderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'PaginatedPreviewRenderer.ts'), 'utf8');
 
 test('isolated PDF preview has an independent frame and protocol', () => {
   assert.match(pipeline, /IsolatedPaginationHost/);
@@ -73,8 +74,8 @@ test('isolated PDF preview is exposed through a dedicated button and boot route'
   assert.match(frame, /marginDomWriteMs/);
   assert.match(host, /frame-margin-dom-write/);
   assert.doesNotMatch(host, /requestPageGuides/);
-  assert.match(editorManager, /requestPrintArtifact\(/);
-  assert.match(editorManager, /outcome\.result\.artifact\.pages/);
+  assert.match(paginatedRenderer, /requestPrintArtifact\(/);
+  assert.match(paginatedRenderer, /outcome\.result\.artifact\.pages/);
   assert.match(host, /status: 'cancelled'/);
   assert.match(host, /PaginationTimeoutError/);
   assert.match(host, /FRAME_STARTUP_TIMEOUT_MS = 15_000/);
