@@ -82,6 +82,5 @@ export const editorPanelTemplate = (): string => `
         <!-- CodeMirror injects here -->
       </div>
     </div>
-    <div class="editor-footer panel-bar panel-footer" aria-hidden="true"></div>
   </main>
 `;

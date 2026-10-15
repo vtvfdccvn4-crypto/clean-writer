@@ -13,7 +13,6 @@
 
 .preview-toolbar {
   gap: 8px;
-  backdrop-filter: blur(20px);
 }
 
 .preview-toolbar .toolbar-status {

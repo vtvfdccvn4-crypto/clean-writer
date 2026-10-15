@@ -3,6 +3,5 @@ body *,
 body *::before,
 body *::after {
   text-shadow: none !important;
-  filter: none !important;
 }
 

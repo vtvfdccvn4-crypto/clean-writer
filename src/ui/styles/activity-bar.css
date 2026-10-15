@@ -30,7 +30,7 @@
   border: 0;
   border-radius: var(--ui-radius-sm);
   background: transparent;
-  color: var(--ui-text-muted);
+  color: rgba(255, 255, 255, 0.62);
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -53,13 +53,13 @@
 }
 
 .activity-bar-button:hover {
-  background: var(--ui-surface-subtle);
-  color: var(--ui-text);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .activity-bar-button.is-active {
-  background: var(--ui-brand-tint);
-  color: var(--ui-brand);
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
 .activity-bar-button.is-active::before {
@@ -69,12 +69,12 @@
   left: 0;
   width: 2px;
   border-radius: 0 2px 2px 0;
-  background: var(--ui-brand);
+  background: #ffffff;
   content: '';
 }
 
 .activity-bar-button:focus-visible {
-  outline: 2px solid var(--ui-focus-ring);
+  outline: 2px solid rgba(255, 255, 255, 0.8);
   outline-offset: -2px;
 }
 
