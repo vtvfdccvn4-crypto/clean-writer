@@ -48,18 +48,20 @@ async function run() {
   // The reference is a clean rendered table, so the controls must not be on
   // screen until the pointer or the caret is in the table. :hover cannot be
   // simulated, but :focus-within is the same rule and can be.
-  const toolbar = document.querySelector<HTMLElement>('.cm-table-helper-toolbar');
+  const actions = document.querySelector<HTMLElement>('.cm-table-helper-toolbar .cm-table-helper-actions');
   const headerControls = document.querySelector<HTMLElement>('.cm-table-helper-grid thead .cm-table-helper-alignment');
-  if (!toolbar || !headerControls) throw new Error('Table controls missing.');
-  const chromeHiddenAtRest = getComputedStyle(toolbar).opacity === '0'
+  if (!actions || !headerControls) throw new Error('Table controls missing.');
+  // The toolbar itself is always visible above the heading row; what hides at rest
+  // are the action buttons inside it and the per-column alignment toggles.
+  const chromeHiddenAtRest = getComputedStyle(actions).opacity === '0'
     && getComputedStyle(headerControls).opacity === '0';
   const headerHeight = document.querySelector('.cm-table-helper-grid thead tr')?.getBoundingClientRect().height ?? 0;
   cell(-1, 0)?.focus();
   const chromeShownOnFocus = await waitFor(
     'controls revealed by focus',
-    () => getComputedStyle(toolbar).opacity === '1'
+    () => getComputedStyle(actions).opacity === '1'
   );
-  // Revealing them must not move anything: they are laid over the table.
+  // Revealing the action buttons must not shift the heading row.
   const headerHeightUnchanged = Math.abs(
     (document.querySelector('.cm-table-helper-grid thead tr')?.getBoundingClientRect().height ?? 0) - headerHeight
   ) < 0.5;
