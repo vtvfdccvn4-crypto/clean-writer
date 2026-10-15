@@ -55,6 +55,23 @@
   --ui-button-icon-size: 30px;
   --ui-button-icon-compact-size: 28px;
 
+  /* Ink ramp. One colour at five opacities, so every shade of text,
+     markup and rule stays in tune with the body ink. */
+  --ui-ink: rgba(26, 25, 24, 0.88);
+  --ui-ink-muted: rgba(26, 25, 24, 0.5);
+  --ui-ink-markup: rgba(26, 25, 24, 0.32);
+  --ui-ink-border: rgba(26, 25, 24, 0.12);
+  --ui-ink-border-soft: rgba(26, 25, 24, 0.07);
+
+  /* UI type scale, in px. Document type stays in points and lives in
+     src/styles/document-style-css.ts, the single source of truth for
+     preview-equals-print. */
+  --ui-text-xs: 11px;
+  --ui-text-sm: 12px;
+  --ui-text-md: 13px;
+  --ui-text-lg: 15px;
+  --ui-text-xl: 17px;
+
   /* Radii */
   --ui-radius-sm: 6px;
   --ui-radius-md: 8px;
