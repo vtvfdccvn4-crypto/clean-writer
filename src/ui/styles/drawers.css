@@ -11,9 +11,12 @@
 }
 
 .drawer {
-  --drawer-font-size: 9pt;
-  --drawer-card-header-size: calc(var(--drawer-font-size) - 2pt);
+  --drawer-font-size: var(--ui-text-sm);
+  --drawer-card-header-size: var(--ui-text-md);
   --drawer-card-header-weight: 700;
+  --drawer-control-size: var(--ui-text-xs);
+  --drawer-title-size: var(--ui-text-lg);
+  --drawer-eyebrow-size: var(--ui-text-xs);
   position: fixed;
   top: 0;
   left: 0;
@@ -62,6 +65,20 @@
 .drawer-title-block > * {
   margin: 0;
   line-height: 1.2;
+}
+
+.drawer-title-block > :last-child {
+  font-size: var(--drawer-title-size);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.drawer-eyebrow {
+  font-size: var(--drawer-eyebrow-size);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
 }
 
 .drawer-body,
@@ -132,6 +149,7 @@
   font-size: var(--drawer-font-size);
   font-weight: 400;
   line-height: 1.2;
+  color: var(--ui-text-muted);
 }
 
 .drawer-summary {
@@ -154,6 +172,7 @@
   font-size: var(--drawer-font-size);
   font-weight: 400;
   line-height: 1.2;
+  color: var(--ui-text-muted);
 }
 
 .drawer-summary::-webkit-details-marker {
@@ -284,7 +303,7 @@
 }
 
 .drawer-control > :first-child {
-  font-size: calc(var(--drawer-font-size) - 1pt);
+  font-size: var(--drawer-control-size);
   font-weight: 400;
   line-height: 1.25;
 }
@@ -329,7 +348,7 @@
   padding: 6px 10px;
   border: 0;
   border-radius: 10px;
-  font-size: calc(var(--drawer-font-size) - 1pt);
+  font-size: var(--drawer-control-size);
 }
 
 .drawer-control .drawer-control-input--tall {
@@ -460,7 +479,7 @@
   line-height: 1;
   border-radius: 8px;
   user-select: none;
-  font-size: calc(var(--drawer-font-size) - 1pt);
+  font-size: var(--drawer-control-size);
   transition:
     background-color 120ms ease,
     box-shadow 120ms ease;

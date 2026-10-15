@@ -59,6 +59,16 @@
   --ui-button-icon-size: 30px;
   --ui-button-icon-compact-size: 28px;
 
+  /* UI type scale, in px, roughly a 1.15 ratio. Chrome only: document type
+     stays in points in src/styles/document-style-css.ts, the single source of
+     truth for preview-equals-print. Size is one of three hierarchy signals
+     here -- weight and colour carry the rest, so steps stay small. */
+  --ui-text-xs: 11px;
+  --ui-text-sm: 12px;
+  --ui-text-md: 13px;
+  --ui-text-lg: 15px;
+  --ui-text-xl: 17px;
+
   /* Radii */
   --ui-radius-sm: 6px;
   --ui-radius-md: 8px;
