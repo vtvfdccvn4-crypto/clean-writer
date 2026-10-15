@@ -18,9 +18,11 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createServer } from 'vite';
 
+const execFileAsync = promisify(execFile);
 const root = path.resolve(import.meta.dirname, '..');
 const baselinePath = path.join(root, 'test', 'fixtures', 'computed-styles-baseline.json');
 const probePath = '/test/fixtures/computed-styles-probe.html';
@@ -39,17 +41,27 @@ const viteServer = await createServer({
 let browserProcess;
 let userDataDir;
 let session;
+const trace = (stage) => process.stderr.write(`[computed-styles] ${stage}
+`);
+
 try {
+  trace('starting vite');
   await viteServer.listen();
+  trace('vite listening');
 
   const debugPort = await reservePort();
   userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-computed-styles-'));
   browserProcess = launchHeadlessBrowser(browserExecutable, debugPort, userDataDir);
+  trace('browser launched');
   await waitForBrowserJson(browserProcess, `http://127.0.0.1:${debugPort}/json/version`);
+  trace('cdp ready');
 
   const target = await createBrowserTarget(debugPort, `http://127.0.0.1:${serverPort}${probePath}`);
+  trace('target created');
   session = await connectToTarget(target.webSocketDebuggerUrl);
+  trace('cdp attached');
   await session.waitForProbe(readyTimeoutMs);
+  trace('probe ready');
 
   const captured = {};
   for (const media of ['screen', 'print']) {
@@ -76,6 +88,9 @@ try {
       process.stdout.write(`Computed styles match the baseline (${probeCount} probes, screen and print).\n`);
     }
   }
+} catch (error) {
+  trace(`failed: ${error instanceof Error ? error.message : String(error)}`);
+  throw error;
 } finally {
   if (session) await session.close().catch(() => undefined);
   if (browserProcess) await stopBrowser(browserProcess);
@@ -174,11 +189,11 @@ async function createBrowserTarget(debugPort, url) {
 async function waitForBrowserJson(child, url, attempts = 50) {
   let lastError;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    if (child.exitCode !== null) {
-      throw new Error(`Browser exited before CDP was ready (code=${child.exitCode}). ${child.browserStderr ?? ''}`);
-    }
     try {
-      const response = await fetch(url);
+      // Without a signal a stalled socket parks here forever and the retry
+      // loop never gets another turn, so the whole run hangs instead of
+      // failing with a usable message.
+      const response = await fetch(url, { signal: AbortSignal.timeout(1_000) });
       if (response.ok) return response.json();
       lastError = new Error(`HTTP ${response.status}`);
     } catch (error) {
@@ -186,7 +201,10 @@ async function waitForBrowserJson(child, url, attempts = 50) {
     }
     await delay(200);
   }
-  throw new Error(`Browser CDP did not become ready: ${lastError?.message ?? 'unknown error'} ${child.browserStderr ?? ''}`);
+  // The launcher process exits 0 as soon as it hands off to the detached
+  // browser, so its exit is not a failure and must not end the wait -- only a
+  // CDP endpoint that never answers is. Report the code for diagnosis only.
+  throw new Error(`Browser CDP did not become ready (launcher exit=${child.exitCode ?? 'none'}): ${lastError?.message ?? 'unknown error'} ${child.browserStderr ?? ''}`);
 }
 
 async function connectToTarget(webSocketUrl) {
@@ -252,8 +270,20 @@ async function connectToTarget(webSocketUrl) {
 }
 
 async function stopBrowser(child) {
-  child.kill();
-  await once(child, 'exit').catch(() => undefined);
+  // child.kill() only signals the launcher. Edge and Chrome spawn the renderer,
+  // GPU, network, storage and crashpad processes as siblings, so on Windows
+  // killing the parent orphans them and they accumulate across runs until new
+  // launches stall. Take the whole tree down.
+  if (process.platform === 'win32' && child.pid) {
+    await execFileAsync('taskkill', ['/PID', String(child.pid), '/T', '/F']).catch(() => undefined);
+  } else {
+    child.kill();
+  }
+  // Teardown is best effort: a browser that will not report its exit must not
+  // hold the process open, or a cleanup problem masquerades as a hung check.
+  if (child.exitCode === null) {
+    await Promise.race([once(child, 'exit').catch(() => undefined), delay(5_000)]);
+  }
 }
 
 async function reservePort() {
