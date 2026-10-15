@@ -2,6 +2,16 @@ import { state } from '/src/state.ts';
 import { projectSession } from '/src/services/ProjectSessionStore.ts';
 import { click, waitFor } from './helpers/smoke-dom.ts';
 
+/** Resolves once the preview has published a committed index, so a click maps to source. */
+function navigationReady(): true | null {
+  return document.querySelector('[data-preview-nav][data-preview-nav-ready]') ? true : null;
+}
+
+/** A paginated preview that is both rendered and navigable. */
+function paginatedPreviewReady(): true | null {
+  return document.querySelectorAll('.pagedjs_page').length > 0 && navigationReady() ? true : null;
+}
+
 declare global {
   interface Window {
     __HARNESS_RESULT__?: Record<string, unknown>;
@@ -25,7 +35,7 @@ async function resetStorage(): Promise<void> {
 
 async function clickSourceBlock(label: string, selector: string, path: string): Promise<boolean> {
   const element = await waitFor(`visible ${label}`, () => {
-    if (document.querySelectorAll('.pagedjs_page').length === 0) return null;
+    if (!paginatedPreviewReady()) return null;
     return Array.from(document.querySelectorAll<HTMLElement>(selector))
       .find(candidate => candidate.textContent?.includes(label)) ?? null;
   }, 60_000);
@@ -52,7 +62,7 @@ async function returnToFullPreview(path: string, label: string): Promise<void> {
   await editorManager.openDocument(path);
   await waitFor(`opened ${label}`, () => document.querySelector('.cm-content')?.textContent?.includes(label) ? true : null, 60_000);
   state.setFullDocMode();
-  await waitFor('full-document paginated preview', () => document.querySelectorAll('.pagedjs_page').length > 0 ? true : null, 60_000);
+  await waitFor('full-document paginated preview', paginatedPreviewReady, 60_000);
 }
 
 async function run(): Promise<void> {
@@ -89,9 +99,7 @@ async function run(): Promise<void> {
 
   state.setFullDocMode();
 
-  await waitFor('full-document paginated preview', () =>
-    document.querySelectorAll('.pagedjs_page').length > 0 ? true : null,
-  60_000);
+  await waitFor('full-document paginated preview', paginatedPreviewReady, 60_000);
 
   const h1 = await clickSourceBlock('Chapter one heading', 'h1', chapterOnePath);
   await returnToFullPreview(chapterTwoPath, 'Chapter two heading');

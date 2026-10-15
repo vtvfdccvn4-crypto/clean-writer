@@ -21,15 +21,24 @@ export class PreviewClickNavigator {
   ) {
     this.container = container;
     this.onNavigateToSourceLine = onNavigateToSourceLine;
+    this.container.setAttribute('data-preview-nav', '');
     this.container.addEventListener('click', this.handleClick);
   }
 
+  /**
+   * Installing the index is what makes a click mappable, so it is also what
+   * publishes readiness. Keeping both in one place means the attribute can
+   * never disagree with `this.index`, whichever caller changes it.
+   */
   public setIndex(index: PreviewClickNavigationIndex | null): void {
     this.index = index;
+    this.container.toggleAttribute('data-preview-nav-ready', index !== null);
   }
 
   public destroy(): void {
     this.container.removeEventListener('click', this.handleClick);
+    this.container.removeAttribute('data-preview-nav');
+    this.container.removeAttribute('data-preview-nav-ready');
     this.index = null;
   }
 

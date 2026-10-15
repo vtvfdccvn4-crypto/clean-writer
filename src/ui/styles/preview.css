@@ -4,6 +4,16 @@
   min-height: 0;
 }
 
+/* A preview click is only meaningful once the committed index is installed:
+   until then PreviewClickNavigator has nothing to map the click to and drops
+   it silently, which on a slow render leaves a visibly finished page quietly
+   eating clicks. Make that window inert rather than falsely interactive. The
+   scroll parent is this element's parent, so scrolling and zooming stay live.
+   PreviewClickNavigator owns both attributes. */
+[data-preview-nav]:not([data-preview-nav-ready]) {
+  pointer-events: none;
+}
+
 .preview-empty-state {
   display: grid;
   min-height: 100%;
