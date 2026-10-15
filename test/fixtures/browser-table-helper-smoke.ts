@@ -48,16 +48,18 @@ async function run() {
   // The reference is a clean rendered table, so the controls must not be on
   // screen until the pointer or the caret is in the table. :hover cannot be
   // simulated, but :focus-within is the same rule and can be.
-  const toolbar = document.querySelector<HTMLElement>('.cm-table-helper-toolbar');
+  // The toolbar strip is permanent chrome now that it sits above the heading row,
+  // so what must be hidden at rest are the action buttons inside it, not the strip.
+  const toolbarActions = document.querySelector<HTMLElement>('.cm-table-helper-toolbar .cm-table-helper-actions');
   const headerControls = document.querySelector<HTMLElement>('.cm-table-helper-grid thead .cm-table-helper-alignment');
-  if (!toolbar || !headerControls) throw new Error('Table controls missing.');
-  const chromeHiddenAtRest = getComputedStyle(toolbar).opacity === '0'
+  if (!toolbarActions || !headerControls) throw new Error('Table controls missing.');
+  const chromeHiddenAtRest = getComputedStyle(toolbarActions).opacity === '0'
     && getComputedStyle(headerControls).opacity === '0';
   const headerHeight = document.querySelector('.cm-table-helper-grid thead tr')?.getBoundingClientRect().height ?? 0;
   cell(-1, 0)?.focus();
   const chromeShownOnFocus = await waitFor(
     'controls revealed by focus',
-    () => getComputedStyle(toolbar).opacity === '1'
+    () => getComputedStyle(toolbarActions).opacity === '1'
   );
   // Revealing them must not move anything: they are laid over the table.
   const headerHeightUnchanged = Math.abs(

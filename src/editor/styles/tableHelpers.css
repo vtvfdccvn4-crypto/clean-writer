@@ -31,30 +31,18 @@
   background: #f7f5ef;
 }
 
-/* Floated over the table's top-right corner so showing it costs no height. */
+/* Sits above the table grid in normal flow, so the toolbar never overlaps the
+ * heading row. The label is faint at rest (the table is still readable beneath),
+ * and the action buttons are hidden; both reveal on hover or focus-within. */
 .cm-table-helper-toolbar {
   display: flex;
-  position: absolute;
-  z-index: 2;
-  top: 0.2rem;
-  right: 0.2rem;
-  padding: 0.15rem 0.3rem;
-  border: 1px solid color-mix(in srgb, var(--ui-text) 12%, var(--ui-surface));
-  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  border-bottom: 1px solid #e5e2dc;
   align-items: center;
+  justify-content: space-between;
   gap: 0.4rem;
   flex-wrap: nowrap;
   background: #f7f5ef;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
-}
-
-.cm-table-helper-control:hover .cm-table-helper-toolbar,
-.cm-table-helper-control:focus-within .cm-table-helper-toolbar {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .cm-table-helper-source-toggle {
@@ -73,12 +61,28 @@
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}
+
+.cm-table-helper-control:hover .cm-table-helper-label,
+.cm-table-helper-control:focus-within .cm-table-helper-label {
+  opacity: 1;
 }
 
 .cm-table-helper-actions {
   display: inline-flex;
   gap: 0.2rem;
   flex: 0 0 auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.cm-table-helper-control:hover .cm-table-helper-actions,
+.cm-table-helper-control:focus-within .cm-table-helper-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .cm-table-helper-scroller {
