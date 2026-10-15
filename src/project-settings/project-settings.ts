@@ -2,6 +2,8 @@ import { DEFAULT_EDITOR_SETUP, DEFAULT_IMAGE_SETUP, DEFAULT_LIST_SETUP, DEFAULT_
 import type { CustomBlockStyle, CustomStyle, ListSetup, ProjectMetadata, ProjectSettingsData, SpecialHeadingDefinition, TableSetup, TypographySetup } from '../types';
 import { normalizeExplorerPath } from '../utils/path-utils';
 import { resolveFontFamily } from '../config/font-families';
+import { safeText, safeNumber, safeBoolAlias, safeBoolWithFallback, safeBoolAliasWithFallback, safeColor } from './coerce';
+import { migratePageSetupInput } from './migrations';
 
 const PROJECT_SETTINGS_SCHEMA_VERSION = 5;
 
@@ -75,79 +77,11 @@ function normalizeStyleList<T>(value: unknown): T[] {
   return value.filter(isPlainObject).map(item => cloneValue(item as T));
 }
 
-function normalizePageSetupInput(value: unknown): unknown {
-  if (!isPlainObject(value) || !isPlainObject(value.toc)) return value;
-
-  const toc = value.toc;
-  const hasLevelStyles = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].some(key => isPlainObject(toc[key]));
-  if (hasLevelStyles) return value;
-
-  const isLegacyGlobalStyle = ['fontFamily', 'fontSize', 'color', 'isBold', 'isItalic']
-    .some(key => key in toc);
-  if (!isLegacyGlobalStyle) return value;
-
-  return {
-    ...value,
-    toc: {
-      maxLevel: 6,
-      h1: cloneValue(toc),
-      h2: cloneValue(toc),
-      h3: cloneValue(toc),
-      h4: cloneValue(toc),
-      h5: cloneValue(toc),
-      h6: cloneValue(toc)
-    }
-  };
-}
-
 function firstPresent(input: Record<string, unknown>, keys: string[]): unknown {
   for (const key of keys) {
     if (input[key] !== undefined) return input[key];
   }
   return undefined;
-}
-
-function safeText(value: unknown, fallback = '', maxLength = 10_000): string {
-  return typeof value === 'string' ? value.slice(0, maxLength) : fallback;
-}
-
-function safeNumber(value: unknown, fallback: number, min: number, max: number): number {
-  const numericValue = typeof value === 'number'
-    ? value
-    : typeof value === 'string' && value.trim() !== ''
-      ? Number(value)
-      : Number.NaN;
-  return Number.isFinite(numericValue)
-    ? Math.min(max, Math.max(min, numericValue))
-    : fallback;
-}
-
-function safeBool(value: unknown): boolean {
-  if (value === true) return true;
-  if (typeof value === 'string') return ['true', '1', 'on', 'bold', 'italic'].includes(value.trim().toLowerCase());
-  if (typeof value === 'number') return value !== 0;
-  return false;
-}
-
-function safeBoolAlias(value: unknown, primary: string, alias: string): boolean {
-  const record = value as Record<string, unknown>;
-  return safeBool(record[primary]) || safeBool(record[alias]);
-}
-
-function safeBoolWithFallback(value: unknown, fallback: boolean): boolean {
-  return value === undefined ? fallback : safeBool(value);
-}
-
-function safeBoolAliasWithFallback(value: unknown, primary: string, alias: string, fallback: boolean): boolean {
-  const record = value as Record<string, unknown>;
-  return record[primary] === undefined && record[alias] === undefined
-    ? fallback
-    : safeBoolAlias(record, primary, alias);
-}
-
-function safeColor(value: unknown, fallback: string | undefined): string | undefined {
-  if (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) return value;
-  return fallback;
 }
 
 function normalizeSpecialHeadings(value: unknown): SpecialHeadingDefinition[] {
@@ -348,7 +282,7 @@ export function normalizeProjectSettings(raw: unknown): { settings: ProjectSetti
     hiddenFooters: normalizePathList(input.hiddenFooters),
     numberedHeadings: normalizePathList(input.numberedHeadings),
     tocSections: normalizePathList(input.tocSections),
-    pageSetup: mergeWithDefaults(DEFAULT_PAGE_SETUP, normalizePageSetupInput(firstPresent(input, ['pageSetup', 'page', 'pageSettings']))),
+    pageSetup: mergeWithDefaults(DEFAULT_PAGE_SETUP, migratePageSetupInput(firstPresent(input, ['pageSetup', 'page', 'pageSettings']))),
     typographySetup: mergeWithDefaults(DEFAULT_TYPOGRAPHY_SETUP, firstPresent(input, ['typographySetup', 'typography', 'textStyles'])),
     listSetup: mergeWithDefaults(DEFAULT_LIST_SETUP, firstPresent(input, ['listSetup', 'lists', 'listStyles'])),
     tableSetup: mergeWithDefaults(DEFAULT_TABLE_SETUP, firstPresent(input, ['tableSetup', 'tables', 'tableStyles'])),
