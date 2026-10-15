@@ -4,10 +4,10 @@ import type {
   WorkspaceRepository,
   WorkspaceSession
 } from './types';
-import { createDefaultProjectSettings, normalizeProjectSettings } from '../services/project-settings';
+import { createDefaultProjectSettings, normalizeProjectSettings } from '../project-settings/project-settings';
 import { DirectoryHandleCatalogue } from './DirectoryHandleCatalogue';
 import { readJson, writeJson, ensureDirectory, getDirectory, getFile } from './fs-helpers';
-import { applyProjectSettingsMutation } from '../services/settings-mutations';
+import { applyProjectSettingsMutation } from '../project-settings/settings-mutations';
 import { AbstractWorkspaceSession } from './AbstractWorkspaceSession';
 
 export class LocalDirectoryWorkspaceSession extends AbstractWorkspaceSession {

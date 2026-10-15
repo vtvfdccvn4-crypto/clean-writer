@@ -12,8 +12,8 @@ import type {
 } from './types';
 import { calculateSectionMove } from './section-order';
 import { getDirectory, getFile, deleteEntry, listEntries, copyEntry } from './fs-helpers';
-import { resolveImagePath, resolveSectionPath } from './project-paths';
-import { applyProjectSettingsMutation } from '../services/settings-mutations';
+import { resolveImagePath, resolveSectionPath } from '../project-settings/project-paths';
+import { applyProjectSettingsMutation } from '../project-settings/settings-mutations';
 import { runCoordinatedMutation } from './mutation-coordinator';
 
 export function clone<T>(value: T): T {

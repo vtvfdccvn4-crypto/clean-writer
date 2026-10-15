@@ -14,8 +14,8 @@ import type {
 import { normalizeExplorerPath, replacePathPrefix } from '../utils/path-utils';
 import { calculateSectionMove } from './section-order';
 import { getBlockGlyphLookupPaths } from '../customBlockGlyphs';
-import { applyProjectSettingsMutation } from '../services/settings-mutations';
-import { createDefaultProjectSettings } from '../services/project-settings';
+import { applyProjectSettingsMutation } from '../project-settings/settings-mutations';
+import { createDefaultProjectSettings } from '../project-settings/project-settings';
 import { runCoordinatedMutation } from './mutation-coordinator';
 
 export class InMemoryAssetResolver implements AssetResolver {

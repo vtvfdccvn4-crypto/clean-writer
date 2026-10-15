@@ -6,6 +6,6 @@ export * from './LocalDirectoryWorkspace';
 export * from './DirectoryHandleCatalogue';
 export * from './BlobUrlAssetResolver';
 export * from './fs-helpers';
-export * from './project-paths';
+export * from '../project-settings/project-paths';
 export * from './section-order';
 export * from './runtime';

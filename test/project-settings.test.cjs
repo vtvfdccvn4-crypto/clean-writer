@@ -9,8 +9,8 @@ let applyProjectSettingsMutation;
 
 before(async () => {
   server = await createTestServer();
-  ({ normalizeProjectSettings, createDefaultProjectSettings } = await server.ssrLoadModule('/src/services/project-settings.ts'));
-  ({ applyProjectSettingsMutation } = await server.ssrLoadModule('/src/services/settings-mutations.ts'));
+  ({ normalizeProjectSettings, createDefaultProjectSettings } = await server.ssrLoadModule('/src/project-settings/project-settings.ts'));
+  ({ applyProjectSettingsMutation } = await server.ssrLoadModule('/src/project-settings/settings-mutations.ts'));
 });
 
 test('shared settings mutations preserve paths and apply typed patches', () => {

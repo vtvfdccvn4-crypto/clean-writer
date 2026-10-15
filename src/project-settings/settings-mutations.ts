@@ -1,6 +1,6 @@
 import type { ProjectSettingsData, ProjectSettingsMutation } from '../types';
 import { normalizeExplorerPath } from '../utils/path-utils';
-import { removeSettingsPath, replaceSettingsPath } from '../platform/project-paths';
+import { removeSettingsPath, replaceSettingsPath } from './project-paths';
 
 /** Applies one project-settings command to a caller-owned mutable snapshot. */
 export function applyProjectSettingsMutation(

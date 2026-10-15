@@ -5,10 +5,10 @@ import type {
   WorkspaceRepository,
   WorkspaceSession
 } from './types';
-import { createDefaultProjectSettings, normalizeProjectSettings } from '../services/project-settings';
+import { createDefaultProjectSettings, normalizeProjectSettings } from '../project-settings/project-settings';
 import { OPFSCatalogue } from './OPFSCatalogue';
 import { readJson, writeJson, ensureDirectory } from './fs-helpers';
-import { applyProjectSettingsMutation } from '../services/settings-mutations';
+import { applyProjectSettingsMutation } from '../project-settings/settings-mutations';
 import { AbstractWorkspaceSession } from './AbstractWorkspaceSession';
 
 export class OPFSWorkspaceSession extends AbstractWorkspaceSession {
