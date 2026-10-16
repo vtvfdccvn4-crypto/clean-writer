@@ -107,7 +107,7 @@
   position: relative;
   padding: 0.3rem 0.5rem;
   /* Light enough to read as a rendered table, firm enough to show each cell's limits. */
-  border: 1px solid var(--ui-border-soft);
+  border: 1px solid var(--ui-border-subtle);
   color: var(--ui-text);
   font-weight: inherit;
   text-align: inherit;
