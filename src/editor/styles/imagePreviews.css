@@ -22,14 +22,17 @@
   object-fit: contain;
 }
 
+/* The card matches the table helper: a hairline frame, a soft lift and a raised
+ * surface, with the label and toggle faint until hovered or focused. */
 .cm-image-preview-control {
   display: inline-flex;
   width: min(320px, calc(100% - 8px));
   margin-left: 0.5rem;
-  border: 1px solid var(--ui-border);
-  border-radius: 8px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow-sm);
   overflow: hidden;
-  background: var(--ui-surface);
+  background: var(--ui-surface-raised);
   vertical-align: middle;
   flex-direction: column;
   align-items: stretch;
@@ -46,8 +49,7 @@
   cursor: grabbing;
 }
 
-.cm-image-preview-control input,
-.cm-image-preview-control button {
+.cm-image-preview-control input {
   cursor: auto;
 }
 
@@ -56,16 +58,27 @@
   display: flex;
   width: 100%;
   box-sizing: border-box;
-  background: var(--ui-surface);
+  align-items: center;
+  background: var(--ui-surface-subtle);
 }
 
 .cm-image-preview-header {
-  padding: 0.4rem 0.6rem;
+  padding: 0.2rem 0.4rem;
   border-bottom: 1px solid var(--ui-border-subtle);
   color: var(--ui-text-muted, currentColor);
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}
+
+.cm-image-preview-control:hover .cm-image-preview-header,
+.cm-image-preview-control:focus-within .cm-image-preview-header {
+  opacity: 1;
 }
 
 .cm-image-preview-body {
@@ -73,11 +86,13 @@
   width: 100%;
   padding: 0.5rem;
   box-sizing: border-box;
-  background: var(--ui-canvas);
+  background: var(--ui-surface-raised);
 }
 
 .cm-image-preview-footer {
-  padding: 0.4rem 0.5rem;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.2rem 0.4rem;
   border-top: 1px solid var(--ui-border-subtle);
 }
 
@@ -89,53 +104,44 @@
 .cm-image-preview-width input {
   width: 4.5rem;
   padding: 0.08rem 0.25rem;
-  border: 1px solid var(--ui-border);
-  border-radius: 4px;
-  background: var(--ui-canvas);
+  border: 1px solid var(--ui-border-soft);
+  border-radius: 3px;
+  background: var(--ui-surface-raised);
   color: inherit;
   font: inherit;
 }
 
-.cm-image-preview-alignment {
+/* Same look as the table column toggle: a small outlined square, hidden at rest
+ * and revealed on hover or focus so the card reads as a rendered image. */
+.cm-image-preview-align-toggle {
   display: inline-flex;
-  gap: 0.2rem;
-}
-
-.cm-image-preview-controls {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
-.cm-image-preview-align-button {
-  display: inline-flex;
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--ui-border);
-  border-radius: 4px;
-  background: var(--ui-canvas);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
   color: var(--ui-text-muted);
   cursor: pointer;
   font: inherit;
   line-height: 1;
+  opacity: 0;
+  transition: opacity 120ms ease;
 }
 
-.cm-image-preview-align-button .ui-icon {
+.cm-image-preview-align-toggle .ui-icon {
   display: block;
   width: 1em;
   height: 1em;
-  font-size: 1rem;
+  font-size: 0.95rem;
   line-height: 1;
 }
 
-.cm-image-preview-align-button[aria-pressed="true"] {
-  border-color: color-mix(in srgb, var(--ui-brand) 35%, var(--ui-border));
-  background: var(--ui-brand-soft);
-  color: var(--ui-brand-strong);
+.cm-image-preview-control:hover .cm-image-preview-align-toggle,
+.cm-image-preview-control:focus-within .cm-image-preview-align-toggle {
+  border-color: var(--ui-border-soft);
+  opacity: 1;
 }
