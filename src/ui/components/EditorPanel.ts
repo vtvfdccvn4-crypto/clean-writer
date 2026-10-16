@@ -8,8 +8,8 @@ export const editorPanelTemplate = (): string => `
         <span id="active-section-label" class="active-section-label" hidden></span>
       </div>
       <div class="panel-actions">
-        ${toolbarButton({ id: 'btn-open-project-search', variant: 'icon', ariaLabel: 'Search Project', title: 'Search Project', icon: materialIcon('file_search'), attributes: { 'aria-controls': 'project-search-drawer', 'aria-expanded': 'false' } })}
-        ${toolbarButton({ id: 'btn-toggle-print-preview', variant: 'icon', ariaLabel: 'Show final print preview', title: 'Show final print preview', icon: materialIcon('file_text'), attributes: { 'aria-pressed': 'false' } })}
+        ${toolbarButton({ id: 'btn-open-project-search', variant: 'icon', ariaLabel: 'Search Project', title: 'Search Project', icon: materialIcon('folder_search'), attributes: { 'aria-controls': 'project-search-drawer', 'aria-expanded': 'false' } })}
+        ${toolbarButton({ id: 'btn-toggle-print-preview', variant: 'icon', ariaLabel: 'Show final print preview', title: 'Show final print preview', icon: materialIcon('printer'), attributes: { 'aria-pressed': 'false' } })}
         ${toolbarButton({ id: 'btn-open-project-review', variant: 'icon', ariaLabel: 'Project Review', title: 'Project Review', icon: materialIcon('clipboard_check'), attributes: { 'aria-controls': 'project-review-drawer', 'aria-expanded': 'false' } })}
         ${toolbarButton({ id: 'btn-open-search', variant: 'icon', ariaLabel: 'Find and Replace', title: 'Find and Replace', icon: materialIcon('search') })}
         ${toolbarButton({ id: 'btn-editor-preferences', variant: 'icon', ariaLabel: 'Editor preferences', title: 'Editor preferences', icon: materialIcon('settings'), attributes: { 'aria-controls': 'editor-preferences-drawer' } })}
