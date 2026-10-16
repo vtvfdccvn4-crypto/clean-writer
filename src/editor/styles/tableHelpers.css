@@ -9,11 +9,10 @@
   width: 100%;
   max-width: 100%;
   margin: 0.4rem 0;
-  /* No outer frame: a hairline and a soft lift make the table read as a card. */
+  /* No outer frame: a hairline edge keeps the table flat, like the rest of the web-style UI. */
   border: 1px solid var(--ui-border-subtle);
   /* Rounded top corners only; the bottom edge stays nearly square. */
   border-radius: var(--ui-radius-lg) var(--ui-radius-lg) 2px 2px;
-  box-shadow: var(--ui-shadow-sm);
   overflow: hidden;
   background: var(--ui-surface-raised);
   flex-direction: column;
