@@ -34,8 +34,12 @@ jobs:
       - run: echo "CLEAR_WRITER_BROWSER=${{ steps.setup-chrome.outputs.chrome-path }}" >> "$GITHUB_ENV"
 
       - run: npm ci
-      - run: npm run release:prep
-
+      - run: npm run typecheck
+      - run: npm run check:styles
+      - run: npm run build
+      - run: npm run check:bundle
+      - run: npm test
+      
   deploy:
     needs: verify
     environment:
