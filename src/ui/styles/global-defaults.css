@@ -3,54 +3,57 @@
   --font-mono: Consolas, "Courier New", monospace;
 
   /* Surfaces */
-  --ui-surface: #f8f7f3;
-  --ui-surface-subtle: #f3f2ee;
-  --ui-surface-hover: #edeae4;
+  --ui-surface: #fafbfc;
+  --ui-surface-subtle: #f3f5f8;
+  --ui-surface-hover: #e9edf2;
   --ui-surface-raised: #ffffff;
   --ui-canvas: #ffffff;
 
-  /* Text */
-  --ui-text: #1a1918;
-  --ui-text-muted: #6b6860;
-  --ui-text-placeholder: #a8a39c;
+  /* Text (cool neutrals; muted and placeholder pass 4.5:1 on surface) */
+  --ui-text: #16202c;
+  --ui-text-muted: #5a6675;
+  --ui-text-placeholder: #6b7685;
+  --ui-text-disabled: #9aa4b1;
 
-  /* Borders */
-  --ui-border: #d1cec8;
-  --ui-border-soft: #e5e2dc;
-  --ui-border-subtle: #edeae4;
-  --ui-border-strong: #a8a39c;
+  /* Borders. Hairline is for dividers only; control edge (3:1) for inputs. */
+  --ui-border: #7f8b9a;
+  --ui-border-soft: #dde3ea;
+  --ui-border-subtle: #e9edf2;
+  --ui-border-strong: #5a6675;
 
-  /* App chrome (top bar + activity bar) */
-  --ui-app-chrome: #102a4c;
-  --ui-app-chrome-text: #ffffff;
-  --ui-app-chrome-text-muted: rgba(255, 255, 255, 0.55);
-  --ui-app-chrome-border: #0a1b33;
+  /* App chrome (top bar + activity bar): a light rail, one step off the
+     white canvas, with a hairline edge. */
+  --ui-app-chrome: #f1f4f8;
+  --ui-app-chrome-text: #2b3644;
+  --ui-app-chrome-text-muted: #5d6a7b;
+  --ui-app-chrome-hover: #e9edf2;
+  --ui-app-chrome-border: #dde3ea;
 
-  /* Accent / brand */
-  --ui-accent: #405a78;
-  --ui-accent-light: #e8eef4;
-  --ui-brand: #405a78;
-  --ui-brand-soft: #e8eef4;
-  --ui-brand-strong: #2c4a68;
-  --ui-brand-tint: #f4f7fa;
-  --ui-muted: #a8a39c;
-  --ui-success: #3f8f5f;
+  /* Accent / brand (blue-grey) */
+  --ui-accent: #4a6785;
+  --ui-accent-light: #e9eff6;
+  --ui-brand: #4a6785;
+  --ui-brand-soft: #e9eff6;
+  --ui-brand-strong: #3d5672;
+  --ui-brand-tint: #f3f6fa;
+  --ui-muted: #6b7685;
+  --ui-success: #2f7a4d;
   --ui-danger: #b42318;
-  --ui-warning: #c27a1a;
+  --ui-warning: #9a5f0f;
 
   /* Overlay */
-  --ui-overlay: rgba(16, 42, 76, 0.25);
+  --ui-overlay: rgba(22, 32, 44, 0.25);
 
   /* Shadows */
-  --ui-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05);
-  --ui-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --ui-shadow-sm: 0 1px 2px rgba(22, 32, 44, 0.06), 0 1px 3px rgba(22, 32, 44, 0.08);
+  --ui-shadow-md: 0 4px 16px rgba(22, 32, 44, 0.10), 0 2px 6px rgba(22, 32, 44, 0.06);
 
   /* Paper sheet. Lifts the page off the preview backdrop; screen only,
      since this must never reach PDF export. */
-  --ui-sheet-shadow: 0 1px 2px rgba(26, 25, 24, 0.08), 0 8px 24px rgba(26, 25, 24, 0.10);
+  --ui-sheet-shadow: 0 1px 2px rgba(22, 32, 44, 0.08), 0 8px 24px rgba(22, 32, 44, 0.10);
 
-  /* Focus ring */
-  --ui-focus-ring: rgba(64, 90, 120, 0.35);
+  /* Focus ring (solid 2px accent in CSS; this token is the translucent fallback) */
+  --ui-focus-ring: rgba(74, 103, 133, 0.45);
 
   /* Preview pane background */
   --ui-preview-bg: #ebebeb;

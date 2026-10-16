@@ -30,7 +30,7 @@
   border: 0;
   border-radius: var(--ui-radius-sm);
   background: transparent;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--ui-app-chrome-text-muted);
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -53,13 +53,13 @@
 }
 
 .activity-bar-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  background: var(--ui-app-chrome-hover);
+  color: var(--ui-app-chrome-text);
 }
 
 .activity-bar-button.is-active {
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
+  background: var(--ui-brand-tint);
+  color: var(--ui-brand);
 }
 
 .activity-bar-button.is-active::before {
@@ -69,12 +69,12 @@
   left: 0;
   width: 2px;
   border-radius: 0 2px 2px 0;
-  background: #ffffff;
+  background: var(--ui-brand);
   content: '';
 }
 
 .activity-bar-button:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline: 2px solid var(--ui-focus-ring);
   outline-offset: -2px;
 }
 
