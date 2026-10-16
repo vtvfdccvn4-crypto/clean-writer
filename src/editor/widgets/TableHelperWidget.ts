@@ -47,10 +47,10 @@ function focusCellWhenAttached(target: HTMLElement): void {
 }
 
 const alignmentIcons: Record<TableColumnAlignment, string> = {
-  '': 'format_align_left',
-  left: 'format_align_left',
-  center: 'format_align_center',
-  right: 'format_align_right'
+  '': 'align_horizontal_left',
+  left: 'align_horizontal_left',
+  center: 'align_horizontal_center',
+  right: 'align_horizontal_right'
 };
 
 const alignmentNames: Record<TableColumnAlignment, string> = {
