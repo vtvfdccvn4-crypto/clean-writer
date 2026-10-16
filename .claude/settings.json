@@ -26,7 +26,9 @@
       "Bash(git rm --cached:*)",
       "Bash(git ls-files:*)",
       "Bash(git check-ignore:*)",
-      "Bash(git config --get:*)"
+      "Bash(git config --get:*)",
+      "Edit(src/ui/components/icon.ts)",
+      "Write(src/ui/components/icon.ts)"
     ],
     "deny": [
       "Read(./.env)",
