@@ -60,6 +60,7 @@ async function runScenario(scenario: ProfileScenario): Promise<ScaleResult> {
   const outcome = await host.requestPrintArtifact(createJob(scenario), event => {
     if (event.pagesCompleted !== undefined) progress.push(event.pagesCompleted);
   });
+  host.dispose();
   if (outcome.status !== 'success') {
     return {
       pageCount: 0, lastPageText: '', lastPageContainsSentinel: false,
@@ -106,6 +107,7 @@ async function runCancellation(scenario: ProfileScenario) {
       controller.abort();
     }
   }, controller.signal);
+  host.dispose();
   return {
     status: outcome.status,
     cancelledDuringPagination,
