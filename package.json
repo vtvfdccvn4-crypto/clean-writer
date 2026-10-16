@@ -19,7 +19,7 @@
     "test:browser-smoke": "node scripts/release-browser-smoke.mjs",
     "diagnose:browser-runtime": "node scripts/diagnose-browser-runtime.mjs",
     "test:pwa-smoke": "npm run build && node scripts/release-web-shell-smoke.mjs",
-    "release:prep": "npm run typecheck && npm run check:styles && npm run check:computed-styles && npm run check:bundle && npm run test:pagedjs-patch && npm test && npm run test:perf && npm run test:pdf-scale && npm run test:browser-smoke && npm run test:pwa-smoke",
+    "release:prep": "npm run typecheck && npm run check:styles && npm run check:computed-styles && npm run build && npm run check:bundle && npm run test:pagedjs-patch && npm test && npm run test:perf && npm run test:pdf-scale && npm run test:browser-smoke && npm run test:pwa-smoke",
     "profile:preview": "node --expose-gc scripts/profile-preview.mjs",
     "profile:pagination": "node scripts/profile-pagination.mjs",
     "profile:preview-baseline": "node scripts/profile-pagination.mjs --scale --output reports/preview-baseline.json",
