@@ -29,8 +29,6 @@
       "Bash(git config --get:*)"
     ],
     "deny": [
-      "Bash(git push:*)",
-      "Bash(git remote:*)",
       "Read(./.env)",
       "Read(./.env.*)"
     ]
