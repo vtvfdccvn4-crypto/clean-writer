@@ -1,19 +1,42 @@
 import { WidgetType } from '@codemirror/view';
 import { materialIcon } from '../../ui/components/icon';
 
+type ImageAlignment = 'left' | 'center' | 'right' | '';
+
+const alignmentIcons: Record<ImageAlignment, string> = {
+  '': 'align_horizontal_left',
+  left: 'align_horizontal_left',
+  center: 'align_horizontal_center',
+  right: 'align_horizontal_right'
+};
+
+const alignmentNames: Record<ImageAlignment, string> = {
+  '': 'left',
+  left: 'left',
+  center: 'centre',
+  right: 'right'
+};
+
+/** Same cycle as a table column's toggle: unset reads as left, then centre, right, left. */
+function nextImageAlignment(current: ImageAlignment): 'left' | 'center' | 'right' {
+  if (current === 'center') return 'right';
+  if (current === 'right') return 'left';
+  return 'center';
+}
+
 export class ImagePreviewWidget extends WidgetType {
   private readonly alt: string;
   private readonly source: string;
   private readonly resolveSource: (source: string) => Promise<string>;
   private readonly width: string;
-  private readonly alignment: 'left' | 'center' | 'right' | '';
+  private readonly alignment: ImageAlignment;
   private readonly onEdit: (update: { alignment?: 'left' | 'center' | 'right'; width?: string }) => void;
 
   constructor(
     alt: string,
     source: string,
     width: string,
-    alignment: 'left' | 'center' | 'right' | '',
+    alignment: ImageAlignment,
     resolveSource: (source: string) => Promise<string>,
     onEdit: (update: { alignment?: 'left' | 'center' | 'right'; width?: string }) => void
   ) {
@@ -30,12 +53,30 @@ export class ImagePreviewWidget extends WidgetType {
     return this.source === other.source && this.alt === other.alt && this.width === other.width && this.alignment === other.alignment;
   }
 
+  /** One toggle that shows the current alignment; each click moves it to the next, as a table column's does. */
+  private alignmentToggle(): HTMLButtonElement {
+    const next = nextImageAlignment(this.alignment);
+    const label = `Image alignment: ${alignmentNames[this.alignment]}. Click to align ${alignmentNames[next]}.`;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cm-image-preview-align-toggle';
+    button.innerHTML = materialIcon(alignmentIcons[this.alignment]);
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.dataset.alignment = this.alignment || 'default';
+    button.addEventListener('mousedown', event => event.preventDefault());
+    button.addEventListener('click', () => this.onEdit({ alignment: next }));
+    return button;
+  }
+
   toDOM(): HTMLElement {
     const container = document.createElement('span');
     container.className = 'cm-image-preview-control';
     container.contentEditable = 'false';
     container.dataset.imagePreviewDragSource = 'true';
     container.title = 'Hold and drag to move this image';
+    container.setAttribute('role', 'group');
+    container.setAttribute('aria-label', 'Image');
 
     const header = document.createElement('span');
     header.className = 'cm-image-preview-header';
@@ -71,33 +112,13 @@ export class ImagePreviewWidget extends WidgetType {
         saveWidth();
       }
     });
-
-    const alignmentControls = document.createElement('span');
-    alignmentControls.className = 'cm-image-preview-alignment';
-    (['left', 'center', 'right'] as const).forEach(alignment => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'cm-image-preview-align-button';
-      const iconName = alignment === 'left'
-        ? 'align_horizontal_left'
-        : alignment === 'center'
-          ? 'align_horizontal_center'
-          : 'align_horizontal_right';
-      button.innerHTML = materialIcon(iconName);
-      button.setAttribute('aria-pressed', String(this.alignment === alignment));
-      button.setAttribute('aria-label', `Align image ${alignment}`);
-      button.title = `Align image ${alignment}`;
-      button.addEventListener('click', () => this.onEdit({ alignment }));
-      alignmentControls.appendChild(button);
-    });
-    void this.resolveSource(this.source).then(value => { image.src = value; });
     label.appendChild(input);
-    const controls = document.createElement('span');
-    controls.className = 'cm-image-preview-controls';
-    controls.append(label, alignmentControls);
+
     const footer = document.createElement('span');
     footer.className = 'cm-image-preview-footer';
-    footer.append(controls);
+    footer.append(label, this.alignmentToggle());
+
+    void this.resolveSource(this.source).then(value => { image.src = value; });
     body.append(image);
     container.append(header, body, footer);
     return container;
