@@ -114,8 +114,10 @@ test('print-layout settings invalidate an installed paginated artifact', () => {
   assert.match(coordinator, /refreshPaginatedPreview\(\)/);
   // Settings listeners coalesce through the scheduler, which drives the controller refresh.
   assert.match(coordinator, /schedulePaginatedRefresh\(\)[\s\S]*?this\.controller\.refreshPaginatedPreview\(\)/);
-  assert.match(editorManager, /onCustomStylesChanged\(\(\) => \{[\s\S]*?schedulePaginatedRefresh/);
-  assert.match(editorManager, /onCustomBlockStylesChanged\(\(\) => \{[\s\S]*?schedulePaginatedRefresh/);
+  assert.match(editorManager, /state\.onCustomStylesChanged\(listener\)/);
+  assert.match(editorManager, /state\.onCustomBlockStylesChanged\(listener\)/);
+  assert.match(editorManager, /subscribe\(\(\) => \{[\s\S]*?this\.refreshPagination\(\)/);
+  assert.match(editorManager, /refreshPagination\(\): void \{[\s\S]*?schedulePaginatedRefresh\(\)/);
 });
 
 test('isolated pagination preserves the job stylesheet with generated Paged.js CSS', () => {

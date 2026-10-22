@@ -151,52 +151,32 @@ export class EditorManager {
       this.applySnapshotSettings();
       this.activation.request('settings snapshot change');
     });
-    state.onPageSetupChanged(() => {
-      this.preview.applyPageSetup(state.current.pageSetup, false);
-      this.preview.schedulePaginatedRefresh();
-      this.applyDocumentContentWidth();
-      this.paginatedRenderer.scheduleGuides(true);
-    });
-    state.onTypographySetupChanged(() => {
-      this.preview.applyTypographySetup(state.current.typographySetup);
-      this.preview.schedulePaginatedRefresh();
-      this.paginatedRenderer.scheduleGuides(true);
-    });
-    state.onListSetupChanged(() => {
-      this.preview.applyListSetup(state.current.listSetup);
-      this.preview.schedulePaginatedRefresh();
-      this.paginatedRenderer.scheduleGuides(true);
-    });
-    state.onTableSetupChanged(() => {
-      this.preview.applyTableSetup(state.current.tableSetup);
-      this.preview.schedulePaginatedRefresh();
-      this.paginatedRenderer.scheduleGuides(true);
-    });
-    state.onImageSetupChanged(() => {
-      this.preview.applyImageSetup(state.current.imageSetup);
-      this.preview.schedulePaginatedRefresh();
-      this.paginatedRenderer.scheduleGuides(true);
-    });
+    // Each preview-affecting setting applies itself, then repaginates.
+    const previewSettings: Array<[subscribe: (listener: EventListener) => () => void, apply?: () => void]> = [
+      [listener => state.onPageSetupChanged(listener), () => {
+        this.preview.applyPageSetup(state.current.pageSetup, false);
+        this.applyDocumentContentWidth();
+      }],
+      [listener => state.onTypographySetupChanged(listener), () => this.preview.applyTypographySetup(state.current.typographySetup)],
+      [listener => state.onListSetupChanged(listener), () => this.preview.applyListSetup(state.current.listSetup)],
+      [listener => state.onTableSetupChanged(listener), () => this.preview.applyTableSetup(state.current.tableSetup)],
+      [listener => state.onImageSetupChanged(listener), () => this.preview.applyImageSetup(state.current.imageSetup)],
+      [listener => state.onCustomStylesChanged(listener)],
+      [listener => state.onCustomBlockStylesChanged(listener)]
+    ];
+    for (const [subscribe, apply] of previewSettings) {
+      subscribe(() => {
+        apply?.();
+        this.refreshPagination();
+      });
+    }
     state.onProjectMetadataChanged(() => {
       this.paginatedRenderer.scheduleGuides(true);
       this.activation.request('project metadata change');
     });
-    state.onCustomStylesChanged(() => {
-      this.preview.schedulePaginatedRefresh();
-      this.paginatedRenderer.scheduleGuides(true);
-    });
-    state.onCustomBlockStylesChanged(() => {
-      this.preview.schedulePaginatedRefresh();
-      this.paginatedRenderer.scheduleGuides(true);
-    });
 
     // Apply initial defaults
-    this.preview.applyPageSetup(state.current.pageSetup);
-    this.applyDocumentContentWidth();
-    this.preview.applyTypographySetup(state.current.typographySetup);
-    this.preview.applyListSetup(state.current.listSetup);
-    this.preview.applyTableSetup(state.current.tableSetup);
-    this.preview.applyImageSetup(state.current.imageSetup);
+    this.applyPreviewSetups(true);
     this.paginatedRenderer.syncToggle();
   }
 
@@ -211,13 +191,24 @@ export class EditorManager {
   private applySnapshotSettings() {
     // The snapshot listener queues a fresh compile below, so rendering the cached
     // document here would briefly render stale content and duplicate the work.
-    this.preview.applyPageSetup(state.current.pageSetup, false);
-    this.preview.applyTypographySetup(state.current.typographySetup);
-    this.preview.applyListSetup(state.current.listSetup);
-    this.preview.applyTableSetup(state.current.tableSetup);
-    this.preview.applyImageSetup(state.current.imageSetup);
+    this.applyPreviewSetups(false);
     this.editorContainer.style.setProperty('--editor-font-size', state.current.editorSetup.fontSize);
+  }
+
+  /** Push every preview setting from state, plus the editor's matching content width. */
+  private applyPreviewSetups(renderCachedDocument: boolean): void {
+    const { pageSetup, typographySetup, listSetup, tableSetup, imageSetup } = state.current;
+    this.preview.applyPageSetup(pageSetup, renderCachedDocument);
     this.applyDocumentContentWidth();
+    this.preview.applyTypographySetup(typographySetup);
+    this.preview.applyListSetup(listSetup);
+    this.preview.applyTableSetup(tableSetup);
+    this.preview.applyImageSetup(imageSetup);
+  }
+
+  private refreshPagination(): void {
+    this.preview.schedulePaginatedRefresh();
+    this.paginatedRenderer.scheduleGuides(true);
   }
 
   /** Keep inline editor images within the final document's printable width. */

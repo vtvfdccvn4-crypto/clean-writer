@@ -16,7 +16,7 @@ test('shared button variants remain defined in one foundation', () => {
 test('workspace breakpoints do not redefine the base grid', () => {
   const css = read('src/ui/styles/workspace.css');
   assert.doesNotMatch(css, /@media[\s\S]*?\.workspace\s*\{[\s\S]*?grid-template-(?:columns|rows|areas)/);
-  assert.match(css, /grid-template-columns:\s*50px var\(--task-panel-width\)/);
+  assert.match(css, /grid-template-columns:\s*48px var\(--task-panel-width\)/);
 });
 
 test('editor and preview use an accessible dedicated split separator', () => {
