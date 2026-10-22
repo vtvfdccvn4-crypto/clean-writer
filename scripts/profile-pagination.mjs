@@ -1,10 +1,9 @@
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
-import { spawn } from 'node:child_process';
 import { createServer } from 'vite';
+import { NO_BACKGROUND_THROTTLING_FLAGS, launchHeadlessBrowser, detectBrowserExecutable, createBrowserTarget, waitForJson, reservePort, delay, closeQuietly } from './lib/browser.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const projectArgument = readArgument('--project');
@@ -50,7 +49,7 @@ try {
   const { buildFullDocumentMarkdown } = await viteServer.ssrLoadModule('/src/preview/document-rendering/index.ts');
   scenarios = await buildScenarios(buildFullDocumentMarkdown, compileMarkdown);
 
-  browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir);
+  browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir, NO_BACKGROUND_THROTTLING_FLAGS);
   browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`);
   const target = await createBrowserTarget(browserDebugPort, `http://127.0.0.1:${serverPort}${fixturePath}`);
   browserSession = await connectToTarget(target.webSocketDebuggerUrl);
@@ -337,75 +336,6 @@ async function markdownFiles(directory) {
   return nested.flat().sort((left, right) => left.localeCompare(right));
 }
 
-function launchHeadlessBrowser(executable, debugPort, userDataDir) {
-  return spawn(executable, [
-    '--headless=new',
-    '--disable-gpu',
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-background-networking',
-    '--disable-background-timer-throttling',
-    '--disable-renderer-backgrounding',
-    '--disable-sync',
-    '--no-first-run',
-    '--no-default-browser-check',
-    `--remote-debugging-port=${debugPort}`,
-    '--remote-debugging-address=127.0.0.1',
-    `--user-data-dir=${userDataDir}`,
-    'about:blank'
-  ], {
-    stdio: ['ignore', 'ignore', 'pipe']
-  });
-}
-
-async function detectBrowserExecutable() {
-  const candidates = [
-    process.env.CLEAR_WRITER_BROWSER,
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/microsoft-edge'
-  ];
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      // Try the next browser.
-    }
-  }
-  throw new Error('No supported headless browser was found. Set CLEAR_WRITER_BROWSER or install Edge, Chrome, or Chromium.');
-}
-
-async function createBrowserTarget(debugPort, url) {
-  const response = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(url)}`, {
-    method: 'PUT'
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to create browser target (${response.status}).`);
-  }
-  return response.json();
-}
-
-async function waitForJson(url, attempts = 50) {
-  let lastError;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) return response.json();
-      lastError = new Error(`Unexpected HTTP ${response.status} for ${url}`);
-    } catch (error) {
-      lastError = error;
-    }
-    await delay(100);
-  }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
-}
-
 async function connectToTarget(webSocketUrl) {
   const socket = new WebSocket(webSocketUrl);
   await once(socket, 'open');
@@ -458,18 +388,6 @@ async function connectToTarget(webSocketUrl) {
   };
 }
 
-async function reservePort() {
-  const server = net.createServer();
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  const address = server.address();
-  const port = typeof address === 'object' && address ? address.port : null;
-  server.close();
-  await once(server, 'close');
-  if (!port) throw new Error('Failed to reserve a local port.');
-  return port;
-}
-
 function readArgument(name) {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : undefined;
@@ -487,15 +405,6 @@ async function writeReport(report) {
   const outputPath = path.resolve(root, outputArgument);
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   await fs.writeFile(outputPath, serialized, 'utf8');
-}
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function closeQuietly(session) {
-  if (!session) return;
-  await session.close().catch(() => undefined);
 }
 
 async function waitForProfilerReady(browserSession) {

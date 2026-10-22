@@ -1,10 +1,10 @@
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
-import { execFile, spawn } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { createServer } from 'vite';
+import { NO_BACKGROUND_THROTTLING_FLAGS, launchHeadlessBrowser, detectBrowserExecutable, createBrowserTarget, reservePort, delay, closeQuietly } from './lib/browser.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const serverPort = await reservePort();
@@ -358,7 +358,7 @@ try {
     let fixtureSucceeded = false;
     try {
       const browserLaunchStartedAt = performance.now();
-      browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir);
+      browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir, [...NO_BACKGROUND_THROTTLING_FLAGS, '--disable-extensions']);
       const browserVersion = await waitForBrowserJson(
         browserProcess,
         `http://127.0.0.1:${browserDebugPort}/json/version`,
@@ -451,85 +451,11 @@ try {
   await viteServer.close();
 }
 
-function launchHeadlessBrowser(executable, debugPort, userDataDir) {
-  const process = spawn(executable, [
-    '--headless=new',
-    '--disable-gpu',
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-background-networking',
-    '--disable-background-timer-throttling',
-    '--disable-renderer-backgrounding',
-    '--disable-sync',
-    '--disable-extensions',
-    '--no-first-run',
-    '--no-default-browser-check',
-    `--remote-debugging-port=${debugPort}`,
-    '--remote-debugging-address=127.0.0.1',
-    `--user-data-dir=${userDataDir}`,
-    'about:blank'
-  ], {
-    stdio: ['ignore', 'ignore', 'pipe']
-  });
-  process.stderr.setEncoding('utf8');
-  process.browserStderr = '';
-  process.stderr.on('data', chunk => {
-    process.browserStderr = `${process.browserStderr}${chunk}`.slice(-4_000);
-  });
-  return process;
-}
-
-async function detectBrowserExecutable() {
-  const candidates = [
-    process.env.CLEAR_WRITER_BROWSER,
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/microsoft-edge'
-  ];
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      // Keep looking.
-    }
-  }
-  throw new Error('No supported headless browser was found. Set CLEAR_WRITER_BROWSER or install Edge, Chrome, or Chromium.');
-}
-
-async function createBrowserTarget(debugPort, url) {
-  const response = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(url)}`, {
-    method: 'PUT'
-  });
-  if (!response.ok) throw new Error(`Failed to create browser target (${response.status}).`);
-  return response.json();
-}
-
 async function closeBrowserTarget(debugPort, targetId) {
   const response = await fetch(`http://127.0.0.1:${debugPort}/json/close/${encodeURIComponent(targetId)}`);
   if (!response.ok) {
     throw new Error(`Failed to close browser target ${targetId} (${response.status}).`);
   }
-}
-
-async function waitForJson(url, attempts = 50) {
-  let lastError;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) return response.json();
-      lastError = new Error(`Unexpected HTTP ${response.status} for ${url}`);
-    } catch (error) {
-      lastError = error;
-    }
-    await delay(100);
-  }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 async function waitForBrowserJson(browserProcess, url, attempts = 50) {
@@ -713,27 +639,7 @@ async function waitForHarnessResult(session) {
   throw new Error(`Browser smoke fixture did not finish within ${fixtureTimeoutMs}ms. Diagnostics: ${JSON.stringify(progress)}.`);
 }
 
-async function reservePort() {
-  const server = net.createServer();
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  const address = server.address();
-  const port = typeof address === 'object' && address ? address.port : null;
-  server.close();
-  await once(server, 'close');
-  if (!port) throw new Error('Failed to reserve a local port.');
-  return port;
-}
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 function expect(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-async function closeQuietly(session) {
-  if (!session) return;
-  await session.close().catch(() => undefined);
-}

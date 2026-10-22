@@ -14,13 +14,13 @@
 // Styles are read under both screen and print emulation, so a rule that must
 // not reach PDF export (the sheet shadow) is covered by the same check.
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
-import { execFile, spawn } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createServer } from 'vite';
+import { launchHeadlessBrowser, detectBrowserExecutable, createBrowserTarget, reservePort, delay } from './lib/browser.mjs';
 
 const execFileAsync = promisify(execFile);
 const root = path.resolve(import.meta.dirname, '..');
@@ -51,7 +51,7 @@ try {
 
   const debugPort = await reservePort();
   userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-computed-styles-'));
-  browserProcess = launchHeadlessBrowser(browserExecutable, debugPort, userDataDir);
+  browserProcess = launchHeadlessBrowser(browserExecutable, debugPort, userDataDir, ['--disable-extensions']);
   trace('browser launched');
   await waitForBrowserJson(browserProcess, `http://127.0.0.1:${debugPort}/json/version`);
   trace('cdp ready');
@@ -131,59 +131,6 @@ function diff(expected, actual) {
     }
   }
   return differences;
-}
-
-function launchHeadlessBrowser(executable, debugPort, dataDir) {
-  const child = spawn(executable, [
-    '--headless=new',
-    '--disable-gpu',
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-background-networking',
-    '--disable-sync',
-    '--disable-extensions',
-    '--no-first-run',
-    '--no-default-browser-check',
-    `--remote-debugging-port=${debugPort}`,
-    '--remote-debugging-address=127.0.0.1',
-    `--user-data-dir=${dataDir}`,
-    'about:blank'
-  ], { stdio: ['ignore', 'ignore', 'pipe'] });
-  child.stderr.setEncoding('utf8');
-  child.browserStderr = '';
-  child.stderr.on('data', chunk => {
-    child.browserStderr = `${child.browserStderr}${chunk}`.slice(-4_000);
-  });
-  return child;
-}
-
-async function detectBrowserExecutable() {
-  const candidates = [
-    process.env.CLEAR_WRITER_BROWSER,
-    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-    'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/microsoft-edge'
-  ];
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      // Keep looking.
-    }
-  }
-  throw new Error('No supported headless browser was found. Set CLEAR_WRITER_BROWSER or install Edge, Chrome, or Chromium.');
-}
-
-async function createBrowserTarget(debugPort, url) {
-  const response = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' });
-  if (!response.ok) throw new Error(`Failed to create browser target (${response.status}).`);
-  return response.json();
 }
 
 async function waitForBrowserJson(child, url, attempts = 50) {
@@ -286,18 +233,3 @@ async function stopBrowser(child) {
   }
 }
 
-async function reservePort() {
-  const server = net.createServer();
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  const address = server.address();
-  const port = typeof address === 'object' && address ? address.port : null;
-  server.close();
-  await once(server, 'close');
-  if (!port) throw new Error('Failed to reserve a local port.');
-  return port;
-}
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
