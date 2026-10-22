@@ -21,7 +21,7 @@ after(async () => {
 
 function createSession(id) {
   const session = new InMemoryWorkspaceSession(id, id);
-  session.sectionsMap.set('chapter.md', '# chapter.md');
+  session.seedSection('chapter.md', '# chapter.md');
   return session;
 }
 

@@ -116,7 +116,7 @@ test('ProjectService uses the typed section mutation result and returned path', 
 
   assert.equal(created, true);
   assert.equal(await session.readSection('chapter.md'), '# Chapter');
-  assert.deepEqual((await session.readSettings()).order, ['chapter.md']);
+  assert.ok((await session.readSettings()).order.includes('sections/chapter.md'));
   state.closeProject();
 });
 

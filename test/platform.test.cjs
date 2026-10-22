@@ -62,53 +62,64 @@ describe('Platform Adapter Contract Tests', () => {
     const repo = new InMemoryWorkspaceRepository();
     const session = await repo.open({ id: 'settings-mem-proj', kind: 'memory', displayName: 'Settings Proj' });
 
-    await session.createFolder('Folder');
-    await session.createFolder('Folder/Subfolder');
-    await session.createSection('Folder/Subfolder/nested.md', '# Nested');
-    await session.mutateSettings({ type: 'append-order', path: 'Folder' });
-    await session.mutateSettings({ type: 'append-order', path: 'Folder/Subfolder' });
-    await session.mutateSettings({ type: 'append-order', path: 'Folder/Subfolder/nested.md' });
-    await session.mutateSettings({ type: 'set-path-flag', key: 'tocSections', path: 'Folder/Subfolder/nested.md', enabled: true });
-    await session.mutateSettings({ type: 'set-path-flag', key: 'pageBreaks', path: 'Folder/Subfolder/nested.md', enabled: true });
+    await session.createFolder('sections/Folder');
+    await session.createFolder('sections/Folder/Subfolder');
+    await session.createSection('sections/Folder/Subfolder/nested.md', '# Nested');
+    await session.mutateSettings({ type: 'append-order', path: 'sections/Folder' });
+    await session.mutateSettings({ type: 'append-order', path: 'sections/Folder/Subfolder' });
+    await session.mutateSettings({ type: 'append-order', path: 'sections/Folder/Subfolder/nested.md' });
+    await session.mutateSettings({ type: 'set-path-flag', key: 'tocSections', path: 'sections/Folder/Subfolder/nested.md', enabled: true });
+    await session.mutateSettings({ type: 'set-path-flag', key: 'pageBreaks', path: 'sections/Folder/Subfolder/nested.md', enabled: true });
 
-    const renamed = await session.renameSection('Folder', 'Renamed');
+    const renamed = await session.renameSection('sections/Folder', 'sections/Renamed');
     assert.equal(renamed, true);
 
     let settings = await session.readSettings();
-    assert.deepEqual(settings.order, ['Renamed', 'Renamed/Subfolder', 'Renamed/Subfolder/nested.md']);
-    assert.deepEqual(settings.tocSections, ['Renamed/Subfolder/nested.md']);
-    assert.deepEqual(settings.pageBreaks, ['Renamed/Subfolder/nested.md']);
+    assert.deepEqual(settings.order, ['sections/Renamed', 'sections/Renamed/Subfolder', 'sections/Renamed/Subfolder/nested.md']);
+    assert.deepEqual(settings.tocSections, ['sections/Renamed/Subfolder/nested.md']);
+    assert.deepEqual(settings.pageBreaks, ['sections/Renamed/Subfolder/nested.md']);
+    assert.equal(await session.readSection('sections/Renamed/Subfolder/nested.md'), '# Nested');
 
-    const moved = await session.moveSection('Renamed/Subfolder/nested.md', 'Renamed', 'before');
-    assert.deepEqual(moved, { success: true, newPath: 'nested.md' });
+    const moved = await session.moveSection('sections/Renamed/Subfolder/nested.md', 'sections/Renamed', 'before');
+    assert.deepEqual(moved, { success: true, newPath: 'sections/nested.md' });
 
     settings = await session.readSettings();
-    assert.deepEqual(settings.order, ['nested.md', 'Renamed', 'Renamed/Subfolder']);
-    assert.deepEqual(settings.tocSections, ['nested.md']);
-    assert.deepEqual(settings.pageBreaks, ['nested.md']);
+    assert.deepEqual(settings.order, ['sections/nested.md', 'sections/Renamed', 'sections/Renamed/Subfolder']);
+    assert.deepEqual(settings.tocSections, ['sections/nested.md']);
+    assert.deepEqual(settings.pageBreaks, ['sections/nested.md']);
 
-    const deleted = await session.deleteSection('Renamed');
+    const deleted = await session.deleteSection('sections/Renamed');
     assert.equal(deleted, true);
 
     settings = await session.readSettings();
-    assert.deepEqual(settings.order, ['nested.md']);
-    assert.deepEqual(settings.tocSections, ['nested.md']);
-    assert.deepEqual(settings.pageBreaks, ['nested.md']);
+    assert.deepEqual(settings.order, ['sections/nested.md']);
+    assert.deepEqual(settings.tocSections, ['sections/nested.md']);
+    assert.deepEqual(settings.pageBreaks, ['sections/nested.md']);
+    assert.deepEqual((await session.listSections()).map(entry => entry.path), ['sections/nested.md']);
   });
 
   test('InMemory Workspace Adapter - rejects invalid moves instead of reporting success', async () => {
     const repo = new InMemoryWorkspaceRepository();
     const session = await repo.open({ id: 'move-mem-proj', kind: 'memory', displayName: 'Move Proj' });
 
-    await session.createFolder('Folder');
-    await session.createFolder('Folder/Subfolder');
-    await session.createSection('Folder/Subfolder/nested.md', '# Nested');
+    await session.createFolder('sections/Folder');
+    await session.createFolder('sections/Folder/Subfolder');
+    await session.createSection('sections/Folder/Subfolder/nested.md', '# Nested');
 
-    const missingSource = await session.moveSection('missing.md', 'Folder', 'before');
+    const missingSource = await session.moveSection('sections/missing.md', 'sections/Folder', 'before');
     assert.deepEqual(missingSource, { success: false });
 
-    const invalidTarget = await session.moveSection('Folder', 'Folder/Subfolder', 'inside');
+    const invalidTarget = await session.moveSection('sections/Folder', 'sections/Folder/Subfolder', 'inside');
     assert.deepEqual(invalidTarget, { success: false });
+  });
+
+  test('InMemory Workspace Adapter - resolves unprefixed names the same way as the real backends', async () => {
+    const repo = new InMemoryWorkspaceRepository();
+    const session = await repo.open({ id: 'prefix-mem-proj', kind: 'memory', displayName: 'Prefix Proj' });
+
+    assert.deepEqual(await session.createSection('chapter.md', '# Chapter'), { success: true, newPath: 'sections/chapter.md' });
+    assert.equal(await session.readSection('chapter.md'), '# Chapter');
+    assert.deepEqual((await session.listSections()).map(entry => entry.path), ['sections/chapter.md']);
   });
 
   test('InMemory Workspace Adapter - rejects same-path filesystem moves without deleting the source', async () => {

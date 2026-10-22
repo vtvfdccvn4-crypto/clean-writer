@@ -1,22 +1,22 @@
 import type {
-  FileNode,
   ProjectHealthReport,
-  ProjectSettingsData
+  ProjectSettingsData,
+  ProjectSettingsMutation
 } from '../types';
 import type {
   WorkspaceRepository,
   WorkspaceSession,
   WorkspaceCapabilities,
   WorkspaceRef,
-  AssetResolver,
-  SectionPlacement
+  AssetResolver
 } from './types';
-import { normalizeExplorerPath, replacePathPrefix } from '../utils/path-utils';
-import { calculateSectionMove } from './section-order';
+import { normalizeExplorerPath } from '../utils/path-utils';
 import { getBlockGlyphLookupPaths } from '../customBlockGlyphs';
 import { applyProjectSettingsMutation } from '../project-settings/settings-mutations';
 import { createDefaultProjectSettings } from '../project-settings/project-settings';
-import { runCoordinatedMutation } from './mutation-coordinator';
+import { resolveImagePath, resolveSectionPath } from '../project-settings/project-paths';
+import { AbstractWorkspaceSession, clone } from './AbstractWorkspaceSession';
+import { MemoryDirectoryHandle } from './MemoryFileSystem';
 
 export class InMemoryAssetResolver implements AssetResolver {
   private cache = new Map<string, string>();
@@ -35,7 +35,7 @@ export class InMemoryAssetResolver implements AssetResolver {
       if (!normalizedPath || this.cache.has(normalizedPath)) continue;
       try {
         for (const candidate of getBlockGlyphLookupPaths(normalizedPath)) {
-          const imgNode = session.imagesMap.get(candidate);
+          const imgNode = await session.readBlob(candidate).catch(() => null);
           if (imgNode) {
             const url = URL.createObjectURL(imgNode);
             this.cache.set(normalizedPath, url);
@@ -60,7 +60,11 @@ export class InMemoryAssetResolver implements AssetResolver {
   }
 }
 
-export class InMemoryWorkspaceSession implements WorkspaceSession {
+/**
+ * A transient workspace that runs the shared session code over an in-memory
+ * file tree, so its paths and mutations match the OPFS and directory backends.
+ */
+export class InMemoryWorkspaceSession extends AbstractWorkspaceSession {
   readonly kind = 'memory';
   readonly capabilities: WorkspaceCapabilities = {
     canSelectDirectory: false,
@@ -69,36 +73,35 @@ export class InMemoryWorkspaceSession implements WorkspaceSession {
     canPersistHandle: false
   };
 
-  sectionsMap = new Map<string, string>(); // path -> content
-  foldersSet = new Set<string>();
-  imagesMap = new Map<string, Blob>();
-  settings: ProjectSettingsData;
-  readonly id: string;
-  readonly displayName: string;
+  private readonly root = new MemoryDirectoryHandle();
+  protected readonly projectDir: FileSystemDirectoryHandle = this.root.asDirectoryHandle();
+  private settings: ProjectSettingsData = createDefaultProjectSettings();
 
-  constructor(
-    id: string,
-    displayName: string
-  ) {
-    this.id = id;
-    this.displayName = displayName;
-    this.settings = createDefaultProjectSettings();
+  constructor(id: string, displayName: string) {
+    super(id, displayName);
   }
 
-  async readSettings(): Promise<ProjectSettingsData> {
-    return JSON.parse(JSON.stringify(this.settings));
+  async initialize(): Promise<void> {
+    for (const name of ['sections', 'images', 'assets']) {
+      await this.root.getDirectoryHandle(name, { create: true });
+    }
   }
 
-  async mutateSettings(mutation: import('../types').ProjectSettingsMutation): Promise<Record<string, unknown>> {
-    const clone = JSON.parse(JSON.stringify(this.settings));
-    applyProjectSettingsMutation(clone, mutation);
+  protected async getSettings(): Promise<ProjectSettingsData> {
+    return clone(this.settings);
+  }
 
-    this.settings = clone;
+  protected async writeSettingsSnapshot(settings: ProjectSettingsData): Promise<void> {
+    this.settings = clone(settings);
+  }
+
+  async mutateSettings(mutation: ProjectSettingsMutation): Promise<Record<string, unknown>> {
+    await this.serializedWrite('settings.json', async () => {
+      const next = clone(this.settings);
+      applyProjectSettingsMutation(next, mutation);
+      this.settings = next;
+    });
     return {};
-  }
-
-  private async writeSettingsSnapshot(settings: ProjectSettingsData): Promise<void> {
-    this.settings = JSON.parse(JSON.stringify(settings));
   }
 
   async inspectProject(): Promise<ProjectHealthReport> {
@@ -109,135 +112,14 @@ export class InMemoryWorkspaceSession implements WorkspaceSession {
     return { valid: true, recoverable: true, issues: [] };
   }
 
-  async listSections(): Promise<FileNode[]> {
-    const list: FileNode[] = [];
-    for (const folder of this.foldersSet) {
-      list.push({ path: folder, isDir: true });
-    }
-    for (const file of this.sectionsMap.keys()) {
-      list.push({ path: file, isDir: false });
-    }
-    return list;
+  /** Synchronously place a section, resolved the same way as writeSection. */
+  seedSection(path: string, content: string): void {
+    this.root.seedFile(resolveSectionPath(path), new Blob([content]));
   }
 
-  async listImages(): Promise<FileNode[]> {
-    const list: FileNode[] = [];
-    for (const file of this.imagesMap.keys()) {
-      list.push({ path: file, isDir: false });
-    }
-    return list;
-  }
-
-  async writeImage(path: string, data: Uint8Array): Promise<boolean> {
-    const normalized = normalizeExplorerPath(path);
-    if (!normalized) return false;
-    this.imagesMap.set(normalized, new Blob([data as any]));
-    return true;
-  }
-
-  async readSection(path: string): Promise<string> {
-    const normalized = normalizeExplorerPath(path);
-    if (!this.sectionsMap.has(normalized)) {
-      throw new Error(`File not found: ${normalized}`);
-    }
-    return this.sectionsMap.get(normalized)!;
-  }
-
-  async writeSection(path: string, content: string): Promise<boolean> {
-    const normalized = normalizeExplorerPath(path);
-    this.sectionsMap.set(normalized, content);
-    return true;
-  }
-
-  async createSection(fileName: string, content: string): Promise<{ success: boolean; newPath?: string }> {
-    const normalized = normalizeExplorerPath(fileName);
-    if (this.sectionsMap.has(normalized)) return { success: false };
-    this.sectionsMap.set(normalized, content);
-    return { success: true, newPath: normalized };
-  }
-
-  async createFolder(folderName: string): Promise<{ success: boolean; newPath?: string }> {
-    const normalized = normalizeExplorerPath(folderName);
-    if (this.foldersSet.has(normalized)) return { success: false };
-    this.foldersSet.add(normalized);
-    return { success: true, newPath: normalized };
-  }
-
-  async renameSection(oldName: string, newName: string): Promise<boolean> {
-    const normalizedOld = normalizeExplorerPath(oldName);
-    const normalizedNew = normalizeExplorerPath(newName);
-    if (!normalizedOld || !normalizedNew) return false;
-    if (normalizedOld === normalizedNew) {
-      return this.foldersSet.has(normalizedOld) || this.sectionsMap.has(normalizedOld);
-    }
-    if (this.foldersSet.has(normalizedNew) || this.sectionsMap.has(normalizedNew)) return false;
-
-    const previousFolders = new Set(this.foldersSet);
-    const previousSections = new Map(this.sectionsMap);
-    const movedFolder = this.foldersSet.has(normalizedOld);
-    const movedFile = this.sectionsMap.has(normalizedOld);
-    const committed = await runCoordinatedMutation({
-      readSettings: () => this.readSettings(),
-      writeSettings: settings => this.writeSettingsSnapshot(settings),
-      applyFilesystem: async () => {
-        if (movedFolder) {
-          this.foldersSet = new Set(Array.from(this.foldersSet, path => replacePathPrefix(path, normalizedOld, normalizedNew)));
-          this.sectionsMap = new Map(Array.from(this.sectionsMap, ([path, value]) => [replacePathPrefix(path, normalizedOld, normalizedNew), value]));
-        } else if (movedFile) {
-          const content = this.sectionsMap.get(normalizedOld)!;
-          this.sectionsMap.delete(normalizedOld);
-          this.sectionsMap.set(normalizedNew, content);
-        } else {
-          throw new Error('Source entry does not exist.');
-        }
-      },
-      rollbackFilesystem: async () => {
-        this.foldersSet = previousFolders;
-        this.sectionsMap = previousSections;
-      },
-      updateSettings: settings => applyProjectSettingsMutation(settings, { type: 'replace-path', oldPath: normalizedOld, newPath: normalizedNew })
-    });
-    return committed;
-  }
-
-  async moveSection(
-    sourceName: string,
-    targetName: string | null,
-    placement: SectionPlacement
-  ): Promise<{ success: boolean; newPath?: string }> {
-    const entries = await this.listSections();
-    const move = calculateSectionMove(entries, this.settings.order, sourceName, targetName, placement);
-    if (!move) return { success: false };
-    if (move.source === move.destination) return { success: false };
-
-    const committed = await this.renameSection(move.source, move.destination);
-    if (!committed) return { success: false };
-    this.settings.order = move.order;
-    return { success: true, newPath: move.destination };
-  }
-
-  async deleteSection(fileName: string): Promise<boolean> {
-    const normalized = normalizeExplorerPath(fileName);
-    if (!this.foldersSet.has(normalized) && !this.sectionsMap.has(normalized)) return false;
-    const previousFolders = new Set(this.foldersSet);
-    const previousSections = new Map(this.sectionsMap);
-    return runCoordinatedMutation({
-      readSettings: () => this.readSettings(),
-      writeSettings: settings => this.writeSettingsSnapshot(settings),
-      applyFilesystem: async () => {
-        if (this.foldersSet.has(normalized)) {
-          this.foldersSet = new Set([...this.foldersSet].filter(path => path !== normalized && !path.startsWith(`${normalized}/`)));
-          this.sectionsMap = new Map([...this.sectionsMap].filter(([path]) => path !== normalized && !path.startsWith(`${normalized}/`)));
-        } else {
-          this.sectionsMap.delete(normalized);
-        }
-      },
-      rollbackFilesystem: async () => {
-        this.foldersSet = previousFolders;
-        this.sectionsMap = previousSections;
-      },
-      updateSettings: settings => applyProjectSettingsMutation(settings, { type: 'remove-path', path: normalized })
-    });
+  /** Synchronously place an image, resolved the same way as writeImage. */
+  seedImage(path: string, data: Blob): void {
+    this.root.seedFile(resolveImagePath(path), data);
   }
 }
 
