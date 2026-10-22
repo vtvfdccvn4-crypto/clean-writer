@@ -39,7 +39,8 @@ jobs:
       - run: npm run build
       - run: npm run check:bundle
       - run: npm test
-      
+      - run: npm run test:browser-smoke
+
   deploy:
     needs: verify
     environment:
