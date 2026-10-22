@@ -16,6 +16,7 @@ import type { EditorSaveStatus } from './EditorStatusController';
 import type { PageGuideCoordinator } from './PageGuideCoordinator';
 import type { Platform } from '../platform/types';
 import type { CompiledPreview } from '../compiler';
+import { dispatchSectionSaved } from './outline-events';
 
 export interface DocumentRenderCoordinatorOptions {
   preview: PreviewCoordinator;
@@ -267,7 +268,7 @@ export class DocumentRenderCoordinator {
           DraftRecoveryStore.clearDraft(projectRef.id, filename);
           DraftRecoveryStore.markSaved(projectRef.id, filename);
           this.opts.updateSaveStatus('saved');
-          window.dispatchEvent(new Event('clear-writer-project-stats-refresh'));
+          dispatchSectionSaved(filename);
         } catch (error) {
           if (!this.preview.isCurrent(changeRevision)
             || this.documentSession.currentFilePath !== filename
