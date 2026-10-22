@@ -43,7 +43,7 @@ export interface WorkspaceSession {
     placement: SectionPlacement
   ): Promise<{ success: boolean; newPath?: string }>;
   deleteSection(fileName: string): Promise<boolean>;
-  writeImage(path: string, data: Uint8Array): Promise<boolean>;
+  writeImage(path: string, data: Uint8Array<ArrayBuffer>): Promise<boolean>;
   readBlob?(path: string): Promise<Blob>;
 }
 

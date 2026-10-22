@@ -20,6 +20,8 @@ import { initTaskPanelViews } from '../ui/explorer/views';
 let editorManager: EditorManager;
 type StartupWindow = Window & {
   __CLEAR_WRITER_READY__?: boolean;
+  /** Test hook: browser smoke fixtures drive the editor through it. */
+  __CLEAR_WRITER_EDITOR_MANAGER__?: EditorManager;
 };
 
 function setupPreviewDiagnosticsChip() {
@@ -93,7 +95,7 @@ export async function bootApp(platform: Platform) {
 
   editorManager = new EditorManager(platform);
   // Expose for smoke tests
-  (window as any).__CLEAR_WRITER_EDITOR_MANAGER__ = editorManager;
+  (window as StartupWindow).__CLEAR_WRITER_EDITOR_MANAGER__ = editorManager;
   
   setupPreviewDiagnosticsChip();
   setupPreviewDiagnosticsPanel();

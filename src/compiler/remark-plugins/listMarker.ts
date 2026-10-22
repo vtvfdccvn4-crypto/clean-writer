@@ -1,14 +1,14 @@
-import type { Root } from 'hast';
+import type { List, Root } from 'mdast';
+import type { VFile } from 'vfile';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
 
 export const listMarkerPlugin: Plugin<[], Root> = () => {
-  return (tree: Root, file: any) => {
+  return (tree: Root, file: VFile) => {
     const source = String(file);
-    visit(tree, 'list', (node: any) => {
-      if (!node.position?.start || !Number.isInteger(node.position.start.offset)) return;
-
-      const offset = node.position.start.offset as number;
+    visit(tree, 'list', (node: List) => {
+      const offset = node.position?.start.offset;
+      if (offset === undefined || !Number.isInteger(offset)) return;
       node.data = node.data || {};
       node.data.hProperties = node.data.hProperties || {};
 

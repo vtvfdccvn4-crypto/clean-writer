@@ -1,4 +1,4 @@
-import type { Root } from 'hast';
+import type { Element, Root } from 'hast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
 import { state } from '../../state';
@@ -16,14 +16,14 @@ export const customBlockStylesPlugin: Plugin<[CustomBlockStylesOptions?], Root> 
     const blockStyles = state.current.customBlockStyles || [];
     if (blockStyles.length === 0) return;
 
-    visit(tree, 'element', (node: any) => {
+    visit(tree, 'element', (node: Element) => {
       if (node.tagName !== 'p') return;
       if (!node.children || node.children.length === 0) return;
       
       const firstChild = node.children[0];
       if (firstChild.type !== 'text') return;
       
-      const text = firstChild.value as string;
+      const text = firstChild.value;
       
       for (const style of blockStyles) {
         if (text.startsWith(style.prefix)) {

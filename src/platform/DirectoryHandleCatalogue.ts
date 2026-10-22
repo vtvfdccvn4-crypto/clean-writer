@@ -94,7 +94,7 @@ export class DirectoryHandleCatalogue {
 
     // Verify handle permissions without prompting
     try {
-      const permission = await (handleRecord.handle as any).queryPermission({ mode: 'readwrite' });
+      const permission = await handleRecord.handle.queryPermission({ mode: 'readwrite' });
       if (permission === 'denied') {
         // If explicitly denied, remove from catalogue
         await this.remove(id);
@@ -150,8 +150,8 @@ export class DirectoryHandleCatalogue {
 
 async function queryHandlePermission(handle: FileSystemDirectoryHandle): Promise<PermissionState | 'unknown'> {
   try {
-    if (typeof (handle as any).queryPermission !== 'function') return 'unknown';
-    return await (handle as any).queryPermission({ mode: 'readwrite' });
+    if (typeof handle.queryPermission !== 'function') return 'unknown';
+    return await handle.queryPermission({ mode: 'readwrite' });
   } catch {
     return 'unknown';
   }

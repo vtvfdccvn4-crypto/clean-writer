@@ -1,4 +1,4 @@
-import type { Root } from 'hast';
+import type { ElementContent, Root } from 'hast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
 import { state } from '../../state';
@@ -14,13 +14,13 @@ export const customStylesPlugin: Plugin<[], Root> = () => {
       regex: new RegExp(`(${escapeRegExp(s.openingPair)})(.*?)(${escapeRegExp(s.closingPair)})`, 'g')
     }));
 
-    visit(tree, 'text', (node: any, index: number | undefined, parent: any) => {
+    visit(tree, 'text', (node, index, parent) => {
       if (!parent || index === undefined) return;
       
-      let text = node.value as string;
+      const text = node.value;
       let matchFound = false;
 
-      const newNodes: any[] = [];
+      const newNodes: ElementContent[] = [];
       let currentIndex = 0;
 
       while (currentIndex < text.length) {

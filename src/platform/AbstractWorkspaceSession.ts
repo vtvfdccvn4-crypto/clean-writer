@@ -215,13 +215,13 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
     });
   }
 
-  async writeImage(path: string, data: Uint8Array): Promise<boolean> {
+  async writeImage(path: string, data: Uint8Array<ArrayBuffer>): Promise<boolean> {
     const resolvedPath = resolveImagePath(path);
     try {
       const fileHandle = await getFile(this.projectDir, resolvedPath, true);
       if (!fileHandle) return false;
       const writable = await fileHandle.createWritable();
-      await writable.write(data as any);
+      await writable.write(data);
       await writable.close();
       return true;
     } catch {

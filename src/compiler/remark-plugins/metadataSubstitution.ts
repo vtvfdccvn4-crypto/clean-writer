@@ -1,4 +1,4 @@
-import type { Root } from 'mdast';
+import type { Root, Text } from 'mdast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
 import { state } from '../../state';
@@ -8,8 +8,8 @@ export const metadataSubstitutionPlugin: Plugin<[], Root> = () => {
     const meta = state.current.projectMetadata;
     if (!meta) return;
 
-    visit(tree, 'text', (node: any) => {
-      let text = node.value as string;
+    visit(tree, 'text', (node: Text) => {
+      let text = node.value;
       if (!text || !text.includes('${')) return;
 
       text = text.replace(/\$\{author\}/g, meta.author || '');

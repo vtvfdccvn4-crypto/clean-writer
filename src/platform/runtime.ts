@@ -27,13 +27,19 @@ export function pickMostRecentWorkspace(entries: RecentWorkspaceEntry[]): Worksp
 class CompositeWorkspaceRepository implements WorkspaceRepository {
   private opfsRepo: OPFSWorkspaceRepository;
   private directoryRepo: LocalDirectoryWorkspaceRepository | null;
+  private readonly opfsCatalogue: OPFSCatalogue;
+  private readonly directoryCatalogue: DirectoryHandleCatalogue | null;
 
   constructor(
     opfsRepo: OPFSWorkspaceRepository,
-    directoryRepo: LocalDirectoryWorkspaceRepository | null
+    directoryRepo: LocalDirectoryWorkspaceRepository | null,
+    opfsCatalogue: OPFSCatalogue,
+    directoryCatalogue: DirectoryHandleCatalogue | null
   ) {
     this.opfsRepo = opfsRepo;
     this.directoryRepo = directoryRepo;
+    this.opfsCatalogue = opfsCatalogue;
+    this.directoryCatalogue = directoryCatalogue;
   }
 
   async open(ref: WorkspaceRef): Promise<WorkspaceSession> {
@@ -61,11 +67,8 @@ class CompositeWorkspaceRepository implements WorkspaceRepository {
   }
 
   async listKnownBrowserWorkspaces(): Promise<RecentWorkspaceEntry[]> {
-    const opfsCatalogue = (this.opfsRepo as any).catalogue as OPFSCatalogue;
-    const dirCatalogue = this.directoryRepo ? (this.directoryRepo as any).catalogue as DirectoryHandleCatalogue : null;
-    
-    const opfsEntries = await opfsCatalogue.list();
-    const dirEntries = dirCatalogue ? await dirCatalogue.listUsable() : [];
+    const opfsEntries = await this.opfsCatalogue.list();
+    const dirEntries = this.directoryCatalogue ? await this.directoryCatalogue.listUsable() : [];
 
     return sortRecentWorkspaceEntries([
       ...dirEntries.map(e => ({ ref: { id: e.id, kind: 'directory' as const, displayName: e.displayName }, displayName: e.displayName, time: e.lastOpenedAt })),
@@ -91,11 +94,11 @@ export function createAppPlatform(win: Window = window): Platform {
   const opfsCatalogue = new OPFSCatalogue();
   const opfsRepo = new OPFSWorkspaceRepository(opfsCatalogue);
 
-  const hasDirectoryPicker = typeof (win as any).showDirectoryPicker === 'function';
+  const hasDirectoryPicker = typeof win.showDirectoryPicker === 'function';
   const dirCatalogue = hasDirectoryPicker ? new DirectoryHandleCatalogue() : null;
   const dirRepo = dirCatalogue ? new LocalDirectoryWorkspaceRepository(dirCatalogue) : null;
 
-  const compositeRepo = new CompositeWorkspaceRepository(opfsRepo, dirRepo);
+  const compositeRepo = new CompositeWorkspaceRepository(opfsRepo, dirRepo, opfsCatalogue, dirCatalogue);
 
   return {
     workspaceRepository: compositeRepo,

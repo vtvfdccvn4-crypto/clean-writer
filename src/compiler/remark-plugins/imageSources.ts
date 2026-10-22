@@ -1,4 +1,4 @@
-import type { Root } from 'hast';
+import type { Element, Root } from 'hast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
 import { resolveImageSource } from '../../images/imageSources';
@@ -10,7 +10,7 @@ interface ImageSourceOptions {
 
 export const imageSourcePlugin: Plugin<[ImageSourceOptions?], Root> = (options = {}) => {
   return (tree: Root) => {
-    visit(tree, 'element', (node: any) => {
+    visit(tree, 'element', (node: Element) => {
       if (node.tagName !== 'img' || typeof node.properties?.src !== 'string') return;
 
       const originalSource = node.properties.src;

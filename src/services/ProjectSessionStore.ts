@@ -151,7 +151,7 @@ export class ProjectSessionStore {
     return ProjectService.reorderSection(this.requireSession(), source, target, placement);
   }
 
-  async uploadImage(filename: string, data: Uint8Array): Promise<boolean> {
+  async uploadImage(filename: string, data: Uint8Array<ArrayBuffer>): Promise<boolean> {
     return ProjectService.uploadImage(this.requireSession(), filename, data);
   }
 

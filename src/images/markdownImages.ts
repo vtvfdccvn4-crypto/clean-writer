@@ -1,5 +1,6 @@
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
+import type { Nodes } from 'mdast';
 
 export interface MarkdownImageMatch {
   alt: string;
@@ -13,21 +14,25 @@ const inlineMarkdownParser = unified().use(remarkParse);
 
 /** Parse images with the same CommonMark parser used for document body Markdown. */
 export function parseMarkdownImages(value: string): MarkdownImageMatch[] {
-  const tree = inlineMarkdownParser.parse(value) as any;
+  const tree = inlineMarkdownParser.parse(value);
   const matches: MarkdownImageMatch[] = [];
 
-  const visit = (node: any) => {
-    if (node.type === 'image' && node.position?.start?.offset !== undefined && node.position?.end?.offset !== undefined) {
-      matches.push({
-        alt: node.alt || '',
-        end: node.position.end.offset,
-        source: node.url || '',
-        start: node.position.start.offset,
-        title: node.title || null
-      });
-      return;
+  const visit = (node: Nodes) => {
+    if (node.type === 'image') {
+      const start = node.position?.start.offset;
+      const end = node.position?.end.offset;
+      if (start !== undefined && end !== undefined) {
+        matches.push({
+          alt: node.alt || '',
+          end,
+          source: node.url || '',
+          start,
+          title: node.title || null
+        });
+        return;
+      }
     }
-    if (Array.isArray(node.children)) node.children.forEach(visit);
+    if ('children' in node) node.children.forEach(visit);
   };
 
   visit(tree);

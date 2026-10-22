@@ -73,7 +73,7 @@ export async function deleteEntry(parent: FileSystemDirectoryHandle, path: strin
 
 export async function listEntries(dir: FileSystemDirectoryHandle, prefix = ''): Promise<FileNode[]> {
   const entries: FileNode[] = [];
-  for await (const [name, handle] of dir as any as AsyncIterable<[string, FileSystemHandle]>) {
+  for await (const [name, handle] of dir) {
     const path = prefix ? `${prefix}/${name}` : name;
     if (handle.kind === 'directory') {
       entries.push({ path, isDir: true });
@@ -96,7 +96,7 @@ export async function copyEntry(source: FileSystemDirectoryHandle | FileSystemFi
   }
 
   const targetDir = await targetParent.getDirectoryHandle(targetName, { create: true });
-  for await (const [name, child] of source as any as AsyncIterable<[string, FileSystemHandle]>) {
+  for await (const [name, child] of source) {
     await copyEntry(child as FileSystemDirectoryHandle | FileSystemFileHandle, targetDir, name);
   }
 }

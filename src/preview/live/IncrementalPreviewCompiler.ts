@@ -100,13 +100,13 @@ function splitSectionEnvelope(markdown: string): SectionEnvelope | null {
 }
 
 function parseSourceBlocks(body: string, bodyStartLine: number): SourceBlock[] | null {
-  const tree: any = unified().use(remarkParse).parse(body);
-  if (!Array.isArray(tree.children)) return null;
+  const tree = unified().use(remarkParse).parse(body);
   const blocks: SourceBlock[] = [];
   for (const node of tree.children) {
-    const start = node.position?.start?.offset;
-    const end = node.position?.end?.offset;
-    const startLine = node.position?.start?.line;
+    const start = node.position?.start.offset;
+    const end = node.position?.end.offset;
+    const startLine = node.position?.start.line;
+    if (start === undefined || end === undefined || startLine === undefined) return null;
     if (!Number.isInteger(start) || !Number.isInteger(end) || !Number.isInteger(startLine)) return null;
     blocks.push({
       markdown: body.slice(start, end),

@@ -53,7 +53,7 @@ class AppState extends EventTarget {
     this.cachedCurrent = Object.freeze({
       ...this.data,
       projectPath: this.data.projectRef ? this.data.projectRef.id : null
-    }) as any;
+    });
     return this.cachedCurrent!;
   }
 

@@ -300,7 +300,7 @@ export const ProjectService = {
     }
   },
 
-  async uploadImage(session: WorkspaceSession, filename: string, data: Uint8Array): Promise<boolean> {
+  async uploadImage(session: WorkspaceSession, filename: string, data: Uint8Array<ArrayBuffer>): Promise<boolean> {
     return Boolean(await this.uploadImageWithPath(session, filename, data));
   },
 
@@ -308,7 +308,7 @@ export const ProjectService = {
   async uploadImageWithPath(
     session: WorkspaceSession,
     filename: string,
-    data: Uint8Array,
+    data: Uint8Array<ArrayBuffer>,
     options: { refreshTree?: boolean } = {}
   ): Promise<string | null> {
     try {

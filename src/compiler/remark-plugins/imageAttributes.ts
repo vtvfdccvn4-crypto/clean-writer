@@ -1,4 +1,4 @@
-import type { Root } from 'hast';
+import type { Root } from 'mdast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
 
@@ -25,7 +25,7 @@ function alignedImageMargin(margin: string, align: ImageAlignment | ''): string 
 
 export const imageAttributesPlugin: Plugin<[], Root> = () => {
   return (tree: Root) => {
-    visit(tree, 'image', (node: any, index: number | undefined, parent: any) => {
+    visit(tree, 'image', (node, index, parent) => {
       if (parent && typeof index === 'number' && index < parent.children.length - 1) {
         const nextNode = parent.children[index + 1];
         if (nextNode.type === 'text' && nextNode.value.startsWith('{')) {

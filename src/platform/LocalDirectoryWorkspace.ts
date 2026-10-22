@@ -155,7 +155,7 @@ export class LocalDirectoryWorkspaceRepository implements WorkspaceRepository {
 
     let handle: FileSystemDirectoryHandle;
     try {
-      handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+      handle = await window.showDirectoryPicker({ mode: 'readwrite' });
     } catch (err) {
       if ((err as DOMException).name === 'AbortError') return null;
       throw err;
@@ -171,7 +171,7 @@ export class LocalDirectoryWorkspaceRepository implements WorkspaceRepository {
     const handle = await this.catalogue.getHandle(ref.id);
     if (!handle) throw new Error(`No stored handle for workspace ${ref.id}`);
 
-    const permission = await (handle as any).requestPermission({ mode: 'readwrite' });
+    const permission = await handle.requestPermission({ mode: 'readwrite' });
     if (permission !== 'granted') throw new Error('Read-write permission was not granted.');
 
     await this.openHandle(handle, ref.id);
