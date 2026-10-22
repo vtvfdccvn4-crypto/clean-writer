@@ -1,4 +1,4 @@
-import { escapeAttribute } from '../../utils/escapeHtml';
+import { escapeHtml } from '../../utils/escapeHtml';
 
 export type ToolbarButtonVariant = 'icon' | 'text' | 'icon-text';
 
@@ -19,10 +19,10 @@ export function toolbarButton(options: ToolbarButtonOptions): string {
   const attributes = [
     `class="${classes.join(' ')}"`,
     'type="button"',
-    options.id ? `id="${escapeAttribute(options.id)}"` : '',
-    `title="${escapeAttribute(options.title)}"`,
-    options.ariaLabel ? `aria-label="${escapeAttribute(options.ariaLabel)}"` : '',
-    ...Object.entries(options.attributes ?? {}).map(([name, value]) => `${name}="${escapeAttribute(value)}"`)
+    options.id ? `id="${escapeHtml(options.id)}"` : '',
+    `title="${escapeHtml(options.title)}"`,
+    options.ariaLabel ? `aria-label="${escapeHtml(options.ariaLabel)}"` : '',
+    ...Object.entries(options.attributes ?? {}).map(([name, value]) => `${name}="${escapeHtml(value)}"`)
   ].filter(Boolean).join(' ');
   return `<button ${attributes}>${options.icon ?? ''}${options.content ?? ''}</button>`;
 }
