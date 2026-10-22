@@ -22,24 +22,30 @@
 }
 
 .ui-button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--ui-brand) 65%, transparent);
+  outline: 2px solid var(--ui-focus-ring);
   outline-offset: 2px;
 }
 
+/* Icon buttons are ghosts: no resting edge, a surface tint on hover. */
 .ui-button--icon {
   flex: 0 0 auto;
   width: 30px;
   height: 30px;
-  border-color: var(--ui-border);
-  border-radius: 7px;
+  border-color: transparent;
+  border-radius: var(--ui-radius-sm);
   font-size: 9pt;
 }
 
 .ui-button--icon-compact {
   width: 28px;
   height: 28px;
-  border-color: var(--ui-border);
-  border-radius: 6px;
+  border-color: transparent;
+  border-radius: var(--ui-radius-sm);
+}
+
+.ui-button--icon:hover:not(:disabled),
+.ui-button--icon-compact:hover:not(:disabled) {
+  background: var(--ui-surface-hover);
 }
 
 .ui-button--text {
@@ -55,9 +61,9 @@
   min-height: 30px;
   padding: 0 18px 0 14px;
   border-color: var(--ui-border);
-  border-radius: 8px;
+  border-radius: var(--ui-radius-md);
   gap: 6px;
-  font-size: 10pt;
+  font-size: var(--ui-text-md);
   font-weight: 500;
   letter-spacing: 0.01em;
   white-space: nowrap;

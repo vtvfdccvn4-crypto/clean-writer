@@ -48,7 +48,7 @@
 }
 
 .task-toolbar-title-text {
-  font: 600 11pt var(--font-ui);
+  font: 600 var(--ui-text-lg) var(--font-ui);
 }
 
 .task-content {
@@ -89,14 +89,14 @@
 }
 
 .outline-section-summary {
-  font: 500 9pt var(--font-ui);
+  font: 500 var(--ui-text-md) var(--font-ui);
 }
 
 .document-outline-content {
   padding: 12px 12px 12px;
   min-width: 0;
   min-height: 0;
-  font-size: 9pt;
+  font-size: var(--ui-text-md);
   overflow: auto;
 }
 
@@ -238,10 +238,10 @@
   min-width: 0;
   min-height: 28px;
   padding: 6px 8px;
-  margin-bottom: 5px;
+  margin-bottom: 0;
   border: 0;
   border-radius: 6px;
-  background: var(--ui-surface);
+  background: transparent;
   color: var(--ui-text);
   font: inherit;
   box-sizing: border-box;
@@ -256,7 +256,7 @@
 
 .task-images-folder,
 .task-images-item {
-  background: var(--ui-surface);
+  background: transparent;
   color: var(--ui-text);
   cursor: pointer;
 }
@@ -269,7 +269,7 @@
 }
 
 .task-explorer-item.is-selected {
-  background: color-mix(in srgb, var(--ui-surface) 88%, var(--ui-brand));
+  background: var(--ui-brand-soft);
 }
 
 .task-explorer-item.drag-over-before {
@@ -326,7 +326,7 @@
   background: var(--ui-surface);
   color: var(--ui-text);
   cursor: pointer;
-  font: 600 8.5pt var(--font-ui);
+  font: 600 var(--ui-text-xs) var(--font-ui);
   line-height: 1;
 }
 
@@ -362,7 +362,7 @@
   min-width: 0;
   min-height: 28px;
   padding: 6px 8px;
-  margin-bottom: 5px;
+  margin-bottom: 0;
   border: 0;
   border-radius: 6px;
   font: inherit;
