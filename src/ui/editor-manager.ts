@@ -22,6 +22,7 @@ import { projectSession } from '../services/ProjectSessionStore';
 import type { DocumentRenderCoordinator } from './DocumentRenderCoordinator';
 import type { PaginatedPreviewRenderer } from './PaginatedPreviewRenderer';
 import { PreviewPipeline } from './PreviewPipeline';
+import type { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
 import { captureCurrentPrintLayout } from './CompiledPreviewCache';
 
 export class EditorManager {
@@ -43,6 +44,7 @@ export class EditorManager {
   private renderedScreen: 'welcome' | 'workspace' | null = null;
   private readonly renderCoordinator: DocumentRenderCoordinator;
   private readonly paginatedRenderer: PaginatedPreviewRenderer;
+  private readonly paginationHost: IsolatedPaginationHost;
 
   constructor(platform: Platform) {
     this.platform = platform;
@@ -67,6 +69,7 @@ export class EditorManager {
     this.preview = pipeline.preview;
     this.renderCoordinator = pipeline.renderCoordinator;
     this.paginatedRenderer = pipeline.paginatedRenderer;
+    this.paginationHost = pipeline.isolatedPaginationHost;
     const welcomeScreen = document.getElementById('welcome-screen-root')!;
     this.welcome = new WelcomeController({
       welcomeContainer: welcomeScreen,
@@ -112,6 +115,10 @@ export class EditorManager {
     });
     state.onProjectChanged(() => {
       this.paginatedRenderer.clearGuides();
+      // The warm pagination frame belongs to an open project: release it on
+      // close, and boot it again on open so the first preview stays fast.
+      if (state.current.projectRef) this.paginationHost.prewarm();
+      else this.paginationHost.dispose();
       this.syncScreen();
     });
     state.onProjectSnapshotChanged(() => {
