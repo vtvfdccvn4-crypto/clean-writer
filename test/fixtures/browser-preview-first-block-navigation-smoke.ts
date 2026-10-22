@@ -12,6 +12,18 @@ function paginatedPreviewReady(): true | null {
   return document.querySelectorAll('.pagedjs_page').length > 0 && navigationReady() ? true : null;
 }
 
+/**
+ * The full-document preview, rendered and navigable. An earlier preview (one
+ * chapter, or the single document just left) is also paginated and navigable,
+ * and clicking it while the full render replaces it loses the click, so the
+ * wait also requires both chapters to be on the page.
+ */
+function fullDocumentPreviewReady(): true | null {
+  if (!paginatedPreviewReady()) return null;
+  const pages = Array.from(document.querySelectorAll('.pagedjs_page_content'), page => page.textContent ?? '').join('\n');
+  return pages.includes('Chapter one heading') && pages.includes('Chapter two heading') ? true : null;
+}
+
 declare global {
   interface Window {
     __HARNESS_RESULT__?: Record<string, unknown>;
@@ -35,7 +47,7 @@ async function resetStorage(): Promise<void> {
 
 async function clickSourceBlock(label: string, selector: string, path: string): Promise<boolean> {
   const element = await waitFor(`visible ${label}`, () => {
-    if (!paginatedPreviewReady()) return null;
+    if (!fullDocumentPreviewReady()) return null;
     return Array.from(document.querySelectorAll<HTMLElement>(selector))
       .find(candidate => candidate.textContent?.includes(label)) ?? null;
   }, 60_000);
@@ -62,7 +74,7 @@ async function returnToFullPreview(path: string, label: string): Promise<void> {
   await editorManager.openDocument(path);
   await waitFor(`opened ${label}`, () => document.querySelector('.cm-content')?.textContent?.includes(label) ? true : null, 60_000);
   state.setFullDocMode();
-  await waitFor('full-document paginated preview', paginatedPreviewReady, 60_000);
+  await waitFor('full-document paginated preview', fullDocumentPreviewReady, 60_000);
 }
 
 async function run(): Promise<void> {
@@ -99,7 +111,7 @@ async function run(): Promise<void> {
 
   state.setFullDocMode();
 
-  await waitFor('full-document paginated preview', paginatedPreviewReady, 60_000);
+  await waitFor('full-document paginated preview', fullDocumentPreviewReady, 60_000);
 
   const h1 = await clickSourceBlock('Chapter one heading', 'h1', chapterOnePath);
   await returnToFullPreview(chapterTwoPath, 'Chapter two heading');
@@ -110,6 +122,22 @@ async function run(): Promise<void> {
   window.__HARNESS_RESULT__ = { ok: true, h1, h2, firstParagraph };
 }
 
+/** What the app was showing when a step failed, so a timeout names its cause. */
+function describeState(): Record<string, unknown> {
+  return {
+    activeFile: state.current.activeFile,
+    isFullDocMode: state.current.isFullDocMode,
+    editorText: document.querySelector('.cm-content')?.textContent?.slice(0, 80) ?? null,
+    previewText: document.querySelector('.pagedjs_page_content')?.textContent?.slice(0, 80) ?? null,
+    paginatedPages: document.querySelectorAll('.pagedjs_page').length,
+    navigationReady: navigationReady() === true
+  };
+}
+
 run().catch(error => {
-  window.__HARNESS_RESULT__ = { ok: false, error: error instanceof Error ? error.stack : String(error) };
+  window.__HARNESS_RESULT__ = {
+    ok: false,
+    error: error instanceof Error ? error.stack : String(error),
+    state: describeState()
+  };
 });

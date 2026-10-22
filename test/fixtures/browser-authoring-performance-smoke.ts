@@ -1,4 +1,5 @@
 import { state } from '../../src/state';
+import { projectSession } from '../../src/services/ProjectSessionStore';
 import type { EditorManager } from '../../src/ui/editor-manager';
 import { generateLargeProject } from './helpers/project-generator.ts';
 import { click, isHidden, waitFor as waitForSmoke } from './helpers/smoke-dom.ts';
@@ -58,7 +59,12 @@ async function run() {
   const { OPFSCatalogue } = await import('../../src/platform/OPFSCatalogue.ts');
   const catalogue = new OPFSCatalogue();
   await catalogue.register({ id: 'test-perf-project', kind: 'opfs', displayName: 'Generated Performance Project' });
-  state.setProjectRef({ id: 'test-perf-project', kind: 'opfs', displayName: 'Generated Performance Project' });
+  // Open it through the app's own startup restore. Setting state.projectRef
+  // directly would make the project lifecycle treat a project as already
+  // present, so startup would skip opening it.
+  const startupUrl = new URL(window.location.href);
+  startupUrl.searchParams.set('restoreLastWorkspace', 'true');
+  window.history.replaceState(null, '', startupUrl);
 
   await import('/src/main.ts');
   await waitFor('app ready flag or boot error', () => (
@@ -76,7 +82,8 @@ async function run() {
     
     // Log the current state to see what's rendering
     const listHtml = document.getElementById('task-explorer-content')?.innerHTML;
-    console.log(`[PERF] Loaded sections: ${loadedSectionCount}, HTML: ${listHtml?.substring(0, 200)}`);
+    const welcomeVisible = document.getElementById('welcome-screen-root')?.hidden === false;
+    console.log(`[PERF] Loaded sections: ${loadedSectionCount}, project: ${state.current.projectRef?.id ?? 'none'}, lifecycle: ${projectSession.getStatus()}, welcome visible: ${welcomeVisible}, HTML: ${listHtml?.substring(0, 200)}`);
     return null;
   }, 10000);
   (window as any).__HARNESS_PROGRESS__ = 'nested project tree loaded';
