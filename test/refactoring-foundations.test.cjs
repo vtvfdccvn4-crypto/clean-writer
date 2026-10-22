@@ -116,7 +116,18 @@ test('ProjectService uses the typed section mutation result and returned path', 
 
   assert.equal(created, true);
   assert.equal(await session.readSection('chapter.md'), '# Chapter');
-  assert.ok((await session.readSettings()).order.includes('sections/chapter.md'));
+  assert.deepEqual((await session.readSettings()).order, ['sections/chapter.md']);
+  state.closeProject();
+});
+
+test('ProjectService orders nested sections and folders without the sections root', async () => {
+  const session = new InMemoryWorkspaceSession('nested-order', 'Nested order');
+  state.setProjectRef({ id: session.id, kind: 'memory', displayName: session.displayName });
+
+  assert.equal(await ProjectService.createFolder(session, 'sections/Part'), true);
+  assert.equal(await ProjectService.createSection(session, 'sections/Part/chapter', '# Chapter'), true);
+
+  assert.deepEqual((await session.readSettings()).order, ['sections/Part', 'sections/Part/chapter.md']);
   state.closeProject();
 });
 
