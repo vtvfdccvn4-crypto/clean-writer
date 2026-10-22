@@ -23,6 +23,7 @@ const coordinator = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'Pre
 const editorManager = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'editor-manager.ts'), 'utf8');
 const renderCoordinator = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'DocumentRenderCoordinator.ts'), 'utf8');
 const paginatedRenderer = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'PaginatedPreviewRenderer.ts'), 'utf8');
+const previewPipeline = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'PreviewPipeline.ts'), 'utf8');
 
 test('isolated PDF preview has an independent frame and protocol', () => {
   assert.match(pipeline, /IsolatedPaginationHost/);
@@ -96,7 +97,7 @@ test('paginated page-setup changes rebuild the isolated preview job', () => {
   assert.match(controller, /this\.mode === 'paginated' && this\.createIsolatedJob/);
   assert.match(controller, /this\.forceRenderIsolated\(/);
   assert.match(coordinator, /createIsolatedJob\?: \(sourceHtml: string, pageSetup: PageSetup\) => PdfPreviewJob/);
-  assert.match(editorManager, /createPdfPreviewJob\(sourceHtml, this\.renderCoordinator\.capturePrintLayout\(pageSetup\)/);
+  assert.match(previewPipeline, /createPdfPreviewJob\(sourceHtml, captureCurrentPrintLayout\(pageSetup\)/);
 });
 
 test('single-document print preview uses the isolated paginator', () => {

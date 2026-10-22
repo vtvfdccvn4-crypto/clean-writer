@@ -1,6 +1,4 @@
 import { state } from '../state';
-import { extractWritingStatistics } from '../editor/writing-statistics';
-import type { EditorCaretStatus } from '../editor/createEditor';
 import type { MarkdownEditor } from '../editor';
 import { compileMarkdown } from '../compiler';
 import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
@@ -8,7 +6,7 @@ import type { Platform } from '../platform/types';
 import { showNotice } from './components/Notice';
 import { describeWorkspaceError } from '../services/project-runtime-feedback';
 import { applyMarkdownCommand, type MarkdownCommand } from '../editor/markdown-commands';
-import { PreviewCoordinator } from './PreviewCoordinator';
+import type { PreviewCoordinator } from './PreviewCoordinator';
 import { DocumentSessionController } from './DocumentSessionController';
 import { EditorStatusController, type EditorSaveStatus } from './EditorStatusController';
 import { EditorSaveCoordinator } from './EditorSaveCoordinator';
@@ -19,12 +17,12 @@ import { createPdfPreviewJob } from '../pdf-preview/PdfPreviewJobFactory';
 import type { PdfPreviewJob } from '../pdf-preview/contracts';
 import type { PdfArtifact } from '../pdf-preview/PdfArtifact';
 import type { CommittedPreviewTarget } from '../preview/navigation/CommittedPreviewIndex';
-import { PageGuideCoordinator } from './PageGuideCoordinator';
 import { createWelcomeProjectActions } from './WelcomeProjectActions';
 import { projectSession } from '../services/ProjectSessionStore';
-import { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
-import { DocumentRenderCoordinator } from './DocumentRenderCoordinator';
-import { PaginatedPreviewRenderer } from './PaginatedPreviewRenderer';
+import type { DocumentRenderCoordinator } from './DocumentRenderCoordinator';
+import type { PaginatedPreviewRenderer } from './PaginatedPreviewRenderer';
+import { PreviewPipeline } from './PreviewPipeline';
+import { captureCurrentPrintLayout } from './CompiledPreviewCache';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -41,10 +39,8 @@ export class EditorManager {
   private readonly statusController = new EditorStatusController();
   private readonly saveCoordinator: EditorSaveCoordinator;
   private suppressPreviewSelectionNavigation = false;
-  private readonly pageGuides: PageGuideCoordinator;
   /** The screen currently on display, so screen syncs stay idempotent. */
   private renderedScreen: 'welcome' | 'workspace' | null = null;
-  private readonly isolatedPaginationHost = new IsolatedPaginationHost();
   private readonly renderCoordinator: DocumentRenderCoordinator;
   private readonly paginatedRenderer: PaginatedPreviewRenderer;
 
@@ -53,45 +49,24 @@ export class EditorManager {
     this.editorContainer = document.getElementById('editor-container')!;
     this.pagedStage = document.getElementById('paged-stage')!;
     this.previewPane = document.getElementById('preview-panel')!;
-    this.preview = new PreviewCoordinator(
-      this.pagedStage,
-      this.platform.assetResolver,
-      line => this.focusPreviewSourceLine(line),
-      target => this.focusPreviewSourceTarget(target),
-      (sourceHtml, pageSetup) => createPdfPreviewJob(sourceHtml, this.renderCoordinator.capturePrintLayout(pageSetup), this.platform.assetResolver),
-      this.isolatedPaginationHost
-    );
-    this.pageGuides = new PageGuideCoordinator({
-      getSnapshot: () => this.paginatedRenderer.getSnapshot(),
-      compute: (snapshot, signal) => this.paginatedRenderer.compute(snapshot, signal),
-      isCurrent: snapshot => this.paginatedRenderer.isCurrent(snapshot),
-      apply: guides => this.preview.setCanonicalPageBreakGuides(guides)
-    });
-    this.renderCoordinator = new DocumentRenderCoordinator({
-      preview: this.preview,
+    const pipeline = new PreviewPipeline({
       platform: this.platform,
       documentSession: this.documentSession,
-      pageGuides: this.pageGuides,
+      pagedStage: this.pagedStage,
       editorContainer: this.editorContainer,
-      getIsFinalPrintPreview: () => this.paginatedRenderer.isActive,
-      getIsSupressingPreviewNavigation: () => this.suppressPreviewSelectionNavigation,
-      scheduleCanonicalPageBreakGuides: () => this.paginatedRenderer.scheduleGuides(),
-      syncFinalPrintPreviewToggle: () => this.paginatedRenderer.syncToggle(),
+      focusPreviewSourceLine: line => this.focusPreviewSourceLine(line),
+      focusPreviewSourceTarget: target => this.focusPreviewSourceTarget(target),
+      flushCurrentDocument: () => this.flushCurrentDocument(),
+      getIsSuppressingPreviewNavigation: () => this.suppressPreviewSelectionNavigation,
       updateSaveStatus: status => this.updateSaveStatus(status),
-      updateActiveSectionLabel: (filename, customLabel) => this.updateActiveSectionLabel(filename, customLabel),
+      updateActiveSectionLabel: (filename, customLabel) => this.statusController.setActiveSection(filename, customLabel),
       reportWorkflowError: (message, error) => this.reportWorkflowError(message, error),
-      updateSectionStats: markdown => this.updateSectionStats(markdown),
-      updateCaretStatus: status => this.updateCaretStatus(status)
+      updateSectionStats: markdown => this.statusController.setSectionStats(markdown),
+      updateCaretStatus: status => this.statusController.setCaretStatus(status)
     });
-    this.paginatedRenderer = new PaginatedPreviewRenderer({
-      preview: this.preview,
-      platform: this.platform,
-      pageGuides: this.pageGuides,
-      renderCoordinator: this.renderCoordinator,
-      isolatedPaginationHost: this.isolatedPaginationHost,
-      documentSession: this.documentSession,
-      flushCurrentDocument: () => this.flushCurrentDocument()
-    });
+    this.preview = pipeline.preview;
+    this.renderCoordinator = pipeline.renderCoordinator;
+    this.paginatedRenderer = pipeline.paginatedRenderer;
     const welcomeScreen = document.getElementById('welcome-screen-root')!;
     this.welcome = new WelcomeController({
       welcomeContainer: welcomeScreen,
@@ -240,7 +215,7 @@ export class EditorManager {
       }
       throw error;
     }
-    this.updateActiveSectionLabel(null);
+    this.statusController.setActiveSection(null);
     
     if (!isLatest()) return;
     const { isFullDocMode, activeFile } = state.current;
@@ -303,7 +278,7 @@ export class EditorManager {
     this.paginatedRenderer.clearGuides();
     this.preview.beginRevision();
     this.updateSaveStatus('idle');
-    this.updateActiveSectionLabel(null);
+    this.statusController.setActiveSection(null);
     this.documentSession.clearPendingFocus();
     this.documentSession.destroyActive();
     this.renderCoordinator.latestCompiledPreview = null;
@@ -467,76 +442,13 @@ export class EditorManager {
   /** Builds input for the isolated PDF preview pipeline. */
   public async compilePdfPreviewInput(signal?: AbortSignal): Promise<PdfPreviewJob> {
     const html = await this.compileExportSnapshot(signal);
-    const layout = this.renderCoordinator.capturePrintLayout();
+    const layout = captureCurrentPrintLayout();
     return createPdfPreviewJob(html, layout, this.platform.assetResolver);
   }
 
   /** A matching paginated preview is already the final PDF rendering product. */
   public getPreparedPdfArtifact(input: PdfPreviewJob): PdfArtifact | null {
     return this.preview.getPdfArtifact(input.key);
-  }
-
-  private updateActiveSectionLabel(filename: string | null, customLabel?: string) {
-    const labelEl = document.getElementById('active-section-label');
-    if (!labelEl) return;
-    if (filename === null) {
-      labelEl.textContent = '';
-      labelEl.title = '';
-      labelEl.hidden = true;
-      this.updateSectionStats(null);
-    } else {
-      const text = customLabel ?? (filename.split('/').pop() || filename);
-      labelEl.textContent = text;
-      labelEl.title = filename;
-      labelEl.hidden = false;
-    }
-  }
-
-  private updateSectionStats(markdown: string | null) {
-    const wordCount = document.getElementById('workspace-word-count');
-    const lineCount = document.getElementById('workspace-line-count');
-    const charCount = document.getElementById('workspace-char-count');
-    const readingTime = document.getElementById('workspace-reading-time');
-    if (!wordCount || !lineCount || !charCount || !readingTime) return;
-
-    if (markdown === null) {
-      wordCount.textContent = '0 words';
-      lineCount.textContent = '0 lines';
-      charCount.textContent = '0 chars';
-      readingTime.textContent = '';
-      readingTime.hidden = true;
-      this.updateCaretStatus(null);
-      return;
-    }
-
-    const stats = extractWritingStatistics(markdown);
-    wordCount.textContent = `${stats.words.toLocaleString()} words`;
-    lineCount.textContent = `${markdown ? markdown.split(/\r?\n/).length : 0} lines`;
-    charCount.textContent = `${stats.charactersWithSpaces.toLocaleString()} chars`;
-    readingTime.hidden = stats.estimatedReadingTimeMinutes <= 0;
-    readingTime.textContent = stats.estimatedReadingTimeMinutes > 0
-      ? `~${stats.estimatedReadingTimeMinutes} min read`
-      : '';
-  }
-
-  /** Caret and selection move on their own cadence, so they own their own spans. */
-  private updateCaretStatus(status: EditorCaretStatus | null) {
-    const caret = document.getElementById('workspace-caret-position');
-    const selection = document.getElementById('workspace-selection-count');
-    if (!caret || !selection) return;
-
-    if (status === null) {
-      caret.textContent = 'Line 1, Column 1';
-      selection.hidden = true;
-      selection.textContent = '';
-      return;
-    }
-
-    caret.textContent = `Line ${status.line}, Column ${status.column}`;
-    selection.hidden = status.selectedCharacters === 0;
-    selection.textContent = status.selectedCharacters > 0
-      ? `${status.selectedCharacters.toLocaleString()} selected`
-      : '';
   }
 
   private updateSaveStatus(status: EditorSaveStatus) {
