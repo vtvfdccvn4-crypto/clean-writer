@@ -22,8 +22,8 @@ after(async () => {
 
 function createSession(id, sectionName = 'chapter.md') {
   const session = new InMemoryWorkspaceSession(id, id);
-  session.sectionsMap.set(sectionName, `# ${sectionName}`);
-  session.imagesMap.set('cover.png', new Blob(['image']));
+  session.seedSection(sectionName, `# ${sectionName}`);
+  session.seedImage('cover.png', new Blob(['image']));
   return session;
 }
 
@@ -46,8 +46,8 @@ test('project loading reads each source once and publishes one snapshot', async 
   assert.equal(previewMetrics.snapshot().buckets.projectSnapshotLoad.totalMs >= 0, true);
   assert.match(previewMetrics.formatChipSummary(), /^snapshot\s+\d/);
   assert.match(previewMetrics.formatChipSummary(), /\|\s*renders\s+\d+/);
-  assert.deepEqual(state.current.sections.map(section => section.path), ['chapter.md']);
-  assert.deepEqual(state.current.images.map(image => image.path), ['cover.png']);
+  assert.deepEqual(state.current.sections.map(section => section.path), ['sections/chapter.md']);
+  assert.deepEqual(state.current.images.map(image => image.path), ['images/cover.png']);
   assert.equal(Object.isFrozen(state.current.sections[0]), true);
 });
 
@@ -81,7 +81,7 @@ test('a slower project read cannot overwrite a newer project snapshot', async ()
 
   assert.equal(snapshots, 1);
   assert.equal(state.current.projectPath, 'Fast');
-  assert.deepEqual(state.current.sections.map(section => section.path), ['fast.md']);
+  assert.deepEqual(state.current.sections.map(section => section.path), ['sections/fast.md']);
   assert.equal(previewMetrics.snapshot().buckets.projectSnapshotLoad.count, 2);
 });
 

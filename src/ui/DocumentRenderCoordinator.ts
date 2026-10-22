@@ -6,7 +6,6 @@ import { renderDocumentSection } from '../preview/document-rendering';
 import { showNotice } from './components/Notice';
 import { showConfirmDialog } from './confirm-dialog';
 import { importPastedImage } from '../images/importPastedImage';
-import { createPrintLayoutSettings } from '../print/PrintLayoutSettings';
 import { createPdfPreviewJob } from '../pdf-preview/PdfPreviewJobFactory';
 import { PreviewPhaseTimer } from '../perf/preview-phase-timer';
 import { previewMetrics } from '../perf/preview-metrics';
@@ -15,7 +14,8 @@ import type { DocumentSessionController } from './DocumentSessionController';
 import type { EditorSaveStatus } from './EditorStatusController';
 import type { PageGuideCoordinator } from './PageGuideCoordinator';
 import type { Platform } from '../platform/types';
-import type { CompiledPreview } from '../compiler';
+import { dispatchSectionSaved } from './outline-events';
+import { captureCurrentPrintLayout, type CompiledPreviewCache, type LatestCompiledPreview } from './CompiledPreviewCache';
 
 export interface DocumentRenderCoordinatorOptions {
   preview: PreviewCoordinator;
@@ -32,6 +32,7 @@ export interface DocumentRenderCoordinatorOptions {
   reportWorkflowError: (message: string, error: unknown) => void;
   updateSectionStats: (markdown: string | null) => void;
   updateCaretStatus: (status: EditorCaretStatus | null) => void;
+  compiledPreviewCache: CompiledPreviewCache;
 }
 
 export class DocumentRenderCoordinator {
@@ -43,13 +44,6 @@ export class DocumentRenderCoordinator {
   private readonly opts: DocumentRenderCoordinatorOptions;
   private statsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  latestCompiledPreview: {
-    projectId: string;
-    documentPath: string;
-    markdown: string;
-    compiled: CompiledPreview;
-  } | null = null;
-
   constructor(opts: DocumentRenderCoordinatorOptions) {
     this.opts = opts;
     this.preview = opts.preview;
@@ -59,19 +53,17 @@ export class DocumentRenderCoordinator {
     this.editorContainer = opts.editorContainer;
   }
 
+  get latestCompiledPreview(): LatestCompiledPreview | null {
+    return this.opts.compiledPreviewCache.latest;
+  }
+
+  set latestCompiledPreview(value: LatestCompiledPreview | null) {
+    this.opts.compiledPreviewCache.latest = value;
+  }
+
   /** Exact shared layout input for PDF export and background page guides. */
   capturePrintLayout(pageSetup = state.current.pageSetup) {
-    return createPrintLayoutSettings({
-      pageSetup,
-      typographySetup: state.current.typographySetup,
-      listSetup: state.current.listSetup,
-      tableSetup: state.current.tableSetup,
-      imageSetup: state.current.imageSetup,
-      projectMetadata: state.current.projectMetadata,
-      customStyles: state.current.customStyles,
-      customBlockStyles: state.current.customBlockStyles,
-      sections: state.current.sections
-    });
+    return captureCurrentPrintLayout(pageSetup);
   }
 
   async renderFullDocument(isLatest: () => boolean): Promise<void> {
@@ -267,7 +259,7 @@ export class DocumentRenderCoordinator {
           DraftRecoveryStore.clearDraft(projectRef.id, filename);
           DraftRecoveryStore.markSaved(projectRef.id, filename);
           this.opts.updateSaveStatus('saved');
-          window.dispatchEvent(new Event('clear-writer-project-stats-refresh'));
+          dispatchSectionSaved(filename);
         } catch (error) {
           if (!this.preview.isCurrent(changeRevision)
             || this.documentSession.currentFilePath !== filename

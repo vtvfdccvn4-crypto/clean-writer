@@ -6,9 +6,9 @@ import type { AssetResolver } from '../../platform/types';
 import { projectSession } from '../../services/ProjectSessionStore';
 import { showNotice } from '../components/Notice';
 import { showInputDialog } from '../input-dialog';
+import { OUTLINE_ACTIVATED_EVENT } from '../outline-events';
 
 type TaskPanelView = 'explorer' | 'images' | 'outline' | null;
-const OUTLINE_ACTIVATED_EVENT = 'clear-writer-task-outline-activated';
 
 export function initTaskPanelViews(editorManager: EditorManager, assetResolver: AssetResolver): void {
   const explorerButton = document.getElementById('btn-activity-explorer');

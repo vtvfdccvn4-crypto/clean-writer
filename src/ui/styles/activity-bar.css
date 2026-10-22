@@ -5,8 +5,8 @@
   align-self: stretch;
   justify-content: flex-start;
   gap: 4px;
-  width: 50px;
-  min-width: 50px;
+  width: 48px;
+  min-width: 48px;
   min-height: 0;
   padding: 4px 0;
   background: var(--ui-app-chrome);
@@ -24,8 +24,8 @@
 .activity-bar-button {
   display: grid;
   place-items: center;
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 0;
   border-radius: var(--ui-radius-sm);
@@ -39,13 +39,13 @@
 
 .activity-bar-button svg {
   display: block;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   fill: currentColor;
 }
 
 .activity-bar-button .ui-icon {
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .activity-bar-button {

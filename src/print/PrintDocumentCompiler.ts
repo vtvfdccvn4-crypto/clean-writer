@@ -1,5 +1,5 @@
 import type { PrintLayoutSettings } from './PrintLayoutSettings';
-import { escapeHtml, escapeAttribute } from '../utils/escapeHtml';
+import { escapeHtml } from '../utils/escapeHtml';
 import { escapeRegExp } from '../utils/regex';
 
 export type PrintBreakReason = 'section' | 'h1' | 'custom-heading' | 'explicit';
@@ -170,7 +170,7 @@ function normalizeSectionBreaks(html: string, sectionPath: string, createExplici
   return html.replace(LEGACY_SECTION_BREAK, marker => {
     if (readAttribute(marker, 'data-explicit-page-break') !== 'true') return '';
     const id = createExplicitBreakId();
-    return `<div class="print-page-break" data-print-break-before="true" data-print-break-id="${escapeAttribute(id)}" data-section-path="${escapeAttribute(sectionPath)}" aria-hidden="true"></div>`;
+    return `<div class="print-page-break" data-print-break-before="true" data-print-break-id="${escapeHtml(id)}" data-section-path="${escapeHtml(sectionPath)}" aria-hidden="true"></div>`;
   });
 }
 
@@ -255,7 +255,7 @@ function materializeTableOfContents(html: string, layout: PrintLayoutSettings): 
   });
   const rebuilt = sections.map(section => `${section.openingTag}${section.body}${section.closingTag}`).join('');
   const toc = `<nav class="table-of-contents" aria-label="Table of contents"><ul class="toc-list">${entries.map(entry =>
-    `<li class="toc-item toc-level-${entry.level}"><a class="toc-link" href="#${escapeAttribute(entry.id)}"><span class="toc-label">${escapeHtml(entry.label)}</span><span class="toc-leader" aria-hidden="true"></span></a></li>`
+    `<li class="toc-item toc-level-${entry.level}"><a class="toc-link" href="#${escapeHtml(entry.id)}"><span class="toc-label">${escapeHtml(entry.label)}</span><span class="toc-leader" aria-hidden="true"></span></a></li>`
   ).join('')}</ul></nav>`;
   return rebuilt.replace(TOC_PLACEHOLDER, toc);
 }
@@ -294,7 +294,7 @@ function addReason(target: Map<number, Set<PrintBreakReason>>, index: number, re
 function addAttributes(tag: string, values: Record<string, string>): string {
   const attrs = Object.entries(values)
     .filter(([name]) => !new RegExp(`\\s${name}=`, 'i').test(tag))
-    .map(([name, value]) => ` ${name}="${escapeAttribute(value)}"`)
+    .map(([name, value]) => ` ${name}="${escapeHtml(value)}"`)
     .join('');
   return tag.replace(/>$/, `${attrs}>`);
 }
@@ -304,7 +304,7 @@ function addClass(tag: string, className: string): string {
   if (!classMatch) return tag.replace(/>$/, ` class="${className}">`);
   const existing = classMatch[2] ?? classMatch[3] ?? '';
   if (existing.split(/\s+/).includes(className)) return tag;
-  return tag.replace(classMatch[0], `class="${escapeAttribute(`${existing} ${className}`.trim())}"`);
+  return tag.replace(classMatch[0], `class="${escapeHtml(`${existing} ${className}`.trim())}"`);
 }
 
 function readAttribute(tag: string, name: string): string | null {

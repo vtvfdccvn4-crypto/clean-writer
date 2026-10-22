@@ -36,8 +36,8 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
-  font-size: 9pt;
-  font-weight: 650;
+  font-size: var(--ui-text-md);
+  font-weight: 600;
 }
 
 .brand-mark {
@@ -47,8 +47,8 @@
   place-items: center;
   border-radius: 5px;
   font-family: var(--font-ui);
-  font-size: 9pt;
-  font-weight: 800;
+  font-size: var(--ui-text-md);
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 
@@ -60,7 +60,7 @@
 }
 
 .project-name {
-  font-size: 9pt;
+  font-size: var(--ui-text-md);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -68,13 +68,13 @@
 }
 
 .project-name-separator {
-  font-size: 9pt;
+  font-size: var(--ui-text-md);
   flex-shrink: 0;
 }
 
 .app-name {
-  font-size: 9pt;
-  font-weight: 650;
+  font-size: var(--ui-text-md);
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -157,7 +157,7 @@
   display: grid;
   --task-panel-width: 380px;
   --task-panel-resizer-width: 6px;
-  grid-template-columns: 50px var(--task-panel-width) var(--task-panel-resizer-width) minmax(0, 1fr);
+  grid-template-columns: 48px var(--task-panel-width) var(--task-panel-resizer-width) minmax(0, 1fr);
   grid-template-areas: "project task task-resizer shared";
   height: 100%;
   min-width: 0;
@@ -166,7 +166,7 @@
 }
 
 .workspace.task-panel-hidden {
-  grid-template-columns: 50px 0 0 minmax(0, 1fr);
+  grid-template-columns: 48px 0 0 minmax(0, 1fr);
   grid-template-areas: "project task task-resizer shared";
 }
 

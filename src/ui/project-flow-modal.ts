@@ -1,10 +1,6 @@
 import type { WorkspaceRef } from '../platform';
 import { escapeHtml } from '../utils/escapeHtml';
 
-export function escapeProjectFlowText(value: string): string {
-  return escapeHtml(value).replace(/'/g, '&#39;');
-}
-
 export function showNewProjectModal(): Promise<
   | { action: 'directory' }
   | { action: 'opfs'; name: string }
@@ -115,7 +111,7 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
       return `
         <button type="button" class="ui-button ui-button--modal ui-button--full recent-item-btn" data-index="${index}">
           <span class="ui-button-icon">${icon}</span>
-          <span class="recent-item-name">${escapeProjectFlowText(entry.displayName)}</span>
+          <span class="recent-item-name">${escapeHtml(entry.displayName)}</span>
           <span class="recent-item-kind">${kindLabel}</span>
         </button>
       `;

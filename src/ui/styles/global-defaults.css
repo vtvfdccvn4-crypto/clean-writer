@@ -52,8 +52,8 @@
      since this must never reach PDF export. */
   --ui-sheet-shadow: 0 1px 2px rgba(22, 32, 44, 0.08), 0 8px 24px rgba(22, 32, 44, 0.10);
 
-  /* Focus ring (solid 2px accent in CSS; this token is the translucent fallback) */
-  --ui-focus-ring: rgba(74, 103, 133, 0.45);
+  /* Focus ring: one treatment everywhere, a solid 2px outline in brand. */
+  --ui-focus-ring: var(--ui-brand);
 
   /* Preview pane background */
   --ui-preview-bg: #ebebeb;
@@ -76,4 +76,11 @@
   --ui-radius-sm: 6px;
   --ui-radius-md: 8px;
   --ui-radius-lg: 10px;
+
+  /* Spacing, on a 4px base. Chrome only; document spacing stays in
+     document-style-css.ts. */
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
 }

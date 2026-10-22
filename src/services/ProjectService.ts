@@ -165,6 +165,8 @@ export const ProjectService = {
   async _appendOrder(session: WorkspaceSession, name: string): Promise<void> {
     try {
       for (const pathEntry of getPathChain(name)) {
+        // The sections root is the tree itself, not an orderable entry.
+        if (pathEntry === 'sections') continue;
         await session.mutateSettings({ type: 'append-order', path: pathEntry });
       }
     } catch (e) {

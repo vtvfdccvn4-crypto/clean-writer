@@ -37,8 +37,8 @@
   margin-left: 2px;
   border: 1px solid var(--ui-border-soft);
   border-radius: 999px;
-  font-size: 10pt;
-  font-weight: 650;
+  font-size: var(--ui-text-sm);
+  font-weight: 600;
   letter-spacing: 0.01em;
   text-transform: lowercase;
   white-space: nowrap;
@@ -213,7 +213,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px;
-  border-top: 1px solid var(--ui-border);
+  border-top: 1px solid var(--ui-border-soft);
 }
 
 .image-preview-caption {
