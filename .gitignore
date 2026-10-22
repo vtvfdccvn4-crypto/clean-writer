@@ -37,6 +37,7 @@ build/
 
 # Local caches
 .cache/
+graphify-out/
 *.tsbuildinfo
 coverage/
 .eslintcache
