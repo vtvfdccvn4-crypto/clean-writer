@@ -83,9 +83,30 @@ async function run() {
   };
 }
 
+/** What the app was showing when a step failed, so a timeout names its cause. */
+function describeState(): Record<string, unknown> {
+  return {
+    lifecycle: projectSession.getStatus(),
+    projectRef: state.current.projectRef?.id ?? null,
+    activeFile: state.current.activeFile,
+    isFullDocMode: state.current.isFullDocMode,
+    sectionCount: state.current.sections.length,
+    welcomeVisible: document.getElementById('welcome-screen-root')?.hidden === false,
+    workspaceVisible: document.querySelector<HTMLElement>('.workspace-shell')?.hidden === false,
+    editorContainerChildren: document.getElementById('editor-container')?.childElementCount ?? null,
+    editorContainerHtml: document.getElementById('editor-container')?.innerHTML.slice(0, 200) ?? null,
+    editorViewPresent: Boolean((window as any).__CLEAR_WRITER_EDITOR_MANAGER__?.getEditorView()),
+    editorStatus: document.getElementById('editor-status')?.textContent ?? null,
+    notice: document.querySelector('.notice, [role="alert"]')?.textContent?.slice(0, 160) ?? null,
+    draftKeys: Object.keys(localStorage).filter(key => key.startsWith('cw-draft')).map(key => `${key.split(':')[0]}=${localStorage.getItem(key)?.slice(0, 60)}`),
+    openDialog: document.querySelector('dialog[open], [role="dialog"], [role="alertdialog"]')?.textContent?.replace(/\s+/g, ' ').slice(0, 160) ?? null
+  };
+}
+
 run().catch(error => {
   window.__HARNESS_RESULT__ = {
     ok: false,
-    error: error instanceof Error ? error.stack : String(error)
+    error: error instanceof Error ? error.stack : String(error),
+    state: describeState()
   };
 });

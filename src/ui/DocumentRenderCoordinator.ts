@@ -201,48 +201,14 @@ export class DocumentRenderCoordinator {
         }
       },
       onChange: async (newDoc: string) => {
+        const isOpen = () => this.documentSession.currentFilePath === filename
+          && state.current.activeFile === filename;
         const changeRevision = this.preview.beginRevision();
-        const sections = state.current.sections;
-        const markdownToCompile = renderDocumentSection(
-          { path: filename, markdown: newDoc },
-          sections,
-          0
-        );
 
-        if (!this.preview.isCurrent(changeRevision)
-          || this.documentSession.currentFilePath !== filename
-          || state.current.activeFile !== filename) return;
-
-        this.opts.updateSaveStatus('saving');
-
-        void this.preview.compileLatestDocument(markdownToCompile)
-          .then(compiledPreview => {
-            if (!compiledPreview) return;
-            if (!this.preview.isCurrent(changeRevision)
-              || this.documentSession.currentFilePath !== filename
-              || state.current.activeFile !== filename) return;
-            this.latestCompiledPreview = {
-              projectId: projectRef.id,
-              documentPath: filename,
-              markdown: newDoc,
-              compiled: compiledPreview
-            };
-            if (this.opts.getIsFinalPrintPreview()) {
-              this.pageGuides.cancel();
-              void this.preview.forceRenderIsolated(
-                createPdfPreviewJob(compiledPreview.html, this.capturePrintLayout(), this.platform.assetResolver),
-                compiledPreview.html,
-                compiledPreview.manifest,
-                changeRevision
-              );
-            } else {
-              this.preview.publish(compiledPreview, changeRevision);
-            }
-          })
-          .catch(previewError => {
-            console.warn(`[DocumentRenderCoordinator] Preview refresh failed for ${filename}.`, previewError);
-          });
-        if (!this.opts.getIsFinalPrintPreview()) this.opts.scheduleCanonicalPageBreakGuides();
+        // Preview and status work belong to the open document only. The write
+        // below does not: a flush on the way to another document or a closed
+        // project runs after selection has moved, and it must still persist.
+        if (isOpen()) this.refreshPreviewForEdit(projectRef.id, filename, newDoc, changeRevision);
 
         try {
           let saved = await session.writeSection(filename, newDoc);
@@ -252,19 +218,21 @@ export class DocumentRenderCoordinator {
           }
           if (!saved) throw new Error(`Workspace rejected writes for ${filename}.`);
 
-          if (!this.preview.isCurrent(changeRevision)
-            || this.documentSession.currentFilePath !== filename
-            || state.current.activeFile !== filename) return;
+          const stillOpen = isOpen();
+          // A newer edit to the open document owns its draft and the status bar.
+          if (stillOpen && !this.preview.isCurrent(changeRevision)) return;
 
+          // The write succeeded, so this file's draft is stale even when the save
+          // was a flush on the way to another document or a closed project.
           DraftRecoveryStore.clearDraft(projectRef.id, filename);
           DraftRecoveryStore.markSaved(projectRef.id, filename);
-          this.opts.updateSaveStatus('saved');
           dispatchSectionSaved(filename);
+          if (stillOpen) this.opts.updateSaveStatus('saved');
         } catch (error) {
-          if (!this.preview.isCurrent(changeRevision)
-            || this.documentSession.currentFilePath !== filename
-            || state.current.activeFile !== filename) return;
-          this.opts.updateSaveStatus('error');
+          const stillOpen = isOpen();
+          if (stillOpen && !this.preview.isCurrent(changeRevision)) return;
+          // The draft is kept, so recovery can still offer the unsaved text.
+          if (stillOpen) this.opts.updateSaveStatus('error');
           this.opts.reportWorkflowError(`Autosave failed for ${filename}.`, error);
         }
       },
@@ -326,5 +294,45 @@ export class DocumentRenderCoordinator {
       await this.documentSession.restoreViewState(projectRef, filename);
     }
     this.opts.updateSaveStatus('saved');
+  }
+
+  /** Recompiles and republishes the preview for an edit to the open document. */
+  private refreshPreviewForEdit(projectId: string, filename: string, newDoc: string, changeRevision: number): void {
+    const markdownToCompile = renderDocumentSection(
+      { path: filename, markdown: newDoc },
+      state.current.sections,
+      0
+    );
+
+    this.opts.updateSaveStatus('saving');
+
+    void this.preview.compileLatestDocument(markdownToCompile)
+      .then(compiledPreview => {
+        if (!compiledPreview) return;
+        if (!this.preview.isCurrent(changeRevision)
+          || this.documentSession.currentFilePath !== filename
+          || state.current.activeFile !== filename) return;
+        this.latestCompiledPreview = {
+          projectId,
+          documentPath: filename,
+          markdown: newDoc,
+          compiled: compiledPreview
+        };
+        if (this.opts.getIsFinalPrintPreview()) {
+          this.pageGuides.cancel();
+          void this.preview.forceRenderIsolated(
+            createPdfPreviewJob(compiledPreview.html, this.capturePrintLayout(), this.platform.assetResolver),
+            compiledPreview.html,
+            compiledPreview.manifest,
+            changeRevision
+          );
+        } else {
+          this.preview.publish(compiledPreview, changeRevision);
+        }
+      })
+      .catch(previewError => {
+        console.warn(`[DocumentRenderCoordinator] Preview refresh failed for ${filename}.`, previewError);
+      });
+    if (!this.opts.getIsFinalPrintPreview()) this.opts.scheduleCanonicalPageBreakGuides();
   }
 }
