@@ -5,9 +5,19 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 let server;
 let compileMarkdown;
 
+let documentCompileSettings;
+let defaultCompileSettings;
+let appStateDefaults;
+
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24682 } } });
-  ({ compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts'));
+  const compiler = await server.ssrLoadModule('/src/compiler/index.ts');
+  const { DEFAULT_APP_STATE } = await server.ssrLoadModule('/src/config/defaults.ts');
+  documentCompileSettings = compiler.documentCompileSettings;
+  defaultCompileSettings = documentCompileSettings(DEFAULT_APP_STATE);
+  appStateDefaults = DEFAULT_APP_STATE;
+  compileMarkdown = (markdown, assetResolver, settings = defaultCompileSettings) =>
+    compiler.compileMarkdown(markdown, assetResolver, settings);
 });
 
 after(async () => server?.close());

@@ -6,9 +6,20 @@ let server;
 let compilePreviewDocument;
 let rebaseManifest;
 
+let documentCompileSettings;
+let defaultCompileSettings;
+let appStateDefaults;
+
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24685 } } });
-  ({ compilePreviewDocument, rebaseManifest } = await server.ssrLoadModule('/src/compiler/index.ts'));
+  const compiler = await server.ssrLoadModule('/src/compiler/index.ts');
+  const { DEFAULT_APP_STATE } = await server.ssrLoadModule('/src/config/defaults.ts');
+  documentCompileSettings = compiler.documentCompileSettings;
+  defaultCompileSettings = documentCompileSettings(DEFAULT_APP_STATE);
+  appStateDefaults = DEFAULT_APP_STATE;
+  compilePreviewDocument = (markdown, assetResolver, options, settings = defaultCompileSettings) =>
+    compiler.compilePreviewDocument(markdown, assetResolver, settings, options);
+  ({ rebaseManifest } = compiler);
 });
 
 after(async () => {

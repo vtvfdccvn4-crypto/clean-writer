@@ -1,8 +1,7 @@
-import { state } from '../state';
+import type { SpecialHeadingDefinition } from '../types';
 
 /** Adds per-definition document-wide counters after all sections have been merged. */
-export function applySpecialHeadings(root: ParentNode): void {
-  const definitions = state.current.pageSetup.specialHeadings || [];
+export function applySpecialHeadings(root: ParentNode, definitions: readonly SpecialHeadingDefinition[]): void {
   const definitionsById = new Map(definitions.map(definition => [definition.id, definition]));
   const counters = new Map(definitions.map(item => [item.id, item.counterStart - 1]));
   root.querySelectorAll<HTMLElement>('.special-heading[data-special-heading-id]').forEach(heading => {

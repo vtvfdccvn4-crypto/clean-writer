@@ -10,6 +10,8 @@ import type { DocumentSessionController } from './DocumentSessionController';
 import type { PageGuideCoordinator } from './PageGuideCoordinator';
 import type { EditorSaveStatus } from './EditorStatusController';
 import { CompiledPreviewCache, captureCurrentPrintLayout } from './CompiledPreviewCache';
+import { documentCompileSettings } from '../compiler';
+import { state } from '../state';
 
 export interface PreviewPipelineOptions {
   platform: Platform;
@@ -46,6 +48,7 @@ export class PreviewPipeline {
     this.preview = new PreviewCoordinator(
       opts.pagedStage,
       platform.assetResolver,
+      () => documentCompileSettings(state.current),
       opts.focusPreviewSourceLine,
       opts.focusPreviewSourceTarget,
       (sourceHtml, pageSetup) => createPdfPreviewJob(sourceHtml, captureCurrentPrintLayout(pageSetup), platform.assetResolver),

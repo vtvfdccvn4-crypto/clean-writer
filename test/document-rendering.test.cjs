@@ -12,6 +12,10 @@ let getExplorerDisplayRoots;
 let getSectionVisibilityNodes;
 let compileMarkdown;
 
+let documentCompileSettings;
+let defaultCompileSettings;
+let appStateDefaults;
+
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24681 } } });
   ({
@@ -22,7 +26,13 @@ before(async () => {
   } = await server.ssrLoadModule('/src/preview/document-rendering/index.ts'));
   ({ buildExplorerTree, getExplorerDisplayRoots } = await server.ssrLoadModule('/src/utils/tree-utils.ts'));
   ({ getSectionVisibilityNodes } = await server.ssrLoadModule('/src/ui/components/SectionVisibilityDrawer.ts'));
-  ({ compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts'));
+  const compiler = await server.ssrLoadModule('/src/compiler/index.ts');
+  const { DEFAULT_APP_STATE } = await server.ssrLoadModule('/src/config/defaults.ts');
+  documentCompileSettings = compiler.documentCompileSettings;
+  defaultCompileSettings = documentCompileSettings(DEFAULT_APP_STATE);
+  appStateDefaults = DEFAULT_APP_STATE;
+  compileMarkdown = (markdown, assetResolver, settings = defaultCompileSettings) =>
+    compiler.compileMarkdown(markdown, assetResolver, settings);
 });
 
 test('section configuration roots match the collapsed explorer for all document modes', () => {

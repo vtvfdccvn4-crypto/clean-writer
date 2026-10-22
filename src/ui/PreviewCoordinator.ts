@@ -1,5 +1,5 @@
 import { compilePreviewDocument } from '../compiler';
-import type { CompiledPreview } from '../compiler';
+import type { CompiledPreview, DocumentCompileSettings } from '../compiler';
 import { preloadDocumentAssets } from '../services/ExportSnapshotService';
 import { PreviewController } from '../preview';
 import { previewMetrics } from '../perf/preview-metrics';
@@ -32,16 +32,19 @@ export class PreviewCoordinator {
   private liveCompileRunning = false;
   private readonly incrementalCompiler = new IncrementalPreviewCompiler();
   private paginatedRefreshFrame: number | null = null;
+  private readonly getCompileSettings: () => DocumentCompileSettings;
 
   constructor(
     stage: HTMLElement,
     assetResolver: AssetResolver,
+    getCompileSettings: () => DocumentCompileSettings,
     onPreviewSourceClick?: (line: number) => void,
     onPreviewSourceTargetClick?: (target: CommittedPreviewTarget) => void,
     createIsolatedJob?: (sourceHtml: string, pageSetup: PageSetup) => PdfPreviewJob,
     paginationHost?: IsolatedPaginationHost
   ) {
     this.assetResolver = assetResolver;
+    this.getCompileSettings = getCompileSettings;
     this.controller = new PreviewController(stage, {
       onPreviewSourceClick,
       onPreviewSourceTargetClick,
@@ -129,7 +132,7 @@ export class PreviewCoordinator {
   async compileDocument(markdown: string, metricKind: 'single-document-edit' | 'single-document-load'): Promise<CompiledPreview> {
     await preloadDocumentAssets(markdown, this.assetResolver);
     const started = performance.now();
-    const compiled = await compilePreviewDocument(markdown, this.assetResolver, { sourceLineOffset: 2 });
+    const compiled = await compilePreviewDocument(markdown, this.assetResolver, this.getCompileSettings(), { sourceLineOffset: 2 });
     previewMetrics.recordPreviewCompile(metricKind, performance.now() - started);
     return compiled;
   }
@@ -154,7 +157,7 @@ export class PreviewCoordinator {
     onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void
   ): Promise<CompiledPreview> {
     const started = performance.now();
-    const compiled = await compilePreviewDocument(markdown, this.assetResolver, { sourceSegments, onPhase });
+    const compiled = await compilePreviewDocument(markdown, this.assetResolver, this.getCompileSettings(), { sourceSegments, onPhase });
     previewMetrics.recordPreviewCompile('full-document', performance.now() - started);
     return compiled;
   }
@@ -225,15 +228,16 @@ export class PreviewCoordinator {
     try {
       const started = performance.now();
       await preloadDocumentAssets(request.markdown, this.assetResolver);
+      const settings = this.getCompileSettings();
       let compiled: CompiledPreview | null = null;
       try {
-        compiled = await this.incrementalCompiler.compile(request.markdown, this.assetResolver);
+        compiled = await this.incrementalCompiler.compile(request.markdown, this.assetResolver, settings);
       } catch (error) {
         console.warn('[PreviewCoordinator] Incremental compile fell back to a full document.', error);
       }
       if (!compiled) {
         this.incrementalCompiler.reset();
-        compiled = await compilePreviewDocument(request.markdown, this.assetResolver, { sourceLineOffset: 2 });
+        compiled = await compilePreviewDocument(request.markdown, this.assetResolver, settings, { sourceLineOffset: 2 });
       }
       previewMetrics.recordPreviewCompile('single-document-edit', performance.now() - started);
       request.resolve(request.generation === this.liveCompileGeneration ? compiled : null);

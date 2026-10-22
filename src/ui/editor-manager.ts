@@ -1,6 +1,6 @@
 import { state } from '../state';
 import type { MarkdownEditor } from '../editor';
-import { compileMarkdown } from '../compiler';
+import { compileMarkdown, documentCompileSettings } from '../compiler';
 import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
 import type { Platform } from '../platform/types';
 import { showNotice } from './components/Notice';
@@ -430,6 +430,8 @@ export class EditorManager {
     await this.flushCurrentDocument();
     const { projectRef, isFullDocMode, activeFile, sections } = state.current;
     if (!projectRef) throw new Error('No project is open.');
+    // Captured with the sections, so the whole export compiles one settings snapshot.
+    const compileSettings = documentCompileSettings(state.current);
     const session = await this.platform.workspaceRepository.open(projectRef);
     return compileSnapshot({
       session,
@@ -442,7 +444,7 @@ export class EditorManager {
         ? this.currentEditorView.getValue()
         : undefined
     }, {
-      compile: compileMarkdown
+      compile: (markdown, assetResolver) => compileMarkdown(markdown, assetResolver, compileSettings)
     });
   }
 

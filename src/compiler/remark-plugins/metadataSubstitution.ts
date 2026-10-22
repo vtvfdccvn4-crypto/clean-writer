@@ -1,11 +1,11 @@
 import type { Root, Text } from 'mdast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
-import { state } from '../../state';
+import type { DocumentCompileSettings } from '../settings';
 
-export const metadataSubstitutionPlugin: Plugin<[], Root> = () => {
+export const metadataSubstitutionPlugin: Plugin<[Pick<DocumentCompileSettings, 'projectMetadata'>], Root> = ({ projectMetadata }) => {
   return (tree: Root) => {
-    const meta = state.current.projectMetadata;
+    const meta = projectMetadata;
     if (!meta) return;
 
     visit(tree, 'text', (node: Text) => {

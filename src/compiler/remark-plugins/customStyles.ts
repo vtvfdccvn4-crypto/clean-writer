@@ -1,12 +1,11 @@
 import type { ElementContent, Root } from 'hast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
-import { state } from '../../state';
+import type { DocumentCompileSettings } from '../settings';
 import { escapeRegExp } from '../../utils/regex';
 
-export const customStylesPlugin: Plugin<[], Root> = () => {
+export const customStylesPlugin: Plugin<[Pick<DocumentCompileSettings, 'customStyles'>], Root> = ({ customStyles }) => {
   return (tree: Root) => {
-    const customStyles = state.current.customStyles || [];
     if (customStyles.length === 0) return;
 
     const pairs = customStyles.map(s => ({

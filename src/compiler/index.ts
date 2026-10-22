@@ -32,14 +32,18 @@ const documentSchema = {
 };
 
 import type { AssetResolver } from '../platform/types';
+import type { DocumentCompileSettings } from './settings';
 
-const createMarkdownCompiler = (assetResolver?: AssetResolver | null) => unified()
+export { documentCompileSettings, sameDocumentCompileSettings } from './settings';
+export type { DocumentCompileSettings, DocumentCompileSettingsSource } from './settings';
+
+const createMarkdownCompiler = (assetResolver: AssetResolver | null | undefined, settings: DocumentCompileSettings) => unified()
   .use(remarkParse)
   .use(listMarkerPlugin)
   .use(imageAttributesPlugin)
   .use(remarkGfm)
   .use(tableStylePlugin)
-  .use(metadataSubstitutionPlugin)
+  .use(metadataSubstitutionPlugin, settings)
   .use(remarkRehype, { allowDangerousHtml: true })
   // Parse raw HTML into nodes, then remove scripts, event handlers and unsafe
   // elements before any HTML reaches the browser preview or export pipeline.
@@ -48,9 +52,9 @@ const createMarkdownCompiler = (assetResolver?: AssetResolver | null) => unified
   .use(tocPlaceholderPlugin)
   .use(listLayoutPlugin)
   .use(imageSourcePlugin, { assetResolver })
-  .use(customStylesPlugin)
-  .use(customBlockStylesPlugin, { assetResolver })
-  .use(specialHeadingsPlugin)
+  .use(customStylesPlugin, settings)
+  .use(customBlockStylesPlugin, { ...settings, assetResolver })
+  .use(specialHeadingsPlugin, settings)
   .use(previewManifestPlugin)
   .use(rehypeStringify, { allowDangerousHtml: true });
 
@@ -81,17 +85,22 @@ export interface PreviewSourceSegment {
   sourceStartLine: number;
 }
 
-export async function compileMarkdown(markdown: string, assetResolver?: AssetResolver | null): Promise<string> {
-  return (await compilePreviewDocument(markdown, assetResolver)).html;
+export async function compileMarkdown(
+  markdown: string,
+  assetResolver: AssetResolver | null | undefined,
+  settings: DocumentCompileSettings
+): Promise<string> {
+  return (await compilePreviewDocument(markdown, assetResolver, settings)).html;
 }
 
 /** Compiles preview HTML and an in-memory source manifest without emitting source markers. */
 export async function compilePreviewDocument(
   markdown: string,
-  assetResolver?: AssetResolver | null,
+  assetResolver: AssetResolver | null | undefined,
+  settings: DocumentCompileSettings,
   options: PreviewCompilationOptions = {}
 ): Promise<CompiledPreview> {
-  const compiler = createMarkdownCompiler(assetResolver);
+  const compiler = createMarkdownCompiler(assetResolver, settings);
   const file = new VFile({ value: markdown });
   const parseStartedAt = performance.now();
   const tree = compiler.parse(file);

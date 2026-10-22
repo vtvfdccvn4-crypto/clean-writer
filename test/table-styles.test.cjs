@@ -14,9 +14,19 @@ const style = (overrides = {}) => ({
   ...overrides
 });
 
+let documentCompileSettings;
+let defaultCompileSettings;
+let appStateDefaults;
+
 before(async () => {
   server = await createTestServer();
-  ({ compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts'));
+  const compiler = await server.ssrLoadModule('/src/compiler/index.ts');
+  const { DEFAULT_APP_STATE } = await server.ssrLoadModule('/src/config/defaults.ts');
+  documentCompileSettings = compiler.documentCompileSettings;
+  defaultCompileSettings = documentCompileSettings(DEFAULT_APP_STATE);
+  appStateDefaults = DEFAULT_APP_STATE;
+  compileMarkdown = (markdown, assetResolver, settings = defaultCompileSettings) =>
+    compiler.compileMarkdown(markdown, assetResolver, settings);
   ({ generateTableCss } = await server.ssrLoadModule('/src/preview/css/table-css.ts'));
 });
 

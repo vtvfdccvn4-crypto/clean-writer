@@ -1,19 +1,19 @@
 import type { Element, Root } from 'hast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
-import { state } from '../../state';
+import type { DocumentCompileSettings } from '../settings';
 import { isBlockGlyphPath } from '../../customBlockGlyphs';
 import { resolveImageSource } from '../../images/imageSources';
 
 import type { AssetResolver } from '../../platform/types';
 
-interface CustomBlockStylesOptions {
+interface CustomBlockStylesOptions extends Pick<DocumentCompileSettings, 'customBlockStyles' | 'paragraphSpacing'> {
   assetResolver?: AssetResolver | null;
 }
 
-export const customBlockStylesPlugin: Plugin<[CustomBlockStylesOptions?], Root> = (options = {}) => {
+export const customBlockStylesPlugin: Plugin<[CustomBlockStylesOptions], Root> = options => {
   return (tree: Root) => {
-    const blockStyles = state.current.customBlockStyles || [];
+    const blockStyles = options.customBlockStyles;
     if (blockStyles.length === 0) return;
 
     visit(tree, 'element', (node: Element) => {
@@ -37,7 +37,7 @@ export const customBlockStylesPlugin: Plugin<[CustomBlockStylesOptions?], Root> 
           if (style.color) cssProps.push(`color: ${style.color}`);
           if (style.isBold) cssProps.push(`font-weight: bold`);
           if (style.isItalic) cssProps.push(`font-style: italic`);
-          const paragraphSpacing = state.current.typographySetup.paragraph;
+          const paragraphSpacing = options.paragraphSpacing;
           cssProps.push(`line-height: ${style.lineHeight ?? paragraphSpacing.lineHeight}`);
           cssProps.push(`margin-top: ${style.marginTop ?? paragraphSpacing.marginTop}pt`);
           cssProps.push(`margin-bottom: ${style.marginBottom ?? paragraphSpacing.marginBottom}pt`);

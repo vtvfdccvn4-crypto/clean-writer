@@ -1,11 +1,10 @@
 import type { Element, ElementContent, Root } from 'hast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
-import { state } from '../../state';
+import type { DocumentCompileSettings } from '../settings';
 
 /** Converts configured :::directives into semantic headings before document assembly. */
-export const specialHeadingsPlugin: Plugin<[], Root> = () => tree => {
-  const definitions = state.current.pageSetup.specialHeadings || [];
+export const specialHeadingsPlugin: Plugin<[Pick<DocumentCompileSettings, 'specialHeadings'>], Root> = ({ specialHeadings: definitions }) => tree => {
   visit(tree, 'element', node => {
     const first = node.children[0];
     if (node.tagName !== 'p' || first?.type !== 'text') return;

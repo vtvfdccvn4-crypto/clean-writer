@@ -38,7 +38,7 @@ export class LivePreviewRenderer {
     const source = document.createElement('div');
     source.innerHTML = html;
     applyHeadingNumbering(source);
-    applySpecialHeadings(source);
+    applySpecialHeadings(source, pageSetup.specialHeadings ?? []);
     applyTableOfContents(source, pageSetup.toc?.maxLevel);
     this.applyKnownImageDimensions(source);
     if (!isCurrent()) return null;

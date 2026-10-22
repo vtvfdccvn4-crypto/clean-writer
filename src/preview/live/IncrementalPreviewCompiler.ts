@@ -1,6 +1,6 @@
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
-import { compilePreviewDocument, type CompiledPreview } from '../../compiler';
+import { compilePreviewDocument, sameDocumentCompileSettings, type CompiledPreview, type DocumentCompileSettings } from '../../compiler';
 import type { AssetResolver } from '../../platform/types';
 import type { PreviewSourceManifestEntry } from '../../compiler/rehype-plugins';
 
@@ -33,36 +33,43 @@ const MAX_CONCURRENT_BLOCK_COMPILATIONS = 4;
  */
 export class IncrementalPreviewCompiler {
   private previous: readonly CompiledBlock[] = [];
+  private previousSettings: DocumentCompileSettings | null = null;
 
   public reset(): void {
     this.previous = [];
+    this.previousSettings = null;
   }
 
-  public async compile(markdown: string, assetResolver: AssetResolver): Promise<CompiledPreview | null> {
+  public async compile(markdown: string, assetResolver: AssetResolver, settings: DocumentCompileSettings): Promise<CompiledPreview | null> {
     const envelope = splitSectionEnvelope(markdown);
     if (!envelope) return null;
     const sourceBlocks = parseSourceBlocks(envelope.body, envelope.bodyStartLine);
     if (!sourceBlocks) return null;
 
+    // A block compiled under other settings (custom styles, metadata, special
+    // headings) would render stale, so settings changes recompile everything.
+    if (this.previousSettings && !sameDocumentCompileSettings(this.previousSettings, settings)) this.previous = [];
     const reusable = matchUnchangedBlocks(this.previous, sourceBlocks);
     const blocks = await mapWithConcurrency(sourceBlocks, MAX_CONCURRENT_BLOCK_COMPILATIONS, async (source, index) => {
       const previous = reusable.get(index);
       if (previous) return { ...previous, startLine: source.startLine };
-      return this.compileBlock(envelope, source, assetResolver);
+      return this.compileBlock(envelope, source, assetResolver, settings);
     });
     this.previous = blocks;
+    this.previousSettings = settings;
     return assemblePreview(envelope, blocks);
   }
 
   private async compileBlock(
     envelope: SectionEnvelope,
     source: SourceBlock,
-    assetResolver: AssetResolver
+    assetResolver: AssetResolver,
+    settings: DocumentCompileSettings
   ): Promise<CompiledBlock> {
     // The blank lines make the local source range deterministic: Markdown
     // content starts at line 3 inside this temporary document section.
     const local = `${envelope.openingHtml}\n\n${source.markdown}\n\n${envelope.closingHtml}`;
-    const compiled = await compilePreviewDocument(local, assetResolver);
+    const compiled = await compilePreviewDocument(local, assetResolver, settings);
     const template = document.createElement('template');
     template.innerHTML = compiled.html;
     const section = template.content.firstElementChild;

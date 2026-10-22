@@ -10,18 +10,26 @@ let parseEditorMarkdownImages;
 let getProjectImageLookupPaths;
 let resolveImageSource;
 let resolvePdfPreviewMarginText;
-let state;
+
+let documentCompileSettings;
+let defaultCompileSettings;
+let appStateDefaults;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24679 } } });
 
-  ({ compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts'));
+  const compiler = await server.ssrLoadModule('/src/compiler/index.ts');
+  const { DEFAULT_APP_STATE } = await server.ssrLoadModule('/src/config/defaults.ts');
+  documentCompileSettings = compiler.documentCompileSettings;
+  defaultCompileSettings = documentCompileSettings(DEFAULT_APP_STATE);
+  appStateDefaults = DEFAULT_APP_STATE;
+  compileMarkdown = (markdown, assetResolver, settings = defaultCompileSettings) =>
+    compiler.compileMarkdown(markdown, assetResolver, settings);
   ({ buildProjectImageMarkdown } = await server.ssrLoadModule('/src/images/imageMarkdown.ts'));
   ({ parseMarkdownImages } = await server.ssrLoadModule('/src/images/markdownImages.ts'));
   ({ parseEditorMarkdownImages } = await server.ssrLoadModule('/src/editor/markdown/parseMarkdownImage.ts'));
   ({ getProjectImageLookupPaths, resolveImageSource } = await server.ssrLoadModule('/src/images/imageSources.ts'));
   ({ resolvePdfPreviewMarginText } = await server.ssrLoadModule('/src/pdf-preview/PdfPreviewMarginRenderer.ts'));
-  ({ state } = await server.ssrLoadModule('/src/state.ts'));
 });
 
 after(async () => {
@@ -147,34 +155,36 @@ test('dragged project images insert without duplicating the images directory', (
 });
 
 test('block glyphs compile from portable project asset paths', async () => {
-  state.setCustomBlockStyles([{
-    id: 'info',
-    name: 'Info',
-    prefix: ':::i',
-    icon: 'assets/glyphs/info mark.svg',
-    fontFamily: '',
-    fontSize: 0,
-    color: '#123456',
-    isBold: false,
-    isItalic: false,
-    lineHeight: 1.35,
-    marginTop: 2,
-    marginBottom: 8
-  }]);
+  const settings = documentCompileSettings({
+    ...appStateDefaults,
+    customBlockStyles: [{
+      id: 'info',
+      name: 'Info',
+      prefix: ':::i',
+      icon: 'assets/glyphs/info mark.svg',
+      fontFamily: '',
+      fontSize: 0,
+      color: '#123456',
+      isBold: false,
+      isItalic: false,
+      lineHeight: 1.35,
+      marginTop: 2,
+      marginBottom: 8
+    }]
+  });
 
   const html = await compileMarkdown(':::i Read this', {
     resolveSync: source => `blob:mock/${encodeURIComponent(source)}`,
     async preloadImages() {},
     release() {},
     releaseAll() {}
-  });
+  }, settings);
 
   assert.match(html, /class="custom-block-icon custom-block-glyph"/);
   assert.match(html, /src="blob:mock\/assets%2Fglyphs%2Finfo%20mark\.svg"/);
   assert.match(html, /data-image-source="assets\/glyphs\/info mark\.svg"/);
   assert.match(html, /line-height: 1.35; margin-top: 2pt; margin-bottom: 8pt/);
   assert.match(html, />Read this<\/div>/);
-  state.setCustomBlockStyles([]);
 });
 
 test('PDF preview margin text resolves the total after pagination', () => {
