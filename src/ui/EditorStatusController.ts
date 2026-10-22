@@ -34,7 +34,6 @@ export class EditorStatusController {
       indicator.dataset.state = status;
       indicator.title = labels[status];
     });
-    window.dispatchEvent(new CustomEvent('clear-writer-save-state', { detail: { state: status } }));
   }
 
   getStatus(): EditorSaveStatus {
