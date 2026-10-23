@@ -106,3 +106,21 @@ test('respects abort signal', async () => {
   // Might return 0 or 1 depending on where exactly abort fires, but shouldn't process everything
   assert.ok(results.length <= 1);
 });
+
+test('line and column stay exact across many matches and line endings', async () => {
+  const lines = Array.from({ length: 300 }, (_, index) => (index % 3 === 0 ? `row ${index} needle and needle` : `row ${index}`));
+  const content = lines.join('\r\n') + '\nlast needle';
+  const session = { readSection: async () => content };
+  const results = await searchProject(session, [{ path: 'sections/big.md', isDir: false }], 'needle', undefined, 1_000);
+
+  const expected = [];
+  let index = content.toLowerCase().indexOf('needle');
+  while (index !== -1) {
+    const before = content.slice(0, index);
+    expected.push({ line: before.split('\n').length, column: index - (before.lastIndexOf('\n') + 1) });
+    index = content.toLowerCase().indexOf('needle', index + 'needle'.length);
+  }
+
+  assert.equal(results.length, expected.length);
+  assert.deepEqual(results.map(({ line, column }) => ({ line, column })), expected);
+});

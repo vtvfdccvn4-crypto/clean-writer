@@ -29,17 +29,24 @@ export async function searchProject(
 
     const lowerContent = content.toLowerCase();
     let startIndex = 0;
-    
+    // Line position carries forward from the previous match, so each
+    // character is scanned once per file rather than once per match.
+    let line = 1;
+    let lineStart = 0;
+    let scannedTo = 0;
+
     while ((startIndex = lowerContent.indexOf(lowerQuery, startIndex)) !== -1) {
       if (signal?.aborted) break;
       if (results.length >= limit) break;
 
-      // Calculate line and column
-      const textBeforeMatch = content.substring(0, startIndex);
-      const newlines = textBeforeMatch.match(/\n/g);
-      const line = newlines ? newlines.length + 1 : 1;
-      const lastNewlineIndex = textBeforeMatch.lastIndexOf('\n');
-      const column = lastNewlineIndex === -1 ? startIndex : startIndex - lastNewlineIndex - 1;
+      for (let index = scannedTo; index < startIndex; index += 1) {
+        if (content.charCodeAt(index) === 10) {
+          line += 1;
+          lineStart = index + 1;
+        }
+      }
+      scannedTo = startIndex;
+      const column = startIndex - lineStart;
 
       // Extract excerpt (approx 40 chars before and after)
       const excerptStart = Math.max(0, startIndex - 40);
