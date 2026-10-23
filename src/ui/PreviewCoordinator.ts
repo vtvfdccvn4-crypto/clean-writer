@@ -130,9 +130,10 @@ export class PreviewCoordinator {
 
 
   async compileDocument(markdown: string, metricKind: 'single-document-edit' | 'single-document-load'): Promise<CompiledPreview> {
-    await preloadDocumentAssets(markdown, this.assetResolver);
+    const settings = this.getCompileSettings();
+    await preloadDocumentAssets(markdown, this.assetResolver, settings.customBlockStyles);
     const started = performance.now();
-    const compiled = await compilePreviewDocument(markdown, this.assetResolver, this.getCompileSettings(), { sourceLineOffset: 2 });
+    const compiled = await compilePreviewDocument(markdown, this.assetResolver, settings, { sourceLineOffset: 2 });
     previewMetrics.recordPreviewCompile(metricKind, performance.now() - started);
     return compiled;
   }
@@ -227,8 +228,8 @@ export class PreviewCoordinator {
     this.liveCompileRunning = true;
     try {
       const started = performance.now();
-      await preloadDocumentAssets(request.markdown, this.assetResolver);
       const settings = this.getCompileSettings();
+      await preloadDocumentAssets(request.markdown, this.assetResolver, settings.customBlockStyles);
       let compiled: CompiledPreview | null = null;
       try {
         compiled = await this.incrementalCompiler.compile(request.markdown, this.assetResolver, settings);

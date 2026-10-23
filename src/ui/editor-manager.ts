@@ -439,6 +439,7 @@ export class EditorManager {
       isFullDocMode,
       activeFile,
       sections,
+      customBlockStyles: compileSettings.customBlockStyles,
       signal,
       currentMarkdown: this.currentFilePath === activeFile && this.currentEditorView
         ? this.currentEditorView.getValue()

@@ -4,9 +4,8 @@ import {
   type DocumentPreviewSourceSegment,
   type DocumentSectionInput
 } from '../preview/document-rendering';
-import type { FileNode } from '../types';
+import type { CustomBlockStyle, FileNode } from '../types';
 import type { WorkspaceSession, AssetResolver } from '../platform/types';
-import { state } from '../state';
 import { isBlockGlyphPath } from '../customBlockGlyphs';
 
 export interface ExportSnapshotInput {
@@ -15,6 +14,8 @@ export interface ExportSnapshotInput {
   isFullDocMode: boolean;
   activeFile: string | null;
   sections: FileNode[];
+  /** Block styles whose glyph icons must be preloaded with the document. */
+  customBlockStyles: readonly CustomBlockStyle[];
   currentMarkdown?: string;
   signal?: AbortSignal;
   onPhase?: (phase: 'snapshot-load' | 'asset-preload', durationMs: number) => void;
@@ -54,26 +55,27 @@ function scanMarkdownForImages(markdown: string): string[] {
   return paths;
 }
 
-function scanCustomBlockStyleIcons(): string[] {
-  return (state.current.customBlockStyles || [])
+function scanCustomBlockStyleIcons(customBlockStyles: readonly CustomBlockStyle[]): string[] {
+  return customBlockStyles
     .map(style => style.icon)
     .filter((icon): icon is string => Boolean(icon) && isBlockGlyphPath(icon));
 }
 
 /** Collects each document image and configured block glyph once per operation. */
-function collectDocumentAssetPaths(markdown: string): string[] {
+function collectDocumentAssetPaths(markdown: string, customBlockStyles: readonly CustomBlockStyle[]): string[] {
   return [...new Set([
     ...scanMarkdownForImages(markdown),
-    ...scanCustomBlockStyleIcons()
+    ...scanCustomBlockStyleIcons(customBlockStyles)
   ])];
 }
 
 export async function preloadDocumentAssets(
   markdown: string,
   assetResolver: AssetResolver,
+  customBlockStyles: readonly CustomBlockStyle[],
   signal?: AbortSignal
 ): Promise<void> {
-  const assets = collectDocumentAssetPaths(markdown);
+  const assets = collectDocumentAssetPaths(markdown, customBlockStyles);
   if (assets.length > 0) await assetResolver.preloadImages(assets, signal);
 }
 
@@ -85,7 +87,7 @@ export async function compileExportSnapshot<T = string>(
   input: ExportSnapshotInput,
   dependencies: ExportSnapshotDependencies<T>
 ): Promise<T> {
-  const { session, assetResolver, isFullDocMode, activeFile, sections, currentMarkdown, signal } = input;
+  const { session, assetResolver, isFullDocMode, activeFile, sections, customBlockStyles, currentMarkdown, signal } = input;
   throwIfAborted(signal);
 
   if (isFullDocMode || !activeFile) {
@@ -136,7 +138,7 @@ export async function compileExportSnapshot<T = string>(
     
     const assetPreloadStartedAt = performance.now();
     try {
-      await preloadDocumentAssets(document.markdown, assetResolver, signal);
+      await preloadDocumentAssets(document.markdown, assetResolver, customBlockStyles, signal);
     } finally {
       input.onPhase?.('asset-preload', performance.now() - assetPreloadStartedAt);
     }
@@ -151,7 +153,7 @@ export async function compileExportSnapshot<T = string>(
 
   const assetPreloadStartedAt = performance.now();
   try {
-    await preloadDocumentAssets(markdownToCompile, assetResolver, signal);
+    await preloadDocumentAssets(markdownToCompile, assetResolver, customBlockStyles, signal);
   } finally {
     input.onPhase?.('asset-preload', performance.now() - assetPreloadStartedAt);
   }

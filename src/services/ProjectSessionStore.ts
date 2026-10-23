@@ -1,8 +1,8 @@
 import type { ImageSetup, ProjectSettingsPatch, WorkspaceRef, SectionPlacement } from '../types';
 import type { WorkspaceSession } from '../platform/types';
-import { state } from '../state';
-import { ProjectService } from './ProjectService';
-import { SettingsService } from './SettingsService';
+import { state, type AppState } from '../state';
+import { projectServiceFor, type ProjectServiceApi } from './ProjectService';
+import { settingsServiceFor, type SettingsServiceApi } from './SettingsService';
 
 /**
  * The lifecycle of the one project that may be open in the application.
@@ -25,10 +25,20 @@ export type ProjectLifecycleStatus = 'closed' | 'activating' | 'open';
  * observe `onStatusChanged()`.
  */
 export class ProjectSessionStore {
+  private readonly appState: AppState;
+  private readonly projectService: ProjectServiceApi;
+  private readonly settingsService: SettingsServiceApi;
   private session: WorkspaceSession | null = null;
   private activationGeneration = 0;
   private status: ProjectLifecycleStatus = 'closed';
   private readonly statusListeners = new Set<(status: ProjectLifecycleStatus) => void>();
+
+  /** Publishes to the global app state unless given another, e.g. an isolated test state. */
+  constructor(appState: AppState = state) {
+    this.appState = appState;
+    this.projectService = projectServiceFor(appState);
+    this.settingsService = settingsServiceFor(appState);
+  }
 
   getSession(): WorkspaceSession | null {
     return this.session;
@@ -48,7 +58,7 @@ export class ProjectSessionStore {
    * `state.current.projectRef`, which reads `null` mid-activation.
    */
   isProjectPresent(): boolean {
-    return this.status !== 'closed' || state.current.projectRef !== null;
+    return this.status !== 'closed' || this.appState.current.projectRef !== null;
   }
 
   onStatusChanged(listener: (status: ProjectLifecycleStatus) => void): () => void {
@@ -75,9 +85,9 @@ export class ProjectSessionStore {
     // snapshot-loading window for "no project".
     this.setStatus('activating');
 
-    let snapshot: Awaited<ReturnType<typeof ProjectService.loadProjectSnapshotCandidate>>;
+    let snapshot: Awaited<ReturnType<ProjectServiceApi['loadProjectSnapshotCandidate']>>;
     try {
-      snapshot = await ProjectService.loadProjectSnapshotCandidate(session, ref);
+      snapshot = await this.projectService.loadProjectSnapshotCandidate(session, ref);
     } catch (error) {
       // A superseded activation must not undo the status its successor set.
       if (generation === this.activationGeneration) this.setStatus(previousStatus);
@@ -90,88 +100,88 @@ export class ProjectSessionStore {
     // any open/snapshot failure.
     this.session = session;
     this.setStatus('open');
-    state.activateProjectSnapshot(snapshot);
+    this.appState.activateProjectSnapshot(snapshot);
   }
 
   async updateSettings(patch: ProjectSettingsPatch): Promise<void> {
-    await SettingsService.saveSettings(this.requireSession(), patch);
+    await this.settingsService.saveSettings(this.requireSession(), patch);
     this.applySettingsPatch(patch);
   }
 
   /** Persist an image-default reset across all sections, then save those defaults. */
   async resetImagePresentation(setup: ImageSetup): Promise<Array<{ path: string; content: string }>> {
     const session = this.requireSession();
-    const changed = await ProjectService.resetProjectImagePresentation(session, setup);
-    await SettingsService.saveSettings(session, { imageSetup: setup });
+    const changed = await this.projectService.resetProjectImagePresentation(session, setup);
+    await this.settingsService.saveSettings(session, { imageSetup: setup });
     this.applySettingsPatch({ imageSetup: setup });
     return changed;
   }
 
   async toggleHeaderVisibility(path: string, hide: boolean): Promise<boolean> {
-    return ProjectService.toggleHeaderVisibility(this.requireSession(), path, hide);
+    return this.projectService.toggleHeaderVisibility(this.requireSession(), path, hide);
   }
 
   async toggleFooterVisibility(path: string, hide: boolean): Promise<boolean> {
-    return ProjectService.toggleFooterVisibility(this.requireSession(), path, hide);
+    return this.projectService.toggleFooterVisibility(this.requireSession(), path, hide);
   }
 
   async toggleHeadingNumbering(path: string, enabled: boolean): Promise<boolean> {
-    return ProjectService.toggleHeadingNumbering(this.requireSession(), path, enabled);
+    return this.projectService.toggleHeadingNumbering(this.requireSession(), path, enabled);
   }
 
   async toggleToc(path: string, enabled: boolean): Promise<boolean> {
-    return ProjectService.toggleToc(this.requireSession(), path, enabled);
+    return this.projectService.toggleToc(this.requireSession(), path, enabled);
   }
 
   async togglePageBreak(path: string): Promise<boolean> {
-    return ProjectService.togglePageBreak(this.requireSession(), path);
+    return this.projectService.togglePageBreak(this.requireSession(), path);
   }
 
   async createSection(name: string, content?: string): Promise<boolean> {
-    return ProjectService.createSection(this.requireSession(), name, content);
+    return this.projectService.createSection(this.requireSession(), name, content);
   }
 
   async createFolder(name: string): Promise<boolean> {
-    return ProjectService.createFolder(this.requireSession(), name);
+    return this.projectService.createFolder(this.requireSession(), name);
   }
 
   async renameSection(oldName: string, newName: string): Promise<boolean> {
-    return ProjectService.renameSection(this.requireSession(), oldName, newName);
+    return this.projectService.renameSection(this.requireSession(), oldName, newName);
   }
 
   async deleteSection(name: string): Promise<boolean> {
-    return ProjectService.deleteSection(this.requireSession(), name);
+    return this.projectService.deleteSection(this.requireSession(), name);
   }
 
   async moveSection(source: string, target: string | null, placement: SectionPlacement): Promise<boolean> {
-    return ProjectService.moveSection(this.requireSession(), source, target, placement);
+    return this.projectService.moveSection(this.requireSession(), source, target, placement);
   }
 
   async reorderSection(source: string, target: string, placement: Extract<SectionPlacement, 'before' | 'after'>): Promise<boolean> {
-    return ProjectService.reorderSection(this.requireSession(), source, target, placement);
+    return this.projectService.reorderSection(this.requireSession(), source, target, placement);
   }
 
   async uploadImage(filename: string, data: Uint8Array<ArrayBuffer>): Promise<boolean> {
-    return ProjectService.uploadImage(this.requireSession(), filename, data);
+    return this.projectService.uploadImage(this.requireSession(), filename, data);
   }
 
   private applySettingsPatch(patch: ProjectSettingsPatch): void {
-    if (patch.pageSetup) state.setPageSetup(patch.pageSetup);
-    if (patch.typographySetup) state.setTypographySetup(patch.typographySetup);
-    if (patch.listSetup) state.setListSetup(patch.listSetup);
-    if (patch.tableSetup) state.setTableSetup(patch.tableSetup);
-    if (patch.imageSetup) state.setImageSetup(patch.imageSetup);
-    if (patch.projectMetadata) state.setProjectMetadata(patch.projectMetadata);
-    if (patch.customStyles) state.setCustomStyles(patch.customStyles);
-    if (patch.customBlockStyles) state.setCustomBlockStyles(patch.customBlockStyles);
-    if (patch.editorSetup) state.setEditorSetup(patch.editorSetup);
+    if (patch.pageSetup) this.appState.setPageSetup(patch.pageSetup);
+    if (patch.typographySetup) this.appState.setTypographySetup(patch.typographySetup);
+    if (patch.listSetup) this.appState.setListSetup(patch.listSetup);
+    if (patch.tableSetup) this.appState.setTableSetup(patch.tableSetup);
+    if (patch.imageSetup) this.appState.setImageSetup(patch.imageSetup);
+    if (patch.projectMetadata) this.appState.setProjectMetadata(patch.projectMetadata);
+    if (patch.customStyles) this.appState.setCustomStyles(patch.customStyles);
+    if (patch.customBlockStyles) this.appState.setCustomBlockStyles(patch.customBlockStyles);
+    if (patch.editorSetup) this.appState.setEditorSetup(patch.editorSetup);
   }
 
   close(): void {
     this.activationGeneration += 1;
     this.session = null;
     this.setStatus('closed');
-    state.closeProject();
+    this.appState.closeProject();
   }
 }
 

@@ -24,9 +24,21 @@ test('document asset preloading deduplicates Markdown and HTML image references'
     preloadImages: async paths => calls.push(paths),
     resolveSync: path => path,
     releaseAll() {}
-  });
+  }, []);
 
   assert.deepEqual(calls, [['images/shared.png', 'images/other.png']]);
+});
+
+test('document asset preloading includes glyph icons from the block styles passed in', async () => {
+  const calls = [];
+  const resolver = { preloadImages: async paths => calls.push(paths), resolveSync: path => path, releaseAll() {} };
+  await preloadDocumentAssets('Plain text', resolver, [
+    { id: 'note', icon: 'assets/glyphs/note.svg' },
+    { id: 'emoji', icon: 'ℹ' }
+  ]);
+  await preloadDocumentAssets('Plain text', resolver, []);
+
+  assert.deepEqual(calls, [['assets/glyphs/note.svg']]);
 });
 
 test('export snapshot preserves sections, page breaks, and current Markdown', async () => {
@@ -45,6 +57,7 @@ test('export snapshot preserves sections, page breaks, and current Markdown', as
   const html = await compileExportSnapshot({
     session,
     assetResolver: { preloadImages: async () => {}, resolveSync: path => path },
+    customBlockStyles: [],
     isFullDocMode: true,
     activeFile: null,
     sections
@@ -65,6 +78,7 @@ test('export snapshot uses current Markdown for the active section', async () =>
   const html = await compileExportSnapshot({
     session,
     assetResolver: { preloadImages: async () => {}, resolveSync: path => path },
+    customBlockStyles: [],
     isFullDocMode: false,
     activeFile: 'sections/current.md',
     sections,
@@ -93,6 +107,7 @@ test('full-document snapshot bounds concurrent section reads', async () => {
       }
     },
     assetResolver: { preloadImages: async () => {}, resolveSync: path => path },
+    customBlockStyles: [],
     isFullDocMode: true,
     activeFile: null,
     sections
@@ -107,6 +122,7 @@ test('full-document snapshot reports section-read and asset-preload phases', asy
   await compileExportSnapshot({
     session: { readSection: async () => '# Timed section' },
     assetResolver: { preloadImages: async () => {}, resolveSync: path => path },
+    customBlockStyles: [],
     isFullDocMode: true,
     activeFile: null,
     sections: [{ path: 'sections/timed.md', isDir: false }],
@@ -133,6 +149,7 @@ test('cancelled export does not preload assets or compile after a section read',
       preloadImages: async () => { preloads += 1; },
       resolveSync: path => path
     },
+    customBlockStyles: [],
     isFullDocMode: false,
     activeFile: 'sections/cancelled.md',
     sections: [{ path: 'sections/cancelled.md', isDir: false }],

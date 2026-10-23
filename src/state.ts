@@ -36,7 +36,7 @@ const APP_STATE_EVENTS = {
 
 type AppStateEvent = typeof APP_STATE_EVENTS[keyof typeof APP_STATE_EVENTS];
 
-class AppState extends EventTarget {
+export class AppState extends EventTarget {
   private data: AppStateData;
   private cachedCurrentData: AppStateData | null = null;
   private cachedCurrent: Readonly<AppStateData & { projectPath: string | null }> | null = null;

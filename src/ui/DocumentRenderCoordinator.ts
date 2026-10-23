@@ -107,6 +107,7 @@ export class DocumentRenderCoordinator {
         isFullDocMode: true,
         activeFile: null,
         sections,
+        customBlockStyles: state.current.customBlockStyles,
         onPhase: (phase, durationMs) => timing.record(phase, durationMs)
       }, {
         compile: async (markdown: string, _assetResolver, sourceSegments) => {
