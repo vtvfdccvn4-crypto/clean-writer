@@ -49,6 +49,24 @@ async function settleGeometry(editor: ReturnType<typeof createEditor>) {
   await frame();
 }
 
+/**
+ * Re-measuring after a resize or style change can take CodeMirror more than
+ * two frames on a loaded machine, so poll until positions round-trip. A real
+ * regression still fails once the deadline passes.
+ */
+async function roundTripsOnceSettled(
+  editor: ReturnType<typeof createEditor>,
+  positions: readonly number[],
+  timeoutMs = 2_000
+): Promise<boolean> {
+  const deadline = performance.now() + timeoutMs;
+  do {
+    await settleGeometry(editor);
+    if (roundTrips(editor, positions)) return true;
+  } while (performance.now() < deadline);
+  return false;
+}
+
 function roundTrips(editor: ReturnType<typeof createEditor>, positions: readonly number[]): boolean {
   return positions.every(position => {
     const coordinates = editor.view.coordsAtPos(position, 1);
@@ -109,8 +127,7 @@ async function run() {
   const exactClick = await clickAtPosition(editor, positions[2]);
 
   parent.style.width = '260px';
-  await settleGeometry(editor);
-  const wrappedRoundTrips = roundTrips(editor, positions);
+  const wrappedRoundTrips = await roundTripsOnceSettled(editor, positions);
 
   state.setCustomBlockStyles([
     { ...quoteStyle, marginTop: 36, marginBottom: 30 },
@@ -121,7 +138,7 @@ async function run() {
   const updatedStyle = updatedQuote ? getComputedStyle(updatedQuote) : null;
   const liveStyleRemeasured = Boolean(updatedStyle)
     && parseFloat(updatedStyle!.paddingTop) > initialPaddingTop
-    && roundTrips(editor, positions);
+    && await roundTripsOnceSettled(editor, positions);
 
   window.__HARNESS_RESULT__ = {
     ok: inheritsEditorFontSize && usesMeasuredPadding && hasNoBottomPadding && avoidsUnmeasuredMargins && firstConfiguredStyleWins && initialRoundTrips
