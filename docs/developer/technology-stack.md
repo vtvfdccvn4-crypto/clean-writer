@@ -45,6 +45,8 @@ Markdown is compiled through the Unified ecosystem:
 
 Clear Writer adds compiler plugins for images, metadata, custom inline styles, custom block styles, list markers, tables, table-of-contents placeholders, and image attributes. Quote-style glyph handling is a separate custom-block path, not part of the general image transforms.
 
+The compiler never reads application state. Settings that change compiled output (custom styles, custom block styles, special headings, project metadata, and paragraph spacing) travel as a `DocumentCompileSettings` value from `src/compiler/settings.ts`: callers build it with `documentCompileSettings(state.current)` and pass it to `compileMarkdown` or `compilePreviewDocument`, which hand it to the plugins as options. `IncrementalPreviewCompiler` reuses unchanged blocks only while those settings are unchanged, so editing a style recompiles every block.
+
 ## Preview And Export
 
 - Paged.js provides live paginated preview rendering and page layout.
@@ -55,7 +57,7 @@ Clear Writer adds compiler plugins for images, metadata, custom inline styles, c
 
 The platform layer separates application behavior from storage and browser capabilities through `Platform`, `WorkspaceRepository`, and `WorkspaceSession` contracts.
 
-- `InMemoryWorkspace` supports browser workspace tests.
+- `InMemoryWorkspace` supports workspace tests. It runs the shared `AbstractWorkspaceSession` over the in-memory file-system handles in `src/platform/MemoryFileSystem.ts`, so its `sections/` and `images/` paths and its mutation code are the same as the real adapters'.
 - `OPFSWorkspace` stores browser projects in the Origin Private File System.
 - `LocalDirectoryWorkspace` stores projects in user-selected local folders.
 
@@ -78,9 +80,10 @@ Print and PDF-artifact CSS is compiled separately by
 `src/print/PrintCssCompiler.ts`, which shares its style primitives with the
 preview generators through `src/styles/`. The former `CssGenerator.ts`
 re-export facade and `src/preview/css/page-css.ts` were removed on
-2026-10-15. Editor save-status rendering is isolated in
-`src/ui/EditorStatusController.ts` while `EditorManager` continues to provide
-the application-facing facade.
+2026-10-15. `src/ui/EditorStatusController.ts` owns the save-status badge and
+the workspace status bar (active section label, word, line and character
+counts, reading time, and caret position), while `EditorManager` continues to
+provide the application-facing facade.
 
 Durable editor flushing is isolated in `src/ui/EditorSaveCoordinator.ts`.
 `EditorManager` delegates flush, navigation-preparation, and save-state queries
@@ -92,6 +95,19 @@ Document activation scheduling is isolated in
 serialized explicit navigation, stale activation checks, and the
 `whenDocumentReady(path)` wait boundary. Rendering remains injected from the
 facade during the incremental extraction so editor behavior stays stable.
+
+The preview objects are built by `src/ui/PreviewPipeline.ts` in dependency
+order: `PreviewCoordinator`, then `PaginatedPreviewRenderer` (which owns its
+`PageGuideCoordinator`), then `DocumentRenderCoordinator`. Each receives only
+objects that already exist. The last compiled single-document preview and
+`captureCurrentPrintLayout()` live in `src/ui/CompiledPreviewCache.ts`, so the
+two renderers share them without referencing each other.
+
+Autosave writes are not tied to the open document. A save that has started
+always writes the file and session it captured, even when a flush runs after
+selection has moved to another section or the project has closed; only the
+preview refresh and status bar wait for the document to be open. Every
+successful write clears that file's recovery draft and records its saved marker.
 
 The preview feature generators in `src/preview/css/document-features-css.ts`
 are shared by live and paginated output, with separate options for page breaks
@@ -112,8 +128,9 @@ parent sends an immutable print job through `IsolatedPaginationHost`, receives
 the paginated artifact over `postMessage`, and commits it only if the request
 is still current. The editor shares one host between visible full-document
 preview and page-break guide pagination, serializing competing Paged.js jobs
-and guaranteeing iframe cleanup. The standalone PDF preview pipeline retains
-its own host because it has a separate print-window lifecycle.
+and guaranteeing iframe cleanup. The editor's host frame is released when a
+project closes and prewarmed again when one opens. The standalone PDF preview
+pipeline retains its own host because it has a separate print-window lifecycle.
 
 `src/print/PrintDocumentCompiler.ts` normalises logical page breaks,
 `src/print/PrintCssCompiler.ts` creates the frozen print stylesheet, and the
@@ -125,9 +142,11 @@ progress diagnostics, and stale-result protection.
 
 ## State And Persistence
 
-- `src/state.ts` owns immutable application snapshots and typed state events.
+- `src/state.ts` owns immutable application snapshots and typed state events. The compiler and preview layers do not import it; they receive the settings they need from their callers.
+- `ProjectSessionStore` publishes to the global `state` by default but accepts any `AppState`. `projectServiceFor(appState)` and `settingsServiceFor(appState)` return one service per state, so tests can open projects in an isolated state; `ProjectService` and `SettingsService` remain the instances for the global one.
+- Shared data types live in `src/types/` by area (`document-setup.ts`, `editor.ts`, `project.ts`, `app-state.ts`); `src/types/index.ts` re-exports them all.
 - CodeMirror changes pass through `DocumentSaveCoordinator` for debounced, serialized persistence.
-- `DraftRecoveryStore` provides local draft recovery when durable persistence has not completed.
+- `DraftRecoveryStore` provides local draft recovery when durable persistence has not completed. A draft is treated as stale once a later successful save has been recorded.
 - Project settings are normalized, migrated, validated, and persisted through the settings services.
 - Navigation, project switching, close-project, export, and window-close paths flush pending editor changes before proceeding.
 
@@ -135,7 +154,7 @@ progress diagnostics, and stale-result protection.
 
 - Tests use Node's built-in `node:test` runner with Vite's SSR module loader for TypeScript modules.
 - Unit and contract tests cover compiler behavior, settings migration, storage adapters, export services, editor durability, search, review, and state transitions.
-- Browser smoke fixtures run in headless Edge or Chrome against a temporary Vite server.
+- Browser smoke fixtures run in headless Edge or Chrome against a temporary Vite server. CI runs them before every deploy. The browser launch helpers are shared in `scripts/lib/browser.mjs`, and fixtures that wait on rendering report the app's state when they time out.
 - Performance tests cover compiler and browser authoring budgets.
 - PWA shell smoke validates the production manifest, service worker, and built web shell.
 - `npm run release:prep` combines unit, performance, browser, and PWA checks for release validation.

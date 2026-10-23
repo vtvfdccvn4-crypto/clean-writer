@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Edits typed in the moment before closing a project, or before a selection
+  change that ran ahead of the editor flush, are now saved. Previously the save
+  was skipped once the document was no longer open, leaving the text only in
+  draft recovery and triggering an "Unsaved Draft Found" prompt on reopen.
+- Closing a project now releases the hidden pagination frame instead of keeping
+  it loaded until the app closes.
+- Creating the first section no longer saves a stray `sections` entry in the
+  project's section order.
+- Live preview recompiles every block after custom styles, block styles,
+  special headings, or metadata change, instead of keeping old styling on
+  unchanged blocks.
+- All generated HTML (outline, toolbar buttons, print documents) escapes single
+  quotes as well as double quotes, as the open-project dialog already did.
+
+### Changed
+
+- The outline panel re-reads only the section that was saved instead of every
+  section in the project.
+- Internal restructuring with no intended behaviour change: preview objects are
+  built by `PreviewPipeline`; the compiler and export take their settings as
+  inputs instead of reading application state; project services accept an
+  injected state; the in-memory workspace shares the real workspace code; and
+  shared types are split by area under `src/types/`.
+- The application shell restyle: image previews use the table card treatment
+  with a single alignment toggle, and the activity rail is 48 px.
+
+### Testing
+
+- All 19 browser smoke fixtures pass, and CI runs them before every deploy.
+  Four fixtures that had been failing were fixed, one of which exposed the
+  autosave issue above.
+- `src` no longer contains `as any` casts or `any`-typed parameters.
+
 ## 0.1.0-rc.1 — 2026-07-29
 
 First release candidate for Clear Writer's browser/PWA edition.

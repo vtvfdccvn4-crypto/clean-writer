@@ -13,7 +13,7 @@ Primary source references:
 - `src/ui/components/AppShell.ts`: shell layout and top-level panel composition.
 - `src/ui/components/EditorPanel.ts`: task-panel content and editor/document tools.
 - `src/ui/components/PreviewPanel.ts`: shared-panel content and live preview/export controls.
-- `src/types/index.ts`: canonical data types for settings, projects, state, and workspace references.
+- `src/types/`: canonical data types, by area: `document-setup.ts` (layout and styling settings), `editor.ts`, `project.ts` (files, workspace references, persisted settings), and `app-state.ts`. `src/types/index.ts` re-exports them all.
 - `src/config/defaults.ts`: default document, editor, and project settings.
 
 ## Current Architecture And Cleanup Summary
@@ -30,6 +30,14 @@ Primary source references:
 - Release validation uses `npm run release:prep`; targeted browser and PWA smoke reruns are appropriate when diagnosing transient headless-browser timing failures.
 - `src/preview/css/document-features-css.ts` shares TOC and special-heading CSS generation between live and paginated lanes.
 - `src/ui/styles/buttons.css` and `src/ui/components/toolbarButton.ts` define the shared button foundation; `scripts/check-style-contract.mjs` and `test/style-contract.test.cjs` enforce it.
+- 2026-10-22/23 architecture cleanup:
+  - `src/ui/PreviewPipeline.ts` builds the preview objects in dependency order; `src/ui/CompiledPreviewCache.ts` holds the shared compiled-preview cache and print-layout capture; `EditorStatusController` owns the status bar.
+  - The compiler and preview layers take their settings as a `DocumentCompileSettings` value (`src/compiler/settings.ts`) instead of reading `state`; export takes custom block styles from its caller.
+  - `ProjectSessionStore`, `ProjectService` and `SettingsService` accept an injected `AppState`, defaulting to the global one.
+  - `InMemoryWorkspace` runs the shared `AbstractWorkspaceSession` over `src/platform/MemoryFileSystem.ts`, so tests use the same paths as the real adapters.
+  - Fixes: flushed autosaves are written even after the document is no longer open; the editor's pagination frame is released on project close; creating a section no longer adds a bare `sections` entry to the order; the outline re-reads only the saved section.
+  - `escapeHtml` is the single HTML escaper and also escapes single quotes. `src` contains no `as any` casts.
+  - CI runs `npm run test:browser-smoke` before deploying.
 
 ## Refactor Notes
 
@@ -109,8 +117,8 @@ Should cover:
 Source map:
 
 - `package.json` scripts.
-- `src/ui/components/TaskPanel.ts` and `src/ui/task-panel-actions.ts` for project controls.
-- `src/ui/task-explorer.ts` and `src/ui/task-images.ts` for section/image interactions.
+- `src/ui/components/ExplorerPanel.ts` and `src/ui/explorer/actions.ts` for project controls.
+- `src/ui/explorer/explorer.ts` and `src/ui/explorer/images.ts` for section/image interactions.
 - `src/ui/project-flow-modal.ts` for project creation and opening flow.
 - `src/ui/editor-manager.ts` for full-document mode and section editing behavior.
 - `src/services/ProjectService.ts` for project operations.
@@ -143,9 +151,9 @@ Source map:
 - `src/platform/LocalDirectoryWorkspace.ts`: local folder behavior and project health recovery.
 - `src/platform/OPFSWorkspace.ts`: browser storage project behavior.
 - `src/editor/DraftRecoveryStore.ts`: draft recovery.
-- `src/ui/task-explorer.ts` and `src/ui/task-images.ts`: visible project tree interactions.
+- `src/ui/explorer/explorer.ts` and `src/ui/explorer/images.ts`: visible project tree interactions.
 - `src/ui/project-review.ts` and `src/services/project-review.ts`: project review behavior.
-- `src/ui/components/SpecialHeadingsDrawer.ts` and `src/ui/special-headings-setup.ts`: special heading controls.
+- `src/ui/components/SpecialHeadingsDrawer.ts` and `src/ui/settings/special-headings-setup.ts`: special heading controls.
 
 Planned file (not currently present):
 
@@ -278,7 +286,7 @@ Should cover:
 Source map:
 
 - `src/config/defaults.ts`: default values.
-- `src/types/index.ts`: setting data model.
+- `src/types/document-setup.ts`: setting data model.
 - `src/ui/components/SettingsDrawer.ts`: tab list.
 - `src/ui/components/PageSetupDrawer.ts`: page controls.
 - `src/ui/components/TypographyDrawer.ts`: typography controls.
@@ -289,7 +297,7 @@ Source map:
 - `src/ui/components/EditorSettingsDrawer.ts`: editor controls.
 - `src/ui/components/CustomStylesDrawerTemplate.ts`: custom style controls.
 - `src/services/SettingsService.ts`: settings persistence.
-- `src/services/project-settings.ts`: settings normalization, validation, migration, schema version.
+- `src/project-settings/project-settings.ts`: settings normalization, validation, migration, schema version.
 
 Planned file (not currently present):
 
@@ -317,15 +325,18 @@ Should cover:
 
 Source map:
 
-- `src/services/project-settings.ts`: schema version, defaults, normalization, validation.
+- `src/project-settings/project-settings.ts`: schema version, defaults, normalization, validation.
 - `src/platform/OPFSWorkspace.ts`: OPFS layout and path resolution.
 - `src/platform/LocalDirectoryWorkspace.ts`: directory layout, permissions, recovery.
 - `src/platform/mutation-coordinator.ts`: shared compensating transactions for filesystem and settings mutations.
 - `src/ui/DocumentSessionController.ts`: editor lifecycle and asynchronous view-state restoration.
 - `src/ui/editor-manager.ts`: document activation readiness contract via `whenDocumentReady(path)`.
-- `src/ui/EditorStatusController.ts`: save-status presentation and accessibility state.
+- `src/ui/EditorStatusController.ts`: save-status presentation and accessibility state, plus the status bar (section label, word/line/character counts, reading time, caret).
 - `src/ui/EditorSaveCoordinator.ts`: durable editor flushes, concurrent-save coalescing, and navigation save boundaries.
 - `src/ui/DocumentActivationCoordinator.ts`: activation scheduling, stale-request handling, serialized navigation, and readiness waiting.
+- `src/ui/PreviewPipeline.ts`: builds `PreviewCoordinator`, `PaginatedPreviewRenderer` and `DocumentRenderCoordinator` in dependency order.
+- `src/ui/DocumentRenderCoordinator.ts`: document rendering and autosave writes, which persist even when the save is a flush after the document has been left.
+- `src/platform/MemoryFileSystem.ts`: in-memory file-system handles that let `InMemoryWorkspace` share the real session code.
 - `src/preview/css/typography-css.ts`: typography CSS.
 - `src/preview/css/list-css.ts`: ordered and unordered list CSS.
 - `src/preview/css/table-css.ts`: table CSS.
@@ -641,7 +652,7 @@ Primary source:
 - `src/platform/DirectoryHandleCatalogue.ts`
 - `src/platform/OPFSCatalogue.ts`
 - `src/services/ProjectService.ts`
-- `src/ui/components/TaskPanel.ts`
+- `src/ui/components/ExplorerPanel.ts`
 
 ### Editor Features
 
@@ -708,10 +719,10 @@ Primary source:
 
 Primary source:
 
-- `src/types/index.ts`
+- `src/types/document-setup.ts`
 - `src/config/defaults.ts`
 - `src/services/SettingsService.ts`
-- `src/services/project-settings.ts`
+- `src/project-settings/project-settings.ts`
 - `src/ui/components/SettingsDrawer.ts`
 - `src/ui/components/*Drawer.ts`
 
@@ -733,7 +744,7 @@ Primary source:
 
 ## Settings Data Map
 
-Canonical interfaces live in `src/types/index.ts`. Defaults live in `src/config/defaults.ts`.
+Canonical interfaces live in `src/types/document-setup.ts` (re-exported from `src/types/index.ts`). Defaults live in `src/config/defaults.ts`.
 
 ### `PageSetup`
 
@@ -912,7 +923,7 @@ Notes:
 
 Primary source:
 
-- `src/services/project-settings.ts`
+- `src/project-settings/project-settings.ts`
 - `src/platform/OPFSWorkspace.ts`
 - `src/platform/LocalDirectoryWorkspace.ts`
 - `src/services/ProjectService.ts`
@@ -930,7 +941,7 @@ Commands from `package.json`:
 | `npm run typecheck` | TypeScript check without emitting files. |
 | `npm test` | Run Node test suite in `test/*.test.cjs`. |
 | `npm run test:perf` | Run performance tests in `test/*.perf.cjs`. |
-| `npm run test:browser-smoke` | Run release browser smoke script. |
+| `npm run test:browser-smoke` | Run the 19 browser smoke fixtures in headless Edge or Chrome. CI runs this before every deploy. |
 | `npm run test:pwa-smoke` | Build and run web/PWA smoke script. |
 | `npm run check:styles` | Validate shared UI token/button and responsive-grid style contracts. |
 | `npm run check:bundle` | Enforce the initial JavaScript bundle budget. |
