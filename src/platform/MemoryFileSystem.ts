@@ -16,13 +16,14 @@ export class MemoryFileHandle {
   readonly kind = 'file' as const;
   readonly name: string;
   private data: Blob = new Blob([]);
+  private lastModified = Date.now();
 
   constructor(name: string) {
     this.name = name;
   }
 
   async getFile(): Promise<File> {
-    return new File([this.data], this.name);
+    return new File([this.data], this.name, { lastModified: this.lastModified });
   }
 
   async createWritable(): Promise<{ write(data: BlobPart): Promise<void>; close(): Promise<void> }> {
@@ -30,12 +31,14 @@ export class MemoryFileHandle {
     const chunks: BlobPart[] = [];
     return {
       write: async data => { chunks.push(data); },
-      close: async () => { this.data = new Blob(chunks); }
+      close: async () => { this.setBlob(new Blob(chunks)); }
     };
   }
 
   setBlob(blob: Blob): void {
     this.data = blob;
+    // Strictly increasing, so two writes in one millisecond still differ.
+    this.lastModified = Math.max(Date.now(), this.lastModified + 1);
   }
 }
 

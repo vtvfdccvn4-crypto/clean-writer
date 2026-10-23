@@ -30,6 +30,14 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
   protected abstract readonly projectDir: FileSystemDirectoryHandle;
 
   private writeQueue = new Map<string, Promise<unknown>>();
+  /**
+   * Section text by resolved path, with the file metadata it was read at.
+   * Search, review, export and full-document preview each read every
+   * section; this lets them skip unchanged files. A copy is used only while
+   * the file's size and last-modified time still match, so edits made outside
+   * the app are picked up, and this session's own changes drop entries too.
+   */
+  private readonly sectionCache = new Map<string, { text: string; size: number; lastModified: number }>();
 
   constructor(id: string, displayName: string) {
     this.id = id;
@@ -69,9 +77,17 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
 
   async readSection(path: ProjectPath): Promise<string> {
     const resolvedPath = resolveSectionPath(path);
-    const file = await getFile(this.projectDir, resolvedPath, false);
-    if (!file) throw new Error(`File not found: ${resolvedPath}`);
-    return (await file.getFile()).text();
+    const handle = await getFile(this.projectDir, resolvedPath, false);
+    if (!handle) {
+      this.sectionCache.delete(resolvedPath);
+      throw new Error(`File not found: ${resolvedPath}`);
+    }
+    const file = await handle.getFile();
+    const cached = this.sectionCache.get(resolvedPath);
+    if (cached && cached.size === file.size && cached.lastModified === file.lastModified) return cached.text;
+    const text = await file.text();
+    this.sectionCache.set(resolvedPath, { text, size: file.size, lastModified: file.lastModified });
+    return text;
   }
 
   async writeSection(path: ProjectPath, content: string): Promise<boolean> {
@@ -80,6 +96,7 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
     await this.serializedWrite(normalized, async () => {
       const file = await getFile(this.projectDir, normalized, true);
       if (!file) return;
+      this.sectionCache.delete(normalized);
       const writable = await file.createWritable();
       await writable.write(content);
       await writable.close();
@@ -109,6 +126,9 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
   }
 
   async renameSection(oldName: string, newName: string): Promise<boolean> {
+    // Renames and deletes can move whole folders; validation would catch them,
+    // but dropping everything keeps the rule simple for these rare operations.
+    this.sectionCache.clear();
     const oldPath = resolveSectionPath(oldName);
     const newPath = resolveSectionPath(newName);
     if (!oldPath || !newPath) return false;
@@ -152,6 +172,7 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
     targetName: string | null,
     placement: SectionPlacement
   ): Promise<{ success: boolean; newPath?: string }> {
+    this.sectionCache.clear();
     const entries = await this.listSections();
     const settings = await this.getSettings();
     const move = calculateSectionMove(entries, settings.order, sourceName, targetName, placement);
@@ -194,6 +215,9 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
   }
 
   async deleteSection(fileName: string): Promise<boolean> {
+    // Renames and deletes can move whole folders; validation would catch them,
+    // but dropping everything keeps the rule simple for these rare operations.
+    this.sectionCache.clear();
     const normalized = resolveSectionPath(fileName);
     const entryFile = await getFile(this.projectDir, normalized, false);
     const entryDir = entryFile ? null : await getDirectory(this.projectDir, normalized, false);
