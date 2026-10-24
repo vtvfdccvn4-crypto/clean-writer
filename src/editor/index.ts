@@ -1,4 +1,4 @@
 export { createEditor } from './createEditor';
 export type { MarkdownEditor, EditorCallbacks, EditorSelectionRange } from './createEditor';
-export { DraftRecoveryStore } from './DraftRecoveryStore';
+export { DraftStore, createBrowserDraftStore, type DraftHealth } from './DraftStore';
 export * from './markdown-headings';

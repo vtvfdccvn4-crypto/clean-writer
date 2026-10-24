@@ -256,3 +256,17 @@ after a one-section edit costs at most 20% of a full run.
   behind the correction to E16: 800 pages in about 7.3 s in headless Chromium.
   This is one machine with simple content and does not replace the Phase 0
   corpus.
+- 2026-10-24: B3 implemented (started before B1 was complete; B1 remains open).
+  `src/editor/DraftStore.ts` (IndexedDB backend, memory backend, hashes, health,
+  quota retry, migration, pruning), `src/editor/DraftWriter.ts` (per-section
+  debounce with maximum wait, ordered writes and discards, retry), and the
+  coordinator changes in `src/ui/DocumentRenderCoordinator.ts`. Unit tests:
+  `test/draft-store.test.cjs` (18). Browser: `browser-draft-store-smoke`
+  (survives a reload, detects tampering, ignores newer schemas, discards on
+  save) and the OPFS persistence smoke now checks that the draft is removed
+  after a save.
+  Not yet validated: Firefox and WebKit (the plan's matrix), quota pressure in
+  a real browser, the hard-kill test, and `persist()`/`estimate()` (B9).
+  The editor still builds the whole document string on every keystroke (B2);
+  the writer only keeps a reference to it.
+

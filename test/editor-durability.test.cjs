@@ -5,13 +5,11 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 let server;
 let DocumentSaveCoordinator;
 let EditorSaveCoordinator;
-let DraftRecoveryStore;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24684 } } });
   ({ DocumentSaveCoordinator } = await server.ssrLoadModule('/src/editor/DocumentSaveCoordinator.ts'));
   ({ EditorSaveCoordinator } = await server.ssrLoadModule('/src/ui/EditorSaveCoordinator.ts'));
-  ({ DraftRecoveryStore } = await server.ssrLoadModule('/src/editor/DraftRecoveryStore.ts'));
 });
 
 after(async () => server?.close());
@@ -123,29 +121,3 @@ test('EditorSaveCoordinator coalesces concurrent editor flushes', async () => {
   assert.deepEqual(statuses, ['saving', 'saved']);
 });
 
-test('draft recovery store saves, reads, and clears section drafts', () => {
-  const storage = new Map();
-  const previousLocalStorage = global.localStorage;
-  global.localStorage = {
-    setItem(key, value) { storage.set(key, String(value)); },
-    getItem(key) { return storage.has(key) ? storage.get(key) : null; },
-    removeItem(key) { storage.delete(key); }
-  };
-
-  try {
-    DraftRecoveryStore.saveDraft('project-1', 'sections/a.md', 'temporary text');
-    assert.equal(DraftRecoveryStore.getDraft('project-1', 'sections/a.md'), 'temporary text');
-    DraftRecoveryStore.markSaved('project-1', 'sections/a.md');
-    storage.set('cw-draft:project-1:sections/a.md', 'legacy stale draft');
-    assert.equal(DraftRecoveryStore.getDraft('project-1', 'sections/a.md'), null);
-
-    DraftRecoveryStore.clearDraft('project-1', 'sections/a.md');
-    assert.equal(DraftRecoveryStore.getDraft('project-1', 'sections/a.md'), null);
-  } finally {
-    if (previousLocalStorage === undefined) {
-      delete global.localStorage;
-    } else {
-      global.localStorage = previousLocalStorage;
-    }
-  }
-});

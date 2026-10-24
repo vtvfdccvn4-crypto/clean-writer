@@ -1,5 +1,7 @@
 import { state } from '../state';
-import { createEditor, DraftRecoveryStore } from '../editor';
+import { createEditor } from '../editor';
+import { createBrowserDraftStore, decideDraftRestore, hashDraftText, type DraftHealth, type DraftStore } from '../editor/DraftStore';
+import { DraftWriter } from '../editor/DraftWriter';
 import type { EditorCaretStatus } from '../editor/createEditor';
 import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
 import { renderDocumentSection } from '../preview/document-rendering';
@@ -43,6 +45,8 @@ export class DocumentRenderCoordinator {
   private readonly editorContainer: HTMLElement;
   private readonly opts: DocumentRenderCoordinatorOptions;
   private statsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly drafts: DraftStore = createBrowserDraftStore();
+  private readonly draftWriter = new DraftWriter(this.drafts);
 
   constructor(opts: DocumentRenderCoordinatorOptions) {
     this.opts = opts;
@@ -51,6 +55,23 @@ export class DocumentRenderCoordinator {
     this.documentSession = opts.documentSession;
     this.pageGuides = opts.pageGuides;
     this.editorContainer = opts.editorContainer;
+    this.drafts.onHealthChange(health => this.reportDraftHealth(health));
+    void this.drafts.migrateLegacy(localStorage).catch(() => undefined);
+    void this.drafts.prune();
+    // Best-effort: a write that has not committed when the page goes away is lost,
+    // which is why drafts are also written every few seconds while typing.
+    const flushDrafts = () => { void this.draftWriter.flush(); };
+    window.addEventListener('pagehide', flushDrafts);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushDrafts();
+    });
+  }
+
+  private reportDraftHealth(health: DraftHealth): void {
+    if (health === 'ok') return;
+    showNotice(health === 'unavailable'
+      ? 'Recovery drafts cannot be saved in this browser. Save your work to a local folder or export it.'
+      : 'A recovery draft could not be saved. It will be retried.', 'error');
   }
 
   get latestCompiledPreview(): LatestCompiledPreview | null {
@@ -165,19 +186,32 @@ export class DocumentRenderCoordinator {
     let content = await session.readSection(filename);
     if (!isLatest()) return;
 
-    const draft = DraftRecoveryStore.getDraft(projectRef.id, filename);
-    if (draft !== null && draft !== content) {
-      const shouldRestore = await showConfirmDialog({
-        title: 'Unsaved Draft Found',
-        message: 'A recent unsaved draft of this section was found. Would you like to restore it?',
-        confirmLabel: 'Restore Draft',
-        cancelLabel: 'Discard Draft'
-      });
-      if (!isLatest()) return;
-      if (shouldRestore) {
-        content = draft;
+    // The base hash identifies the file version on disk, so later saves can
+    // tell whether a draft was written from this version.
+    const target = { projectId: projectRef.id, path: filename };
+    const baseHash = await hashDraftText(content);
+    const lookup = await this.drafts.read(target);
+    if (lookup && !lookup.intact) {
+      showNotice(`A recovery draft for ${filename} is damaged and was not restored.`, 'error');
+    } else if (lookup) {
+      const decision = decideDraftRestore(lookup.record, baseHash);
+      if (decision === 'discard') {
+        await this.drafts.discard(target);
       } else {
-        DraftRecoveryStore.clearDraft(projectRef.id, filename);
+        const shouldRestore = await showConfirmDialog({
+          title: 'Unsaved Draft Found',
+          message: decision === 'conflict'
+            ? 'A recent unsaved draft of this section was found, but the file has changed since it was written. Would you like to restore the draft?'
+            : 'A recent unsaved draft of this section was found. Would you like to restore it?',
+          confirmLabel: 'Restore Draft',
+          cancelLabel: 'Discard Draft'
+        });
+        if (!isLatest()) return;
+        if (shouldRestore) {
+          content = lookup.record.content;
+        } else {
+          await this.drafts.discard(target);
+        }
       }
     }
 
@@ -190,7 +224,7 @@ export class DocumentRenderCoordinator {
     const callbacks = {
       onDirty: (newDoc: string) => {
         if (this.documentSession.currentFilePath === filename && state.current.activeFile === filename) {
-          DraftRecoveryStore.saveDraft(projectRef.id, filename, newDoc);
+          this.draftWriter.schedule({ projectId: projectRef.id, path: filename }, newDoc, baseHash);
           this.opts.updateSaveStatus('dirty');
 
           if (this.statsDebounceTimer) clearTimeout(this.statsDebounceTimer);
@@ -223,10 +257,9 @@ export class DocumentRenderCoordinator {
           // A newer edit to the open document owns its draft and the status bar.
           if (stillOpen && !this.preview.isCurrent(changeRevision)) return;
 
-          // The write succeeded, so this file's draft is stale even when the save
-          // was a flush on the way to another document or a closed project.
-          DraftRecoveryStore.clearDraft(projectRef.id, filename);
-          DraftRecoveryStore.markSaved(projectRef.id, filename);
+          // The write succeeded, so a draft holding this text is stale even when the
+          // save was a flush on the way to another document or a closed project.
+          await this.draftWriter.discardWhenSaved({ projectId: projectRef.id, path: filename }, newDoc);
           dispatchSectionSaved(filename);
           if (stillOpen) this.opts.updateSaveStatus('saved');
         } catch (error) {

@@ -4,6 +4,13 @@
 
 ### Fixed
 
+- Recovery drafts are stored in IndexedDB, one record per section, instead of
+  whole-document JSON in localStorage. Writes are debounced (1 second, at most
+  5 seconds while typing) and each record carries a content hash, so a damaged
+  draft is reported rather than restored. A failed write is retried and shown
+  in a notice. Drafts from the older localStorage format are migrated once.
+  Pruning removes drafts for deleted sections, drafts older than 30 days, and
+  the oldest drafts above 200 MB.
 - PDF preview pagination no longer stops at a fixed 300 seconds. A job is
   stopped when it completes no new page for 60 seconds (120 seconds when it has
   images), or when it runs past a 45-minute ceiling. A job that keeps producing

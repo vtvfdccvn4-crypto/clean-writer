@@ -233,7 +233,7 @@ const fixtures = [
       expect(result.projectKind === 'opfs', `Expected OPFS project kind, got ${result.projectKind}.`);
       expect(result.recoveryPromptShown === false, 'A stale draft should not reopen with a recovery prompt after a successful save.');
       expect(result.reopenedText === 'Saved durable text', `Expected reopened text to match saved content, got ${result.reopenedText}.`);
-      expect(result.savedMarkerPresent === true, 'Saved marker was not persisted for the reopened OPFS section.');
+      expect(result.savedDraftAbsent === true, 'A recovery draft remained after the section was saved.');
     }
   },
   {
@@ -323,6 +323,17 @@ const fixtures = [
       expect(result.progressStatus === 'success', `A job still making progress was stopped (status ${result.progressStatus}).`);
       expect(result.outlivedStallLimit === true, `The progress job finished in ${result.progressElapsedMs}ms, which does not prove it outlived the stall limit.`);
       expect(result.orphanedFrames === 0, `Frames remained after the watchdog run: ${result.orphanedFrames}.`);
+    }
+  },
+  {
+    name: 'browser-draft-store-smoke',
+    path: '/test/fixtures/browser-draft-store-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Draft store smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.survivedReload === true, 'A written draft did not survive a page reload in IndexedDB.');
+      expect(result.damageDetected === true, 'A tampered draft was not reported as damaged.');
+      expect(result.newerIgnored === true, 'A draft from a newer schema was returned to this build.');
+      expect(result.discarded === true, 'A save with the draft text did not remove the draft.');
     }
   },
   {
