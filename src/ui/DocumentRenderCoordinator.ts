@@ -1,5 +1,5 @@
 import { state } from '../state';
-import { createEditor } from '../editor';
+import { createEditor, type EditorSnapshot } from '../editor';
 import { createBrowserDraftStore, decideDraftRestore, hashDraftText, type DraftHealth, type DraftStore } from '../editor/DraftStore';
 import { DraftWriter } from '../editor/DraftWriter';
 import type { EditorCaretStatus } from '../editor/createEditor';
@@ -222,20 +222,22 @@ export class DocumentRenderCoordinator {
     this.opts.updateSectionStats(content);
 
     const callbacks = {
-      onDirty: (newDoc: string) => {
+      onDirty: (snapshot: EditorSnapshot) => {
         if (this.documentSession.currentFilePath === filename && state.current.activeFile === filename) {
-          this.draftWriter.schedule({ projectId: projectRef.id, path: filename }, newDoc, baseHash);
+          this.draftWriter.schedule({ projectId: projectRef.id, path: filename }, snapshot, baseHash);
           this.opts.updateSaveStatus('dirty');
 
           if (this.statsDebounceTimer) clearTimeout(this.statsDebounceTimer);
           this.statsDebounceTimer = setTimeout(() => {
             if (this.documentSession.currentFilePath === filename) {
-              this.opts.updateSectionStats(newDoc);
+              // The text is read once, after the pause, rather than on every keystroke.
+              this.opts.updateSectionStats(snapshot.toString());
             }
           }, 400);
         }
       },
-      onChange: async (newDoc: string) => {
+      onChange: async (snapshot: EditorSnapshot) => {
+        const newDoc = snapshot.toString();
         const isOpen = () => this.documentSession.currentFilePath === filename
           && state.current.activeFile === filename;
         const changeRevision = this.preview.beginRevision();

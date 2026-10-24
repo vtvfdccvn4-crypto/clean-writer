@@ -337,6 +337,25 @@ const fixtures = [
     }
   },
   {
+    // Measurement, not a gate: run on demand with CLEAR_WRITER_SMOKE_FIXTURE=editor-typing-bench.
+    name: 'editor-typing-bench',
+    path: '/test/fixtures/editor-typing-bench.html',
+    validate(result) {
+      expect(result.ok === true, `Editor typing benchmark failed: ${JSON.stringify(result)}`);
+    }
+  },
+  {
+    name: 'editor-viewport-highlight-smoke',
+    path: '/test/fixtures/editor-viewport-highlight-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Viewport highlight smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.initiallyStyledFar === false, 'A style pair outside the viewport was highlighted before it was visible.');
+      expect(result.styledAfterScroll === true, 'A style pair was not highlighted after it scrolled into view.');
+      expect(result.typedStyled === true, 'A newly typed style pair was not highlighted.');
+      expect(result.unclosedStyled === false, 'An unclosed style pair was highlighted.');
+    }
+  },
+  {
     name: 'pdf-visual',
     path: '/test/fixtures/pdf-visual.html',
     validate(result) {

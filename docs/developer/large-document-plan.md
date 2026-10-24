@@ -269,4 +269,28 @@ after a one-section edit costs at most 20% of a full run.
   a real browser, the hard-kill test, and `persist()`/`estimate()` (B9).
   The editor still builds the whole document string on every keystroke (B2);
   the writer only keeps a reference to it.
+- 2026-10-24: B2 implemented. Baseline (before), headless Chromium 153, one
+  machine, 1,000 synthetic pages (about 2.2 MB), 200 keystrokes: dispatch
+  median 11 ms, p95 36-38 ms; keystroke to next frame p95 41-42 ms; 2-7 long
+  tasks, longest 53-77 ms. After: dispatch median 4.4-4.5 ms, p95 6-12 ms;
+  keystroke to next frame p95 17.5-17.7 ms (median 16.7 ms, the frame interval);
+  no long tasks. Benchmark: `editor-typing-bench` (opt-in).
+  Changes: `EditorSnapshot` replaces the per-keystroke string
+  (`createEditor.ts`), `DocumentSaveCoordinator` and `DraftWriter` take values
+  that are stringified when a write runs, custom-style highlighting decorates
+  `view.visibleRanges` (`customStyleHighlighting.ts`), and table decorations are
+  mapped through changes and re-parsed only between blank lines
+  (`tableHelpers.ts`). The re-parse bound was not the first choice: widening by
+  table rows alone diverged from a full rebuild, because a delimiter row can
+  contain no pipe and the parser scans greedily. The property test found it.
+  Tests: `table-decorations-incremental.test.cjs` (20 seeds, 300 random edits,
+  compared with a full rebuild), `editor-viewport-highlight-smoke` (fails on the
+  original code, passes now).
+  Correction: `tableSourceVisibility` was already mapped through changes
+  (`tableHelpers.ts`), so no change was needed there.
+  Not done in B2: `imageBlockPointerDrag.ts` and `createEditor.ts`
+  (`editImagePresentation`, `editTablePresentation`) still stringify the
+  document on pointer and command events, not on keystrokes.
+  Still open: the Phase 0 corpus (B1), the release-gate budgets, and the
+  preview refresh path, which is B7.
 

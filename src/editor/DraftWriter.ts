@@ -9,9 +9,14 @@ export interface DraftWriterOptions {
   readonly retryMs?: number;
 }
 
+/** Anything whose string form is the section text, such as an editor snapshot. */
+export interface DraftText {
+  toString(): string;
+}
+
 interface PendingDraft {
   readonly target: DraftTarget;
-  readonly content: string;
+  readonly text: DraftText;
   readonly baseHash: string;
   readonly queuedAt: number;
 }
@@ -27,8 +32,8 @@ function keyOf(target: DraftTarget): string {
 /**
  * Coalesces edits into draft writes. Writes and discards for one section run
  * in order, so a discard can never be undone by an older write still in flight.
- * The writer never produces text itself: callers pass the content they already
- * have, so no document-wide copy happens on each keystroke.
+ * Callers pass a snapshot and the text is produced only when a write runs, so
+ * no document-wide copy happens on each keystroke.
  */
 export class DraftWriter {
   private readonly store: DraftStore;
@@ -46,11 +51,11 @@ export class DraftWriter {
     this.retryMs = options.retryMs ?? DEFAULT_RETRY_MS;
   }
 
-  /** Records the latest content for a section and arms its write timer. */
-  schedule(target: DraftTarget, content: string, baseHash: string): void {
+  /** Records the latest text for a section and arms its write timer. */
+  schedule(target: DraftTarget, text: DraftText, baseHash: string): void {
     const key = keyOf(target);
     const queuedAt = this.pending.get(key)?.queuedAt ?? Date.now();
-    this.pending.set(key, { target, content, baseHash, queuedAt });
+    this.pending.set(key, { target, text, baseHash, queuedAt });
     const remainingWait = queuedAt + this.maxWaitMs - Date.now();
     this.arm(key, Math.min(this.debounceMs, Math.max(0, remainingWait)));
   }
@@ -68,7 +73,8 @@ export class DraftWriter {
    */
   discardWhenSaved(target: DraftTarget, savedContent: string): Promise<void> {
     const key = keyOf(target);
-    if (this.pending.get(key)?.content === savedContent) {
+    const pending = this.pending.get(key);
+    if (pending && pending.text.toString() === savedContent) {
       this.clearTimer(key);
       this.pending.delete(key);
     }
@@ -95,7 +101,7 @@ export class DraftWriter {
     if (!pending) return this.chains.get(key) ?? Promise.resolve();
     this.pending.delete(key);
     return this.enqueue(key, async () => {
-      const written = await this.store.write(pending.target, pending.content, pending.baseHash);
+      const written = await this.store.write(pending.target, pending.text.toString(), pending.baseHash);
       // A failed write keeps the draft queued unless a newer edit already replaced it.
       if (!written && !this.pending.has(key)) {
         this.pending.set(key, { ...pending, queuedAt: Date.now() });

@@ -4,6 +4,14 @@
 
 ### Fixed
 
+- Typing in a large document no longer copies the whole document or rescans
+  every line on each keystroke. Custom-style highlighting covers only the
+  visible lines, and table decorations are mapped through each edit and only
+  the surrounding blank-line-bounded region is re-parsed. Autosave and draft
+  writes read the text once, when they run. In the 1,000-page benchmark (headless
+  Chromium, one machine), 200 keystrokes went from a median dispatch of 11 ms
+  and a p95 of about 37 ms, with 2 to 7 long tasks, to a median of 4.5 ms, a p95
+  of 6 to 12 ms, and no long tasks.
 - Recovery drafts are stored in IndexedDB, one record per section, instead of
   whole-document JSON in localStorage. Writes are debounced (1 second, at most
   5 seconds while typing) and each record carries a content hash, so a damaged
