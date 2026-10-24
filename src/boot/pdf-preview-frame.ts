@@ -13,10 +13,23 @@ export function bootPdfPreviewFrame(): void {
   const stage = document.createElement('main');
   stage.id = 'clear-writer-pdf-preview-stage';
   document.body.appendChild(stage);
+  // One job at a time: the host serializes requests, so a second request while
+  // this flag is set means the host and frame disagree and must be told so.
+  let activeRequestId: string | null = null;
 
   window.addEventListener('message', async (event: MessageEvent<PdfPreviewRenderRequest>) => {
     if (event.origin !== window.location.origin || event.data?.type !== 'clear-writer-pdf-preview-request') return;
     const { requestId, input } = event.data;
+    if (activeRequestId !== null) {
+      window.parent.postMessage({
+        type: 'clear-writer-pdf-preview-busy',
+        requestId,
+        activeRequestId
+      }, window.location.origin);
+      return;
+    }
+    activeRequestId = requestId;
+    let dispose: (() => void) | undefined;
     try {
       const pagination = await paginatePreviewFrame(stage, input.html, input.css, pagesCompleted => {
         window.parent.postMessage({
@@ -26,6 +39,7 @@ export function bootPdfPreviewFrame(): void {
           pagesCompleted
         }, window.location.origin);
       }, source => materializePdfListMarkers(source, input.listMarkerStyles));
+      dispose = pagination.dispose;
       materializePdfPreviewTocPageNumbers(stage);
       const marginMetrics = materializePdfPreviewMargins(stage, input.margins, input.marginImageSources);
       const artifactStartedAt = performance.now();
@@ -74,6 +88,10 @@ export function bootPdfPreviewFrame(): void {
         artifact: undefined as never,
         error: error instanceof Error ? error.message : String(error)
       }, window.location.origin);
+    } finally {
+      // The artifact has been serialized (or the run failed) by this point.
+      dispose?.();
+      activeRequestId = null;
     }
   });
 

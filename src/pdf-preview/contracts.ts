@@ -86,7 +86,13 @@ export type PdfPreviewFrameTimings = {
 
 export type PdfPreviewFrameRequest = PdfPreviewRenderRequest;
 export type PdfPreviewFrameResult = PdfPreviewRenderResult;
-export type PdfPreviewFrameMessage = PdfPreviewProgress | PdfPreviewFrameResult;
+/** Sent when a request arrives while the frame is still running another job. */
+export type PdfPreviewBusyMessage = {
+  type: 'clear-writer-pdf-preview-busy';
+  requestId: string;
+  activeRequestId: string;
+};
+export type PdfPreviewFrameMessage = PdfPreviewProgress | PdfPreviewFrameResult | PdfPreviewBusyMessage;
 
 /** Expected terminal states for an isolated pagination request. */
 export type PdfPreviewPaginationOutcome<T> =

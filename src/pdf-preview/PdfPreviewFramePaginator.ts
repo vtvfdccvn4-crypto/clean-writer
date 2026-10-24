@@ -3,15 +3,24 @@ import type { PreviewPageTiming } from '../perf/preview-timing';
 
 type PdfPreviewer = {
   preview(source: HTMLElement, styles: string[], target: HTMLElement): Promise<unknown>;
-  chunker?: { q?: {
-    tick?: (callback: FrameRequestCallback) => unknown;
-    enqueue?: (task: (...args: unknown[]) => unknown, ...args: unknown[]) => Promise<unknown>;
-  } };
+  polisher?: { destroy?: () => void };
+  chunker?: {
+    destroy?: () => void;
+    q?: {
+      tick?: (callback: FrameRequestCallback) => unknown;
+      enqueue?: (task: (...args: unknown[]) => unknown, ...args: unknown[]) => Promise<unknown>;
+    };
+  };
 };
 
 export type FramePaginationResult = {
   pageCount: number;
   paginationCss: string;
+  /**
+   * Removes this run's Paged.js styles and page DOM. Call it only after the
+   * page DOM has been serialized, because it removes that DOM from the stage.
+   */
+  dispose: () => void;
   durationMs: number;
   sourceInstallMs: number;
   pagedJsInitializationMs: number;
@@ -90,14 +99,27 @@ export async function paginatePreviewFrame(
   const progressTimer = reportProgress
     ? window.setInterval(() => reportProgress(stage.querySelectorAll('.pagedjs_page').length), 500)
     : undefined;
+  // Paged.js appends its style elements to <head> and keeps page DOM under the
+  // chunker. Without this, every run in the warm frame adds rules that later
+  // runs inherit, so the release-candidate frame keeps growing.
+  const disposePagedJs = () => {
+    previewer.polisher?.destroy?.();
+    previewer.chunker?.destroy?.();
+  };
   try {
     await previewer.preview(source, [styleUrl], stage);
+  } catch (error) {
+    disposePagedJs();
+    throw error;
   } finally {
     if (progressTimer !== undefined) window.clearInterval(progressTimer);
     URL.revokeObjectURL(styleUrl);
   }
   const pageCount = stage.querySelectorAll('.pagedjs_page').length;
-  if (pageCount === 0) throw new Error('PDF pagination produced no physical pages.');
+  if (pageCount === 0) {
+    disposePagedJs();
+    throw new Error('PDF pagination produced no physical pages.');
+  }
   const paginationCssStartedAt = performance.now();
   const paginationStyles = Array.from(document.head.querySelectorAll<HTMLStyleElement>('style[data-pagedjs-inserted-styles]'));
   // The parent installs this CSS alongside the serialized page DOM. Retain
@@ -114,6 +136,10 @@ export async function paginatePreviewFrame(
   return {
     pageCount,
     paginationCss,
+    dispose: () => {
+      disposePagedJs();
+      stage.replaceChildren();
+    },
     durationMs,
     sourceInstallMs,
     pagedJsInitializationMs,

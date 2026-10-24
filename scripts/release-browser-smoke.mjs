@@ -298,6 +298,21 @@ const fixtures = [
     }
   },
   {
+    name: 'pagination-lifecycle-smoke',
+    path: '/test/fixtures/pagination-lifecycle-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Pagination lifecycle smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.repeatedRunsStable === true, `Repeated pagination grew the Paged.js CSS: ${JSON.stringify(result.repeatedCssSizes)}.`);
+      expect(result.smallCssHasOwnSize === true, 'A page-size run did not contain its own page rule.');
+      expect(result.largeCssInheritsSmallSize === false, 'A later page-size run inherited the previous page rule.');
+      expect(result.cancelWasMidRun === true, `The cancel did not land during pagination (status ${result.cancelStatus}).`);
+      expect(result.cancelDiscardedFrame === true, 'A cancelled pagination job left its frame running.');
+      expect(result.recoveredClean === true, 'The job after a cancel was not clean.');
+      expect(result.burstAllTerminal === true, 'A rapid burst of pagination requests did not all succeed.');
+      expect(result.orphanedFrames === 0, `Frames remained after the lifecycle run: ${result.orphanedFrames}.`);
+    }
+  },
+  {
     name: 'pdf-visual',
     path: '/test/fixtures/pdf-visual.html',
     validate(result) {

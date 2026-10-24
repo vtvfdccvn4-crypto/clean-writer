@@ -99,6 +99,9 @@ export class IsolatedPaginationHost {
     const previousRequest = this.activeRequest;
     let releaseRequest!: () => void;
     let releaseAfterPrevious = false;
+    // Set once the job has been posted to the frame. Rejecting the promise on
+    // abort does not stop Paged.js, so only a posted job needs its frame discarded.
+    let requestPosted = false;
     this.activeRequest = new Promise(resolve => { releaseRequest = resolve; });
     const startedAt = performance.now();
     const timings: PdfPreviewPhaseTiming[] = [];
@@ -133,6 +136,7 @@ export class IsolatedPaginationHost {
           options.onPhase?.('load-pagination-frame', loadDurationMs);
         }
         const paginationStartedAt = performance.now();
+        requestPosted = true;
         const result = await this.request(frame, request, { ...options, startedAt }) as T;
         const responseElapsedMs = Math.round(performance.now() - paginationStartedAt);
         const paginationMs = Math.min(responseElapsedMs, result.paginationMs ?? responseElapsedMs);
@@ -169,7 +173,12 @@ export class IsolatedPaginationHost {
         }
         return complete({ status: 'success', result: this.freezeArtifactResult(result), diagnostics: finalDiagnostics });
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return complete({ status: 'cancelled', diagnostics: diagnostics() });
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          // Discard the frame before the queue slot is released, so the next
+          // job can never overlap a layout pass that is still running.
+          if (requestPosted) this.invalidateFrame();
+          return complete({ status: 'cancelled', diagnostics: diagnostics() });
+        }
         if (error instanceof PaginationTimeoutError) {
           // Frame timed out — discard it so the next request gets a fresh boot.
           this.invalidateFrame();
@@ -288,6 +297,10 @@ export class IsolatedPaginationHost {
         if (event.data.type === 'clear-writer-pdf-preview-result' && request.type === 'clear-writer-pdf-preview-request') {
           finish(undefined, event.data);
           return;
+        }
+        if (event.data.type === 'clear-writer-pdf-preview-busy') {
+          // The host serializes jobs, so a busy frame means the frame state is unknown.
+          finish(new Error('PDF preview renderer was still busy with another job.'));
         }
       };
       window.addEventListener('message', receive);

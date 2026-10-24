@@ -4,6 +4,12 @@
 
 ### Fixed
 
+- Cancelling PDF preview pagination now discards the pagination frame. Before,
+  the promise resolved as cancelled while Paged.js kept laying out in the old
+  frame, and the next job could start in the same staging DOM.
+- The pagination frame removes each run's Paged.js styles and page DOM after
+  its artifact is serialized. Before, identical repeated runs grew the frame's
+  page CSS, and a later page size inherited the earlier page rule.
 - Edits typed in the moment before closing a project, or before a selection
   change that ran ahead of the editor flush, are now saved. Previously the save
   was skipped once the document was no longer open, leaving the text only in
