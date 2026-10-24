@@ -69,6 +69,7 @@ Source map:
 Current documentation:
 
 - `docs/developer/shell-refactor.md`
+- `docs/developer/large-document-plan.md` (planned work for 1,000-page documents; a plan, not shipped behavior)
 
 ## Recommended Documentation Set
 
