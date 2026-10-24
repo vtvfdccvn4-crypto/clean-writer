@@ -49,7 +49,7 @@ which stays a time-boxed feasibility prototype with a "do not proceed" outcome.
 | E13 | Sandboxed/cross-site frames run independently | Unproven | Only with `--site-per-process --enable-features=IsolateSandboxedIframes` in that build; blob URLs and origin checks untested |
 | E14 | Abort does not stop the frame; jobs can overlap | C | `pdf-preview/IsolatedPaginationHost.ts` (slot released on abort); `boot/pdf-preview-frame.ts` (no job guard) |
 | E15 | Paged.js styles accumulate in the warm frame | C | `Previewer` never destroyed; Paged.js `Polisher.setup()`/`insert()` append `<style data-pagedjs-inserted-styles>`, removed only by `destroy()` |
-| E16 | 1,000 pages exceed the timeout cap | C (arithmetic) | `PdfPreviewPaginationBudget.ts`: 15 s + 650 ms × pages, capped at 300 s. Real seconds per page unmeasured |
+| E16 | Export time limit for 1,000 pages | Revised: the fixed cap is replaced; the 650 ms/page estimate is not supported by measurement | Old `PdfPreviewPaginationBudget.ts` cap of 300 s with an estimate of 15 s + 650 ms × pages. Headless Chromium 153, 800 simple sections with forced breaks: 800 pages in 7.3–7.4 s (two runs, about 9 ms/page). Heavy content (images, tables, margins) and real hardware are still unmeasured |
 | E17 | Paginated mode is default and repaginates after edits | C | `ui/PaginatedPreviewRenderer.ts` (`_isActive = true`); `DocumentRenderCoordinator.ts:322-329` |
 | E18 | Paginated DOM has no containment | C | No `content-visibility` in `src/` |
 | E19 | Pagination message carries the document twice | H | `PdfRenderSnapshot.ts`: `key.document` and `html` are the same string |
@@ -245,5 +245,14 @@ after a one-section edit costs at most 20% of a full run.
   `pagination-lifecycle-smoke`. Measured against the original code it fails
   (CSS 24 KB → 96 KB over four runs; `cancelDiscardedFrame: false`) and passes
   with the fix. The 261 unit tests and all 40 browser smokes pass.
-- Not yet done: B6 (stall watchdog replacing the 300 s cap), Phase 0 corpus
+- Not yet done: Phase 0 corpus
   and typing harness (B1), and the per-browser measurement of the frame freeze.
+- 2026-10-24: B6 implemented. The 300 s cap is replaced by a stall limit (no new
+  page for 60 s, or 120 s with images) and a 45-minute ceiling
+  (`PdfPreviewPaginationBudget.ts`, `IsolatedPaginationHost.ts`). The host also
+  takes limit overrides for tests. Regression: `pagination-watchdog-smoke`
+  covers a stall (frame discarded), a ceiling hit, and an 8-second job that
+  outlives a 1.5-second stall limit because pages keep arriving. Measurement
+  behind the correction to E16: 800 pages in about 7.3 s in headless Chromium.
+  This is one machine with simple content and does not replace the Phase 0
+  corpus.

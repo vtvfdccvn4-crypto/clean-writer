@@ -27,14 +27,20 @@ export type PdfPreviewProgress = {
   pagesCompleted?: number;
   estimatedPages?: number;
   elapsedMs?: number;
-  timeoutMs?: number;
 };
 
-export type PdfPreviewPaginationBudget = {
+/** Watchdog limits for one pagination job, in milliseconds. */
+export type PdfPreviewWatchdogLimits = {
+  /** Longest allowed wait without a newly completed physical page. */
+  stallMs: number;
+  /** Absolute upper bound on the job, however much progress it makes. */
+  ceilingMs: number;
+};
+
+export type PdfPreviewPaginationBudget = PdfPreviewWatchdogLimits & {
   estimatedPages: number;
   imageCount: number;
   textCharacters: number;
-  timeoutMs: number;
 };
 
 export type PdfPreviewPhaseTiming = {

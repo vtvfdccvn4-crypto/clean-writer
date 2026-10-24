@@ -4,6 +4,11 @@
 
 ### Fixed
 
+- PDF preview pagination no longer stops at a fixed 300 seconds. A job is
+  stopped when it completes no new page for 60 seconds (120 seconds when it has
+  images), or when it runs past a 45-minute ceiling. A job that keeps producing
+  pages is not stopped at the stall limit. The stall and ceiling values are
+  provisional until they are calibrated on real documents.
 - Cancelling PDF preview pagination now discards the pagination frame. Before,
   the promise resolved as cancelled while Paged.js kept laying out in the old
   frame, and the next job could start in the same staging DOM.

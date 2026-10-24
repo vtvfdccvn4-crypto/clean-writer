@@ -313,6 +313,19 @@ const fixtures = [
     }
   },
   {
+    name: 'pagination-watchdog-smoke',
+    path: '/test/fixtures/pagination-watchdog-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Pagination watchdog smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.stallStatus === 'timed-out' && result.stallMessage.includes('stalled'), `A job without page progress was not stopped as a stall (status ${result.stallStatus}).`);
+      expect(result.stallDiscardedFrame === true, 'A stalled pagination job left its frame running.');
+      expect(result.ceilingStatus === 'timed-out' && result.ceilingMessage.includes('ceiling'), `A job past its ceiling was not stopped (status ${result.ceilingStatus}).`);
+      expect(result.progressStatus === 'success', `A job still making progress was stopped (status ${result.progressStatus}).`);
+      expect(result.outlivedStallLimit === true, `The progress job finished in ${result.progressElapsedMs}ms, which does not prove it outlived the stall limit.`);
+      expect(result.orphanedFrames === 0, `Frames remained after the watchdog run: ${result.orphanedFrames}.`);
+    }
+  },
+  {
     name: 'pdf-visual',
     path: '/test/fixtures/pdf-visual.html',
     validate(result) {
