@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
-import { manualChunks } from './vite.shared';
+import { manualChunks, workerDomFreeResolution } from './vite.shared';
 
 const buildId = process.env.npm_package_version ? `${process.env.npm_package_version}-${Date.now()}` : `${Date.now()}`;
 const OUT_DIR = 'dist-web';
@@ -43,24 +43,6 @@ function serviceWorkerBuild(id: string): Plugin {
       source = source.replace(BUILD_ASSETS_MARKER, JSON.stringify(assets));
       source = source.replace(BUILD_ID_MARKER, id);
       fs.writeFileSync(workerPath, source);
-    }
-  };
-}
-
-/**
- * decode-named-character-reference ships a DOM variant selected by the browser
- * condition. That variant calls document.createElement when it loads, which
- * crashes inside a worker. Worker bundles resolve the package's plain entry
- * instead. Only the worker bundles use this plugin, so the page keeps the
- * browser variant.
- */
-function workerDomFreeResolution(): Plugin {
-  const plainEntry = path.resolve('node_modules/decode-named-character-reference/index.js');
-  return {
-    name: 'clear-writer-worker-dom-free-resolution',
-    enforce: 'pre',
-    resolveId(source) {
-      return source === 'decode-named-character-reference' ? plainEntry : null;
     }
   };
 }

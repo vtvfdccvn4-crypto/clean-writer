@@ -4,6 +4,7 @@ import path from 'node:path';
 import { once } from 'node:events';
 import { execFile } from 'node:child_process';
 import { createServer } from 'vite';
+import { plainCharacterReferenceEsbuildPlugin, workerDomFreeResolution } from '../vite.shared.ts';
 import { NO_BACKGROUND_THROTTLING_FLAGS, launchHeadlessBrowser, detectBrowserExecutable, createBrowserTarget, reservePort, delay, closeQuietly } from './lib/browser.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -440,7 +441,13 @@ if (requestedFixture && selectedFixtures.length === 0) {
 const viteServer = await createServer({
   root,
   appType: 'spa',
-  optimizeDeps: { include: ['extend', 'debug', 'event-emitter', 'event-emitter/pipe', 'css-tree', 'clear-cut'] },
+  optimizeDeps: {
+    include: ['extend', 'debug', 'event-emitter', 'event-emitter/pipe', 'css-tree', 'clear-cut'],
+    // The DOM-free entries that the worker build uses, so pre-bundled code loads in a worker.
+    esbuildOptions: { plugins: [plainCharacterReferenceEsbuildPlugin()] }
+  },
+  // Worker bundles resolve the same DOM-free entries as the production build.
+  worker: { format: 'es', plugins: () => [workerDomFreeResolution()] },
   logLevel: 'error',
   server: {
     host: '127.0.0.1',

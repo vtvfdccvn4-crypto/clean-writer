@@ -1,3 +1,6 @@
+import path from 'node:path';
+import type { Plugin } from 'vite';
+
 export function splitVendorPackage(id: string, packages: string[]): string | null {
   for (const packageName of packages) {
     if (id.includes(`node_modules/${packageName}/`)) {
@@ -45,4 +48,37 @@ export function manualChunks(id: string): string | undefined {
   if (normalized.includes('node_modules/codemirror/')) return 'codemirror-bridge';
 
   return undefined;
+}
+
+/**
+ * decode-named-character-reference ships a DOM variant selected by the browser
+ * condition. That variant calls document.createElement when it loads, which
+ * crashes inside a worker. Worker bundles resolve the package's plain entry
+ * instead. Only the worker bundles use this plugin, so the page keeps the
+ * browser variant.
+ */
+export function workerDomFreeResolution(): Plugin {
+  const plainEntry = path.resolve('node_modules/decode-named-character-reference/index.js');
+  return {
+    name: 'clear-writer-worker-dom-free-resolution',
+    enforce: 'pre',
+    resolveId(source) {
+      return source === 'decode-named-character-reference' ? plainEntry : null;
+    }
+  };
+}
+
+/**
+ * Dev-server dependency pre-bundling resolves packages with the browser condition,
+ * which inlines the DOM variant of decode-named-character-reference into bundles
+ * that the worker also loads. This points the pre-bundler at the plain entry too.
+ */
+export function plainCharacterReferenceEsbuildPlugin(): { name: string; setup(build: { onResolve(options: { filter: RegExp }, callback: () => { path: string }): void }): void } {
+  const plainEntry = path.resolve('node_modules/decode-named-character-reference/index.js');
+  return {
+    name: 'clear-writer-plain-character-reference',
+    setup(build) {
+      build.onResolve({ filter: /^decode-named-character-reference$/ }, () => ({ path: plainEntry }));
+    }
+  };
 }
