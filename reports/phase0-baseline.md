@@ -5,7 +5,7 @@ Measured on 2026-10-25 at commit `de7a054` (branch `claude/jolly-noether-7mqanv`
 **Status: a single-machine baseline, not a gate.** It records the current numbers
 so later changes can be compared against them. It does not decide the release gates
 in `docs/developer/large-document-plan.md`, because those need repeated runs on
-real hardware and browsers, and Firefox and WebKit have not been measured.
+real hardware and browsers. WebKit has not been measured. Firefox is out of scope (it cannot open local desktop files, which local-directory projects need).
 
 ## Environment
 
@@ -14,7 +14,7 @@ real hardware and browsers, and Firefox and WebKit have not been measured.
 | Machine | Linux container, 4 vCPU (Intel Xeon 2.10 GHz), 16 GB RAM |
 | Browser | Google Chrome for Testing 153.0.8010.12, headless |
 | Runtime | Node v22.22.0 |
-| Other browsers | Not measured (Firefox, WebKit) |
+| Other browsers | Not measured (WebKit). Firefox is out of scope. |
 | Samples | 1 per pagination scenario; 3 per typing run, with the three runs reported separately |
 
 ## Corpora
@@ -79,7 +79,7 @@ Flags are read from the address query. Each is off unless its value is `true`.
 
 ## Known gaps
 
-- Firefox and WebKit have not been run, so G1's cross-browser criteria are open.
+- WebKit has not been run, so G1's cross-browser criteria are open. Firefox is out of scope.
 - The draft-durability matrix (IndexedDB behaviour under lifecycle events) has not
   been run on any browser other than Chromium.
 - `scripts/profile-preview.mjs` still calls `compileMarkdown` with the old

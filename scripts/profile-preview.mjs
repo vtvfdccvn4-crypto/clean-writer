@@ -14,7 +14,10 @@ const server = await createServer({
 });
 
 try {
-  const { compileMarkdown } = await server.ssrLoadModule('/src/compiler/index.ts');
+  const { compileMarkdown, documentCompileSettings } = await server.ssrLoadModule('/src/compiler/index.ts');
+  const { DEFAULT_APP_STATE } = await server.ssrLoadModule('/src/config/defaults.ts');
+  const compileSettings = documentCompileSettings(DEFAULT_APP_STATE);
+  const compile = markdown => compileMarkdown(markdown, null, compileSettings);
   const { buildFullDocumentMarkdown } = await server.ssrLoadModule('/src/preview/document-rendering/index.ts');
   const scenarios = [
     syntheticScenario('small', 5, 12),
@@ -29,7 +32,7 @@ try {
 
   const results = [];
   for (const scenario of scenarios) {
-    results.push(await profileScenario(scenario, compileMarkdown, buildFullDocumentMarkdown));
+    results.push(await profileScenario(scenario, compile, buildFullDocumentMarkdown));
   }
 
   process.stdout.write(`${JSON.stringify({
@@ -42,7 +45,7 @@ try {
   await server.close();
 }
 
-async function profileScenario(scenario, compileMarkdown, buildFullDocumentMarkdown) {
+async function profileScenario(scenario, compile, buildFullDocumentMarkdown) {
   const sections = scenario.blocks.map((block, index) => ({
     path: block.path,
     isDir: false,
@@ -55,7 +58,7 @@ async function profileScenario(scenario, compileMarkdown, buildFullDocumentMarkd
 
   // Warm the module graph and JIT before collecting samples.
   markdown = buildFullDocumentMarkdown(sections, scenario.blocks);
-  await compileMarkdown(markdown, scenario.projectPath);
+  await compile(markdown);
 
   globalThis.gc?.();
   const heapBefore = process.memoryUsage().heapUsed;
@@ -66,7 +69,7 @@ async function profileScenario(scenario, compileMarkdown, buildFullDocumentMarkd
     assemblySamples.push(performance.now() - assemblyStarted);
 
     const compileStarted = performance.now();
-    const html = await compileMarkdown(markdown, scenario.projectPath);
+    const html = await compile(markdown);
     compileSamples.push(performance.now() - compileStarted);
     htmlLength = html.length;
     peakHeap = Math.max(peakHeap, process.memoryUsage().heapUsed);
@@ -76,10 +79,10 @@ async function profileScenario(scenario, compileMarkdown, buildFullDocumentMarkd
 
   const singleMarkdown = scenario.blocks[Math.floor(scenario.blocks.length / 2)]?.markdown ?? '';
   const singleSamples = [];
-  await compileMarkdown(singleMarkdown, scenario.projectPath);
+  await compile(singleMarkdown);
   for (let sample = 0; sample < sampleCount; sample += 1) {
     const started = performance.now();
-    await compileMarkdown(singleMarkdown, scenario.projectPath);
+    await compile(singleMarkdown);
     singleSamples.push(performance.now() - started);
   }
 

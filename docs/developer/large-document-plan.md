@@ -191,7 +191,7 @@ after a one-section edit costs at most 20% of a full run.
 ## 7. Decision gates
 
 - **G1 (immediate fixes → worker).** Typing gates met on the single-section
-  corpus; draft durability matrix passes on Chromium, Firefox and WebKit (or
+  corpus; draft durability matrix passes on Chromium and WebKit (or
   fails visibly); pagination concurrency and repeated-layout tests pass;
   offline first-install and update-with-old-tab tests pass; no regressions.
 - **G2 (worker by default).** Production-build worker test passes and the
@@ -202,7 +202,7 @@ after a one-section edit costs at most 20% of a full run.
   settings: parent timer ticks within 20% of idle during a frame busy loop;
   images render; hostile-message tests pass. Any failure: do not ship.
 - **G4 (chapter composition).** Every prototype requirement passes; print
-  output matches in Chromium and Firefox; repagination after one-section edit
+  output matches in Chromium and WebKit; repagination after one-section edit
   ≤ 20% of a full run; non-page-break sections handled by grouping.
   **Do not proceed** if correctness fails without a contained fix, savings are
   below 2×, or Paged.js internals need patching beyond the existing null
@@ -440,6 +440,12 @@ after a one-section edit costs at most 20% of a full run.
   with the pre-settings signature. Pagination at 50 to 1,000 pages all succeed
   (1,000 pages: 8.7 s). The budget estimator gave 668 for 1,000 pages. Typing
   (1,000 pages, one section): dispatch p95 6 to 15 ms, one 51 ms long task in
-  three runs. Still open for B1: Firefox and WebKit, repeated-pagination heap and
+  three runs. Still open for B1: WebKit, repeated-pagination heap and
   style checks, the draft durability matrix, and real-keyboard input latency
   (INP). `profile-preview.mjs` still uses the old compile signature.
+- 2026-10-25: Firefox removed from scope. Firefox cannot open local desktop
+  files, which the app's local-directory projects need, so no Firefox test or
+  development is kept. G1 and G4 now name Chromium and WebKit. The B1 entry
+  above no longer lists Firefox. Earlier log entries that mention Firefox are
+  unchanged, as they record the state at the time.
+
