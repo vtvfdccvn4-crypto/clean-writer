@@ -212,5 +212,5 @@ export async function bootApp(platform: Platform) {
   await restoreInitialWorkspace(platform, editorManager);
 
   (window as StartupWindow).__CLEAR_WRITER_READY__ = true;
-  registerServiceWorker();
+  registerServiceWorker(() => editorManager.flushCurrentDocument());
 }

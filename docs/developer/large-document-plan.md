@@ -308,4 +308,25 @@ after a one-section edit costs at most 20% of a full run.
   needs a controlled save to test. It is verified by code reading only.
   Still open: the freshness state visible to users (B14), and the paginated
   preview's own cost (B14, B15).
+- 2026-10-25: B8 implemented. `public/sw.js` precaches the shell and the full
+  build list in one `addAll` (the build writes the list and the build id into
+  the worker; `vite.web.config.ts`). Install no longer calls `skipWaiting`; the
+  page does, after the user accepts the prompt (`src/sw-registration.ts`), which
+  saves the open document first. Only the accepting tab reloads. Retention keeps
+  the active build and the one it replaced. Navigation is network-first, and the
+  offline fallback comes only from the current build. Network responses are not
+  written into the cache.
+  Found during the browser check: the worker took its build id from its URL's
+  `?v=` parameter. An update check re-requests the URL the page registered with,
+  which names the old build, so the new worker wrote into the old cache. The
+  build now writes the id into the worker file.
+  Tests: `service-worker-cache.test.cjs` (14), `release-pwa-smoke.mjs` (first
+  install offline, a two-tab update, and a retained chunk after the update).
+  Each was shown to fail when its behaviour is removed: cross-build offline
+  fallback, current-only asset lookup, dropping the previous build, every tab
+  reloading, no precache, and the URL-based id.
+  Not done: the other tab does not switch to the new worker until it reloads,
+  and nothing tests a tab that is two builds old. The offline export and preview
+  check, the update prompt's wording under other locales, and the frame protocol
+  version (plan §5.5) are still open.
 

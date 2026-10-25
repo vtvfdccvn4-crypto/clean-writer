@@ -4,6 +4,12 @@
 
 ### Fixed
 
+- A new version of the app no longer takes over an open page. When a new version
+  is ready, Clear Writer asks before reloading, saves the open document first,
+  and reloads only the tab that accepted. Other open tabs keep running their
+  version, and their files are kept until the next update. The worker now
+  precaches every file in the build as one set, so the app opens offline after
+  its first visit. Offline reloads use only the current version's files.
 - Live preview follows typing after a 250 ms pause, instead of waiting for the
   750 ms autosave. The save status reports "saving" only while a save runs, and
   reports "saved" only when the save covers the newest edit. The paginated
