@@ -356,6 +356,14 @@ const fixtures = [
     }
   },
   {
+    name: 'browser-preview-freshness-smoke',
+    path: '/test/fixtures/browser-preview-freshness-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Preview freshness smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.previewLatencyMs < 700, `Live preview showed a typed edit after ${result.previewLatencyMs}ms, which waits for the autosave.`);
+    }
+  },
+  {
     name: 'pdf-visual',
     path: '/test/fixtures/pdf-visual.html',
     validate(result) {

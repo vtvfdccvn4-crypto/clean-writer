@@ -18,6 +18,18 @@ import type { PageGuideCoordinator } from './PageGuideCoordinator';
 import type { Platform } from '../platform/types';
 import { dispatchSectionSaved } from './outline-events';
 import { captureCurrentPrintLayout, type CompiledPreviewCache, type LatestCompiledPreview } from './CompiledPreviewCache';
+import { PreviewScheduler } from './PreviewScheduler';
+
+/** Preview refresh pauses. Live preview is cheap enough to follow typing closely; the paginated preview runs a full layout, so it waits as long as it did when it followed autosave. */
+const LIVE_PREVIEW_DELAY_MS = 250;
+const PAGINATED_PREVIEW_DELAY_MS = 750;
+
+/** The newest text of the open document, waiting for its preview refresh. */
+interface PreviewEdit {
+  readonly projectId: string;
+  readonly filename: string;
+  readonly snapshot: EditorSnapshot;
+}
 
 export interface DocumentRenderCoordinatorOptions {
   preview: PreviewCoordinator;
@@ -47,6 +59,7 @@ export class DocumentRenderCoordinator {
   private statsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly drafts: DraftStore = createBrowserDraftStore();
   private readonly draftWriter = new DraftWriter(this.drafts);
+  private readonly previewScheduler: PreviewScheduler<PreviewEdit>;
 
   constructor(opts: DocumentRenderCoordinatorOptions) {
     this.opts = opts;
@@ -55,6 +68,10 @@ export class DocumentRenderCoordinator {
     this.documentSession = opts.documentSession;
     this.pageGuides = opts.pageGuides;
     this.editorContainer = opts.editorContainer;
+    this.previewScheduler = new PreviewScheduler<PreviewEdit>(
+      edit => this.refreshPreviewForEdit(edit),
+      () => (this.opts.getIsFinalPrintPreview() ? PAGINATED_PREVIEW_DELAY_MS : LIVE_PREVIEW_DELAY_MS)
+    );
     this.drafts.onHealthChange(health => this.reportDraftHealth(health));
     void this.drafts.migrateLegacy(localStorage).catch(() => undefined);
     void this.drafts.prune();
@@ -102,6 +119,7 @@ export class DocumentRenderCoordinator {
     let sourceCharacterCount = 0;
     try {
       this.preview.setMode('paginated');
+      this.previewScheduler.cancel();
       const revision = this.preview.beginRevision();
       this.preview.clearVisiblePreview();
       const { projectRef } = state.current;
@@ -177,6 +195,7 @@ export class DocumentRenderCoordinator {
 
   async renderSingleDocument(filename: string, isLatest: () => boolean): Promise<void> {
     this.preview.setMode('paginated');
+    this.previewScheduler.cancel();
     const initialRevision = this.preview.beginRevision();
     this.preview.clearVisiblePreview();
     const { projectRef } = state.current;
@@ -221,11 +240,20 @@ export class DocumentRenderCoordinator {
 
     this.opts.updateSectionStats(content);
 
+    // The newest edit to this editor. A save that finishes behind it must not
+    // report "saved", because the newer text is not on disk yet.
+    let latestVersion = 0;
     const callbacks = {
       onDirty: (snapshot: EditorSnapshot) => {
+        latestVersion = snapshot.version;
         if (this.documentSession.currentFilePath === filename && state.current.activeFile === filename) {
           this.draftWriter.schedule({ projectId: projectRef.id, path: filename }, snapshot, baseHash);
           this.opts.updateSaveStatus('dirty');
+          // Preview work is keyed to the edit, not to the autosave.
+          // The revision advances when the refresh runs, not per keystroke:
+          // starting a revision cancels in-flight pagination, which must not
+          // be cancelled by every key press.
+          this.previewScheduler.schedule({ projectId: projectRef.id, filename, snapshot });
 
           if (this.statsDebounceTimer) clearTimeout(this.statsDebounceTimer);
           this.statsDebounceTimer = setTimeout(() => {
@@ -240,12 +268,12 @@ export class DocumentRenderCoordinator {
         const newDoc = snapshot.toString();
         const isOpen = () => this.documentSession.currentFilePath === filename
           && state.current.activeFile === filename;
-        const changeRevision = this.preview.beginRevision();
+        const isNewest = () => snapshot.version === latestVersion;
 
-        // Preview and status work belong to the open document only. The write
-        // below does not: a flush on the way to another document or a closed
-        // project runs after selection has moved, and it must still persist.
-        if (isOpen()) this.refreshPreviewForEdit(projectRef.id, filename, newDoc, changeRevision);
+        // Status work belongs to the open document only. The write below does
+        // not: a flush on the way to another document or a closed project runs
+        // after selection has moved, and it must still persist.
+        if (isOpen() && isNewest()) this.opts.updateSaveStatus('saving');
 
         try {
           let saved = await session.writeSection(filename, newDoc);
@@ -257,7 +285,7 @@ export class DocumentRenderCoordinator {
 
           const stillOpen = isOpen();
           // A newer edit to the open document owns its draft and the status bar.
-          if (stillOpen && !this.preview.isCurrent(changeRevision)) return;
+          if (stillOpen && !isNewest()) return;
 
           // The write succeeded, so a draft holding this text is stale even when the
           // save was a flush on the way to another document or a closed project.
@@ -266,7 +294,7 @@ export class DocumentRenderCoordinator {
           if (stillOpen) this.opts.updateSaveStatus('saved');
         } catch (error) {
           const stillOpen = isOpen();
-          if (stillOpen && !this.preview.isCurrent(changeRevision)) return;
+          if (stillOpen && !isNewest()) return;
           // The draft is kept, so recovery can still offer the unsaved text.
           if (stillOpen) this.opts.updateSaveStatus('error');
           this.opts.reportWorkflowError(`Autosave failed for ${filename}.`, error);
@@ -333,14 +361,17 @@ export class DocumentRenderCoordinator {
   }
 
   /** Recompiles and republishes the preview for an edit to the open document. */
-  private refreshPreviewForEdit(projectId: string, filename: string, newDoc: string, changeRevision: number): void {
+  private refreshPreviewForEdit({ projectId, filename, snapshot }: PreviewEdit): void {
+    if (this.documentSession.currentFilePath !== filename || state.current.activeFile !== filename) return;
+    // Starting a revision drops any earlier refresh still running, so only this
+    // edit's result can be published.
+    const changeRevision = this.preview.beginRevision();
+    const newDoc = snapshot.toString();
     const markdownToCompile = renderDocumentSection(
       { path: filename, markdown: newDoc },
       state.current.sections,
       0
     );
-
-    this.opts.updateSaveStatus('saving');
 
     void this.preview.compileLatestDocument(markdownToCompile)
       .then(compiledPreview => {

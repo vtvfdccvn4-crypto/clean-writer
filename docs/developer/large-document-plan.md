@@ -293,4 +293,19 @@ after a one-section edit costs at most 20% of a full run.
   document on pointer and command events, not on keystrokes.
   Still open: the Phase 0 corpus (B1), the release-gate budgets, and the
   preview refresh path, which is B7.
+- 2026-10-25: B7 implemented. Preview refresh and save state are no longer
+  coupled. `PreviewScheduler` (`src/ui/PreviewScheduler.ts`) runs the refresh
+  after a 250 ms pause in live mode, or 750 ms in the paginated preview. The
+  refresh starts its revision when it runs, not per keystroke, because starting
+  a revision cancels in-flight pagination. The save path no longer begins a
+  revision, starts a refresh, or sets "saving" for a preview. A save reports
+  "saved" only when its snapshot version is still the newest edit
+  (`DocumentRenderCoordinator.ts`, `latestVersion`).
+  Measured: the live preview showed a typed edit after 277 ms, against 785 ms
+  on the previous coordinator (`browser-preview-freshness-smoke`, which fails
+  on the old code). Unit tests: `preview-scheduler.test.cjs` (5).
+  Not covered by an automated test: the "saved only when newest" race, which
+  needs a controlled save to test. It is verified by code reading only.
+  Still open: the freshness state visible to users (B14), and the paginated
+  preview's own cost (B14, B15).
 

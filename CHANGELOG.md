@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- Live preview follows typing after a 250 ms pause, instead of waiting for the
+  750 ms autosave. The save status reports "saving" only while a save runs, and
+  reports "saved" only when the save covers the newest edit. The paginated
+  preview keeps its 750 ms pause.
 - Typing in a large document no longer copies the whole document or rescans
   every line on each keystroke. Custom-style highlighting covers only the
   visible lines, and table decorations are mapped through each edit and only
