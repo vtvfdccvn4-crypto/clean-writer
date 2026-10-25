@@ -19,6 +19,7 @@ import type { Platform } from '../platform/types';
 import { dispatchSectionSaved } from './outline-events';
 import { captureCurrentPrintLayout, type CompiledPreviewCache, type LatestCompiledPreview } from './CompiledPreviewCache';
 import { PreviewScheduler } from './PreviewScheduler';
+import { isAbortError } from '../workers/CompileClient';
 
 /** Preview refresh pauses. Live preview is cheap enough to follow typing closely; the paginated preview runs a full layout, so it waits as long as it did when it followed autosave. */
 const LIVE_PREVIEW_DELAY_MS = 250;
@@ -185,6 +186,11 @@ export class DocumentRenderCoordinator {
       if (renderResult.status === 'stale') outcome = 'stale';
       else if (renderResult.status !== 'rendered') outcome = 'failed';
     } catch (error) {
+      // A newer compile replaced this one: nothing is wrong, the result is just stale.
+      if (isAbortError(error)) {
+        outcome = 'stale';
+        return;
+      }
       outcome = 'failed';
       timingError = error;
       throw error;
@@ -334,7 +340,13 @@ export class DocumentRenderCoordinator {
       0
     );
 
-    const initialPreview = await this.preview.compileDocument(markdownToCompile, 'single-document-load');
+    let initialPreview: Awaited<ReturnType<PreviewCoordinator['compileDocument']>>;
+    try {
+      initialPreview = await this.preview.compileDocument(markdownToCompile, 'single-document-load');
+    } catch (error) {
+      if (isAbortError(error)) return;
+      throw error;
+    }
     if (!this.preview.isCurrent(initialRevision) || !isLatest()) return;
     this.latestCompiledPreview = {
       projectId: projectRef.id,

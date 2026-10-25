@@ -62,7 +62,7 @@ function scanCustomBlockStyleIcons(customBlockStyles: readonly CustomBlockStyle[
 }
 
 /** Collects each document image and configured block glyph once per operation. */
-function collectDocumentAssetPaths(markdown: string, customBlockStyles: readonly CustomBlockStyle[]): string[] {
+export function collectDocumentAssetPaths(markdown: string, customBlockStyles: readonly CustomBlockStyle[]): string[] {
   return [...new Set([
     ...scanMarkdownForImages(markdown),
     ...scanCustomBlockStyleIcons(customBlockStyles)

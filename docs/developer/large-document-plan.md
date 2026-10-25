@@ -373,4 +373,32 @@ after a one-section edit costs at most 20% of a full run.
   outline yet); page jump and reduced motion (B19); axe, screen-reader, zoom and
   forced-colour checks. The keyboard test dispatches key events, not real key
   presses.
+- 2026-10-25: B12 implemented behind the `compile-worker` flag, which is off by
+  default. Gate status: G1 is not fully met (no Phase 0 corpus, B1; no Firefox or
+  WebKit matrix), so the worker stays off. G2 is partly met (see below).
+  Pieces: `compile-protocol.ts` (structured-clone messages), `compile-core.ts`
+  (DOM-free compile, snapshot asset resolver, result cache keyed by text,
+  settings, assets, and line offsets, capped at 48 entries and 32M characters),
+  `compile.worker.ts`, `CompileClient.ts` (one current job per lane, supersession
+  with cancel, worker replacement for a long superseded job, crash and
+  protocol-mismatch fallback that re-runs pending jobs on the page), and
+  `compile-assets.ts` (path-to-URL map built after preloading).
+  Build: `vite.web.config.ts` resolves `decode-named-character-reference` to its
+  plain entry for worker bundles only (`worker.plugins`). A build check fails if
+  a worker chunk calls `document.createElement`. Removing the resolution fails the
+  build, which was checked.
+  Tests: `compile-worker.test.cjs` (17, against the real worker core in Node),
+  and `release-compile-worker-smoke.mjs` (a separate harness build with the same
+  worker configuration, run in Chromium). The harness checks parity with an
+  independent page resolver at 1,000 pages, cache hits, supersession, error and
+  clone messages, crash recovery, and responsiveness. Mutations were caught: an
+  asset map ignored (parity fails) and a DOM dependency restored (build fails).
+  Measured (headless Chromium, one machine, 1,000 pages, about 3.1 MB of HTML):
+  page compile 5.97 s as one long task, frame gap 5.95 s; worker compile 5.5 s,
+  no long tasks, frame gap 17 ms. The real app with the flag on creates the
+  worker (checked from the console).
+  Not done: G2 criteria for result transfer time are not measured separately
+  from the compile; Firefox and WebKit are not checked; the live incremental
+  preview stays on the page (it needs DOM work, plan Phase 2 B13); the worker
+  cache is lost when the worker is replaced.
 

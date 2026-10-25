@@ -7,6 +7,7 @@ import { PageGuideCoordinator, type PageGuideComputation, type PageGuideSnapshot
 import type { Platform } from '../platform/types';
 import type { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
 import { captureCurrentPrintLayout, type CompiledPreviewCache } from './CompiledPreviewCache';
+import { isAbortError } from '../workers/CompileClient';
 
 export interface PaginatedPreviewRendererOptions {
   preview: PreviewCoordinator;
@@ -88,7 +89,13 @@ export class PaginatedPreviewRenderer {
     this.preview.setMode(this._isActive ? 'paginated' : 'live');
     this.preview.clearVisiblePreview();
     const markdown = renderDocumentSection({ path: activeFile, markdown: editor.getValue() }, sections, 0);
-    const compiled = await this.preview.compileDocument(markdown, 'single-document-load');
+    let compiled: Awaited<ReturnType<PreviewCoordinator['compileDocument']>>;
+    try {
+      compiled = await this.preview.compileDocument(markdown, 'single-document-load');
+    } catch (error) {
+      if (isAbortError(error)) return;
+      throw error;
+    }
     if (!this.preview.isCurrent(revision)
       || state.current.activeFile !== activeFile
       || !this.documentSession.currentEditor) return;

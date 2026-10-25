@@ -2,6 +2,11 @@ import { compilePreviewDocument } from '../compiler';
 import type { CompiledPreview, DocumentCompileSettings } from '../compiler';
 import { preloadDocumentAssets } from '../services/ExportSnapshotService';
 import { PreviewController } from '../preview';
+import { CompileClient, type CompileOutcome } from '../workers/CompileClient';
+import { createCompileWorkerClient } from '../workers/compile-client-factory';
+import { buildCompileAssets } from '../workers/compile-assets';
+import { isCompileWorkerEnabled } from '../config/feature-flags';
+import type { CompileJob } from '../workers/compile-protocol';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { AssetResolver } from '../platform/types';
 import type { ImageSetup, ListSetup, PageSetup, TableSetup, TypographySetup } from '../types';
@@ -33,6 +38,8 @@ export class PreviewCoordinator {
   private readonly incrementalCompiler = new IncrementalPreviewCompiler();
   private paginatedRefreshFrame: number | null = null;
   private readonly getCompileSettings: () => DocumentCompileSettings;
+  /** Set only when the compile-worker flag is on; the live path stays on the page. */
+  private readonly compileClient: CompileClient | null;
 
   constructor(
     stage: HTMLElement,
@@ -45,6 +52,9 @@ export class PreviewCoordinator {
   ) {
     this.assetResolver = assetResolver;
     this.getCompileSettings = getCompileSettings;
+    this.compileClient = isCompileWorkerEnabled()
+      ? createCompileWorkerClient(job => this.compileOnPage(job))
+      : null;
     this.controller = new PreviewController(stage, {
       onPreviewSourceClick,
       onPreviewSourceTargetClick,
@@ -118,6 +128,7 @@ export class PreviewCoordinator {
 
   /** Releases scheduled compilation and browser-owned preview resources. */
   dispose(): void {
+    this.compileClient?.dispose();
     this.liveCompileGeneration += 1;
     if (this.liveCompileFrame !== null) window.cancelAnimationFrame(this.liveCompileFrame);
     this.liveCompileFrame = null;
@@ -133,9 +144,54 @@ export class PreviewCoordinator {
     const settings = this.getCompileSettings();
     await preloadDocumentAssets(markdown, this.assetResolver, settings.customBlockStyles);
     const started = performance.now();
-    const compiled = await compilePreviewDocument(markdown, this.assetResolver, settings, { sourceLineOffset: 2 });
+    const compiled = await this.compileOnPreferredThread(markdown, settings, { lane: 'single', sourceLineOffset: 2 });
     previewMetrics.recordPreviewCompile(metricKind, performance.now() - started);
     return compiled;
+  }
+
+  /**
+   * Runs a compile on the worker when the flag is on, otherwise on this thread.
+   * A superseded worker compile rejects with an AbortError, which callers treat as
+   * a stale result.
+   */
+  private async compileOnPreferredThread(
+    markdown: string,
+    settings: DocumentCompileSettings,
+    options: {
+      readonly lane: string;
+      readonly sourceLineOffset?: number;
+      readonly sourceSegments?: readonly DocumentPreviewSourceSegment[];
+      readonly onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void;
+    }
+  ): Promise<CompiledPreview> {
+    if (!this.compileClient) {
+      return compilePreviewDocument(markdown, this.assetResolver, settings, {
+        sourceLineOffset: options.sourceLineOffset,
+        sourceSegments: options.sourceSegments,
+        onPhase: options.onPhase
+      });
+    }
+    const outcome = await this.compileClient.compile({
+      lane: options.lane,
+      markdown,
+      settings,
+      assets: buildCompileAssets(markdown, settings.customBlockStyles, this.assetResolver),
+      sourceLineOffset: options.sourceLineOffset ?? 0,
+      sourceSegments: options.sourceSegments
+    });
+    for (const [phase, durationMs] of Object.entries(outcome.phases)) {
+      options.onPhase?.(phase as Extract<PreviewTimingPhase, `compile-${string}`>, durationMs ?? 0);
+    }
+    return outcome.compiled;
+  }
+
+  /** The page-side fallback for a worker job, with the page's own asset resolver. */
+  private async compileOnPage(job: CompileJob): Promise<CompileOutcome> {
+    const compiled = await compilePreviewDocument(job.markdown, this.assetResolver, job.settings, {
+      sourceLineOffset: job.sourceLineOffset,
+      sourceSegments: job.sourceSegments
+    });
+    return { compiled, cacheHit: false, phases: {} };
   }
 
   /**
@@ -158,7 +214,7 @@ export class PreviewCoordinator {
     onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void
   ): Promise<CompiledPreview> {
     const started = performance.now();
-    const compiled = await compilePreviewDocument(markdown, this.assetResolver, this.getCompileSettings(), { sourceSegments, onPhase });
+    const compiled = await this.compileOnPreferredThread(markdown, this.getCompileSettings(), { lane: 'full', sourceSegments, onPhase });
     previewMetrics.recordPreviewCompile('full-document', performance.now() - started);
     return compiled;
   }

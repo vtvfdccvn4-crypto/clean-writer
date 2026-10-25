@@ -4,6 +4,11 @@
 
 ### Fixed
 
+- Full-document and single-document compiles can run in a background worker,
+  enabled with `?compile-worker=true`. It is off by default. In a 1,000-page
+  test, the page's main thread went from one 6 s task to no long tasks, and its
+  longest frame gap went from about 6 s to 17 ms. The live preview still
+  compiles on the page.
 - The document outline is keyboard-operable. Its entries are buttons, with one
   in the tab order at a time, and the arrow, Home and End keys move between
   them. Saving re-renders only the sections that changed, and focus and scroll

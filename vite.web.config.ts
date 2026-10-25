@@ -24,11 +24,14 @@ function listFiles(directory: string, prefix = ''): string[] {
  * missing, since a worker without its list would precache only the shell.
  */
 function serviceWorkerBuild(id: string): Plugin {
+  let outDir = path.resolve(OUT_DIR);
   return {
     name: 'clear-writer-service-worker-build',
     apply: 'build',
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
     closeBundle() {
-      const outDir = path.resolve(OUT_DIR);
       const workerPath = path.join(outDir, SERVICE_WORKER_FILE);
       let source = fs.readFileSync(workerPath, 'utf8');
       if (!source.includes(BUILD_ASSETS_MARKER) || !source.includes(BUILD_ID_MARKER)) {
@@ -40,6 +43,51 @@ function serviceWorkerBuild(id: string): Plugin {
       source = source.replace(BUILD_ASSETS_MARKER, JSON.stringify(assets));
       source = source.replace(BUILD_ID_MARKER, id);
       fs.writeFileSync(workerPath, source);
+    }
+  };
+}
+
+/**
+ * decode-named-character-reference ships a DOM variant selected by the browser
+ * condition. That variant calls document.createElement when it loads, which
+ * crashes inside a worker. Worker bundles resolve the package's plain entry
+ * instead. Only the worker bundles use this plugin, so the page keeps the
+ * browser variant.
+ */
+function workerDomFreeResolution(): Plugin {
+  const plainEntry = path.resolve('node_modules/decode-named-character-reference/index.js');
+  return {
+    name: 'clear-writer-worker-dom-free-resolution',
+    enforce: 'pre',
+    resolveId(source) {
+      return source === 'decode-named-character-reference' ? plainEntry : null;
+    }
+  };
+}
+
+/**
+ * Fails the build if a worker bundle still calls the DOM. The compile worker
+ * would crash on first use, which a unit test running in Node cannot show.
+ */
+function workerBundleDomCheck(): Plugin {
+  let outDir = path.resolve(OUT_DIR);
+  return {
+    name: 'clear-writer-worker-dom-check',
+    apply: 'build',
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      const assetsDir = path.join(outDir, 'assets');
+      const workerChunks = fs.readdirSync(assetsDir).filter(file => /^compile\.worker-.*\.js$/.test(file));
+      if (workerChunks.length === 0) throw new Error('The compile worker bundle was not emitted.');
+      for (const chunk of workerChunks) {
+        const source = fs.readFileSync(path.join(assetsDir, chunk), 'utf8');
+        // parse5's tree adapter also has a createElement method, so match the DOM call itself.
+        if (/\bdocument\.createElement\(/.test(source)) {
+          throw new Error(`The compile worker bundle ${chunk} calls document.createElement, which is unavailable in a worker.`);
+        }
+      }
     }
   };
 }
@@ -56,7 +104,11 @@ export default defineConfig({
     port: 5274,
     strictPort: true
   },
-  plugins: [serviceWorkerBuild(buildId)],
+  plugins: [serviceWorkerBuild(buildId), workerBundleDomCheck()],
+  worker: {
+    format: 'es',
+    plugins: () => [workerDomFreeResolution()]
+  },
   build: {
     outDir: OUT_DIR,
     rollupOptions: {
