@@ -45,9 +45,11 @@ let browserVersion = {};
 try {
   await viteServer.listen();
 
-  const { compileMarkdown } = await viteServer.ssrLoadModule('/src/compiler/index.ts');
+  const { compileMarkdown, documentCompileSettings } = await viteServer.ssrLoadModule('/src/compiler/index.ts');
+  const { DEFAULT_APP_STATE } = await viteServer.ssrLoadModule('/src/config/defaults.ts');
+  const compileSettings = documentCompileSettings(DEFAULT_APP_STATE);
   const { buildFullDocumentMarkdown } = await viteServer.ssrLoadModule('/src/preview/document-rendering/index.ts');
-  scenarios = await buildScenarios(buildFullDocumentMarkdown, compileMarkdown);
+  scenarios = await buildScenarios(buildFullDocumentMarkdown, (markdown) => compileMarkdown(markdown, null, compileSettings));
 
   browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir, NO_BACKGROUND_THROTTLING_FLAGS);
   browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`);

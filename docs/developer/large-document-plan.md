@@ -434,3 +434,12 @@ after a one-section edit costs at most 20% of a full run.
   ran. Checked: no worker crash or fallback in the flag-on fixture run, the full
   suite passes with the flag on and off, and the production build and worker
   harness still pass.
+- 2026-10-25: B1 baseline recorded in `reports/phase0-baseline.md`, measured at
+  de7a054 on one headless Chromium machine. It is not a gate. Fixed the pagination
+  profiler, which failed before it measured anything: it called `compileMarkdown`
+  with the pre-settings signature. Pagination at 50 to 1,000 pages all succeed
+  (1,000 pages: 8.7 s). The budget estimator gave 668 for 1,000 pages. Typing
+  (1,000 pages, one section): dispatch p95 6 to 15 ms, one 51 ms long task in
+  three runs. Still open for B1: Firefox and WebKit, repeated-pagination heap and
+  style checks, the draft durability matrix, and real-keyboard input latency
+  (INP). `profile-preview.mjs` still uses the old compile signature.
