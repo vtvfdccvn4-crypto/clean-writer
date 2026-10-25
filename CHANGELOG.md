@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- Clear Writer asks the browser to keep its storage when a project opens, and
+  tells the user when the browser has not agreed. The shell preferences show
+  whether storage is protected and how much of the site's quota is used. A
+  notice appears at 80% and again at 95%, once each per session.
 - A new version of the app no longer takes over an open page. When a new version
   is ready, Clear Writer asks before reloading, saves the open document first,
   and reloads only the tab that accepted. Other open tabs keep running their

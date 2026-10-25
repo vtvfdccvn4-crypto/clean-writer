@@ -1,4 +1,5 @@
 import { closeAllDrawers, closeDrawer, openDrawer } from '../drawer-manager';
+import { STORAGE_PANEL_OPENED_EVENT } from '../storage-status';
 
 const SETTINGS_TAB_ACTIVATED_EVENT = 'clear-writer-settings-tab-activated';
 
@@ -67,6 +68,7 @@ export function openShellPreferencesDrawer(tabId?: ShellPreferencesTabId): boole
   const opened = openDrawer(drawer);
   const currentTab = drawer.querySelector<HTMLButtonElement>('[data-settings-tab].active')?.dataset.settingsTab as ShellPreferencesTabId | undefined;
   activateTabInDrawer(drawer, tabId ?? currentTab ?? 'shell-ui');
+  document.dispatchEvent(new Event(STORAGE_PANEL_OPENED_EVENT));
   return opened;
 }
 

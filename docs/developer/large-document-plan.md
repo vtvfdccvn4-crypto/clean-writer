@@ -329,4 +329,19 @@ after a one-section edit costs at most 20% of a full run.
   and nothing tests a tab that is two builds old. The offline export and preview
   check, the update prompt's wording under other locales, and the frame protocol
   version (plan §5.5) are still open.
+- 2026-10-25: B9 implemented. `src/platform/storage-quota.ts` reads
+  `navigator.storage` (persisted, estimate) and requests persistence. It treats
+  a missing or failing API as unsupported or unknown, never as zero. Levels:
+  warning at 80%, critical at 95%. `src/ui/storage-status.ts` requests
+  persistence once per session when a project opens, warns once per rising level
+  (checked on open and every five minutes), and fills a Storage card in the
+  shell preferences drawer.
+  Tests: `storage-quota.test.cjs` (9 unit tests, including the 80%/95% boundaries
+  and the failure cases), and `browser-storage-status-smoke` (the real
+  StorageManager; a stubbed 90% estimate shows the warning once).
+  Measured in headless Chromium: usage 0 of a 10 GB quota, and persistence was
+  not granted, so the card shows "not protected". Chromium's decision depends on
+  engagement, so a real profile may show a different answer.
+  Not done: the draft-store quota handling (B3) is not yet tied to this
+  estimate, and Firefox and WebKit persistence behaviour is unchecked.
 

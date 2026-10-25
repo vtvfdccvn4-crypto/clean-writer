@@ -4,6 +4,7 @@ import { renderAppShell, initProjectNameDisplay } from '../ui/components/AppShel
 import { initializeSymbolPicker } from '../ui/symbolPicker';
 import { projectSession } from '../services/ProjectSessionStore';
 import { registerServiceWorker } from '../sw-registration';
+import { initStorageStatus } from '../ui/storage-status';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { Platform } from '../platform/types';
 import { showNotice } from '../ui/components/Notice';
@@ -212,5 +213,6 @@ export async function bootApp(platform: Platform) {
   await restoreInitialWorkspace(platform, editorManager);
 
   (window as StartupWindow).__CLEAR_WRITER_READY__ = true;
+  initStorageStatus();
   registerServiceWorker(() => editorManager.flushCurrentDocument());
 }

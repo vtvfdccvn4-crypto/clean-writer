@@ -364,6 +364,18 @@ const fixtures = [
     }
   },
   {
+    name: 'browser-storage-status-smoke',
+    path: '/test/fixtures/browser-storage-status-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Storage status smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.supported === true, 'The browser did not expose navigator.storage.');
+      expect(result.quotaBytes > 0, 'The browser did not report a storage quota.');
+      expect(result.meterHidden === false, 'The usage meter stayed hidden although usage is known.');
+      expect(result.quotaWarningShown === true, 'A storage use of 90% did not produce a warning notice.');
+      expect(result.quotaWarningRepeatSuppressed === true, 'The same storage warning repeated instead of showing once.');
+    }
+  },
+  {
     name: 'pdf-visual',
     path: '/test/fixtures/pdf-visual.html',
     validate(result) {
