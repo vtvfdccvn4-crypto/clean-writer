@@ -28,6 +28,13 @@
   version, and their files are kept until the next update. The worker now
   precaches every file in the build as one set, so the app opens offline after
   its first visit. Offline reloads use only the current version's files.
+- Live preview renders from a full compile of the whole section on every
+  update. The earlier incremental path compiled each block alone, so a reference
+  or footnote defined in another block showed as raw text, and an unclosed code
+  fence could absorb the section's closing markup. In a differential test, the
+  incremental output differed from the full compile in 118 of 150 edits on a
+  300-page section, and it was slower than the full compile there (817 ms against
+  287 ms per update, headless Chromium).
 - Live preview follows typing after a 250 ms pause, instead of waiting for the
   750 ms autosave. The save status reports "saving" only while a save runs, and
   reports "saved" only when the save covers the newest edit. The paginated

@@ -402,3 +402,27 @@ after a one-section edit costs at most 20% of a full run.
   preview stays on the page (it needs DOM work, plan Phase 2 B13); the worker
   cache is lost when the worker is replaced.
 
+- 2026-10-25: B13, option 1 chosen (the live preview compiles the whole section;
+  block reuse is removed). Findings, from `live-preview-differential-smoke` (now
+  deleted; its last commit is c5bc0d1), run in headless Chromium:
+  - Default corpus, 1 page, cross-block reference and footnote: 150 of 150 edits
+    differ. Confirmed in the live path: E6.
+  - Local corpus, 1 page: 46 of 150 differ. The first difference is an unclosed
+    code fence that absorbs the section's closing `</div>`, because each block
+    is wrapped with the closing markup.
+  - Local corpus, 300 pages: 118 of 150 differ. Incremental 817 ms, full 287 ms,
+    so the incremental path was also slower. An earlier 20-step run with 0
+    mismatches was sampling noise.
+  Change: `PreviewCoordinator.runLatestCompile` calls the same compile as the
+  full-document path (worker when the flag is on, page otherwise). A superseded
+  worker compile resolves as stale. `IncrementalPreviewCompiler` and its unit
+  test are deleted; nothing else used them. Verified: typecheck, 327 unit tests,
+  and the default browser smoke suite pass.
+  Not done: the block model and block-keyed renderer (the rest of B13) are not
+  needed for correctness and are not built; the renderer still reconciles by
+  `data-ref`. The live path stays on the page by default: about 290 ms per update
+  at 300 pages, so B14 must decide the default for large documents.
+  Found while checking the worker flag: `browser-authoring-performance-smoke`
+  fails with the flag on, on HEAD as well. The worker returns no phase timings on
+  a cache hit, and the fixture expects them on a repeat compile of unchanged
+  text. Not fixed here; it is outside the default smoke gate.

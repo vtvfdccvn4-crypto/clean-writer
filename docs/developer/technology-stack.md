@@ -45,7 +45,7 @@ Markdown is compiled through the Unified ecosystem:
 
 Clear Writer adds compiler plugins for images, metadata, custom inline styles, custom block styles, list markers, tables, table-of-contents placeholders, and image attributes. Quote-style glyph handling is a separate custom-block path, not part of the general image transforms.
 
-The compiler never reads application state. Settings that change compiled output (custom styles, custom block styles, special headings, project metadata, and paragraph spacing) travel as a `DocumentCompileSettings` value from `src/compiler/settings.ts`: callers build it with `documentCompileSettings(state.current)` and pass it to `compileMarkdown` or `compilePreviewDocument`, which hand it to the plugins as options. `IncrementalPreviewCompiler` reuses unchanged blocks only while those settings are unchanged, so editing a style recompiles every block.
+The compiler never reads application state. Settings that change compiled output (custom styles, custom block styles, special headings, project metadata, and paragraph spacing) travel as a `DocumentCompileSettings` value from `src/compiler/settings.ts`: callers build it with `documentCompileSettings(state.current)` and pass it to `compileMarkdown` or `compilePreviewDocument`, which hand it to the plugins as options. The live preview compiles the whole document each time, so a settings change cannot leave a block compiled under older settings.
 
 ## Preview And Export
 

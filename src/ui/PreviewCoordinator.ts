@@ -2,7 +2,7 @@ import { compilePreviewDocument } from '../compiler';
 import type { CompiledPreview, DocumentCompileSettings } from '../compiler';
 import { preloadDocumentAssets } from '../services/ExportSnapshotService';
 import { PreviewController } from '../preview';
-import { CompileClient, type CompileOutcome } from '../workers/CompileClient';
+import { CompileClient, isAbortError, type CompileOutcome } from '../workers/CompileClient';
 import { createCompileWorkerClient } from '../workers/compile-client-factory';
 import { buildCompileAssets } from '../workers/compile-assets';
 import { isCompileWorkerEnabled } from '../config/feature-flags';
@@ -10,7 +10,6 @@ import type { CompileJob } from '../workers/compile-protocol';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { AssetResolver } from '../platform/types';
 import type { ImageSetup, ListSetup, PageSetup, TableSetup, TypographySetup } from '../types';
-import { IncrementalPreviewCompiler } from '../preview/live/IncrementalPreviewCompiler';
 import type { CanonicalPageBreakGuide } from '../preview/live/LivePreviewRenderer';
 import type { DocumentPreviewSourceSegment } from '../preview/document-rendering';
 import type { PdfPreviewFrameTimings, PdfPreviewJob } from '../pdf-preview/contracts';
@@ -35,7 +34,6 @@ export class PreviewCoordinator {
   private liveCompileFrame: number | null = null;
   private liveCompileGeneration = 0;
   private liveCompileRunning = false;
-  private readonly incrementalCompiler = new IncrementalPreviewCompiler();
   private paginatedRefreshFrame: number | null = null;
   private readonly getCompileSettings: () => DocumentCompileSettings;
   /** Set only when the compile-worker flag is on; the live path stays on the page. */
@@ -118,7 +116,6 @@ export class PreviewCoordinator {
 
   clear(): void {
     this.beginRevision();
-    this.incrementalCompiler.reset();
     this.controller.clear();
   }
 
@@ -135,7 +132,6 @@ export class PreviewCoordinator {
     this.cancelPaginatedRefresh();
     this.pendingLiveCompile?.resolve(null);
     this.pendingLiveCompile = null;
-    this.incrementalCompiler.reset();
     this.controller.dispose();
   }
 
@@ -286,20 +282,16 @@ export class PreviewCoordinator {
       const started = performance.now();
       const settings = this.getCompileSettings();
       await preloadDocumentAssets(request.markdown, this.assetResolver, settings.customBlockStyles);
-      let compiled: CompiledPreview | null = null;
-      try {
-        compiled = await this.incrementalCompiler.compile(request.markdown, this.assetResolver, settings);
-      } catch (error) {
-        console.warn('[PreviewCoordinator] Incremental compile fell back to a full document.', error);
-      }
-      if (!compiled) {
-        this.incrementalCompiler.reset();
-        compiled = await compilePreviewDocument(request.markdown, this.assetResolver, settings, { sourceLineOffset: 2 });
-      }
+      // The full compile is the only live output. Its result is correct for
+      // every document, including fences and definitions that span blocks.
+      const compiled = await this.compileOnPreferredThread(request.markdown, settings, { lane: 'live', sourceLineOffset: 2 });
       previewMetrics.recordPreviewCompile('single-document-edit', performance.now() - started);
       request.resolve(request.generation === this.liveCompileGeneration ? compiled : null);
     } catch (error) {
-      if (request.generation === this.liveCompileGeneration) {
+      // A worker compile superseded by a newer edit is not a failure.
+      if (isAbortError(error)) {
+        request.resolve(null);
+      } else if (request.generation === this.liveCompileGeneration) {
         request.reject(error);
       } else {
         request.resolve(null);
