@@ -14,6 +14,9 @@ type ProfileRequest = { samples: number; scenarios: ProfileScenario[] };
 declare global {
   interface Window {
     __RUN_PAGINATION_PROFILE__?: (request: ProfileRequest) => Promise<unknown>;
+    __REUSE_SETUP__?: (scenario: ProfileScenario) => void;
+    __REUSE_RUN__?: () => Promise<Record<string, unknown>>;
+    __REUSE_TEARDOWN__?: () => void;
   }
 }
 
@@ -226,6 +229,47 @@ function createDiagnostic(
     ...(error ? { error } : {})
   };
 }
+
+// Reused-host mode. The app keeps one host, and its frame, across jobs, so these runs
+// share one host. The driver calls one run at a time, so it can force garbage collection between runs.
+let reuseState: { host: IsolatedPaginationHost; scenario: ProfileScenario; run: number } | null = null;
+
+window.__REUSE_SETUP__ = scenario => {
+  reuseState?.host.dispose();
+  reuseState = { host: new IsolatedPaginationHost(), scenario, run: 0 };
+};
+
+window.__REUSE_TEARDOWN__ = () => {
+  reuseState?.host.dispose();
+  reuseState = null;
+};
+
+window.__REUSE_RUN__ = async () => {
+  if (!reuseState) throw new Error('Reused-host setup did not run.');
+  const state = reuseState;
+  state.run += 1;
+  const frameBefore = document.querySelector<HTMLIFrameElement>('iframe[src*="pdf-preview"]');
+  const stylesBefore = frameBefore?.contentDocument?.querySelectorAll('style').length ?? null;
+  const started = performance.now();
+  const outcome = await state.host.requestPrintArtifact(createJob(state.scenario));
+  const elapsedMs = Math.round(performance.now() - started);
+  const frames = Array.from(document.querySelectorAll<HTMLIFrameElement>('iframe[src*="pdf-preview"]'));
+  const frame = frames[0] ?? null;
+  const frameDocument = frame?.contentDocument ?? null;
+  return {
+    run: state.run,
+    status: outcome.status,
+    elapsedMs,
+    pageCount: outcome.status === 'success' ? outcome.result.artifact.pageCount : 0,
+    frameCount: frames.length,
+    frameReused: frameBefore !== null && frame === frameBefore,
+    stylesBefore,
+    styleElementCount: frameDocument?.querySelectorAll('style').length ?? null,
+    pagedPageCount: frameDocument?.querySelectorAll('.pagedjs_page').length ?? null,
+    frameHtmlCharacters: frameDocument?.documentElement?.outerHTML.length ?? null,
+    heapUsedBytesBeforeGc: readHeapUsedBytes()
+  };
+};
 
 function rewriteFrameCount() {
   return document.querySelectorAll('iframe[src*="pdf-preview"]').length;

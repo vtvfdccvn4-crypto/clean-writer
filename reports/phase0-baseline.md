@@ -62,8 +62,31 @@ Cancellation during pagination was checked in each profile run and returned
 `estimatePdfPreviewBudget` underestimates by about a third on this corpus. The stall
 and ceiling limits use that estimate, so the calibration needs to account for it.
 
-**Repeated pagination** (heap growth and style-element count over 10 runs) was not
-measured here. It needs its own run.
+### Repeated pagination (one host and frame, 300 pages, forced GC between runs)
+
+The app keeps one pagination host, and its frame, across jobs, so this check runs
+every job on one host. The browser's garbage collector runs before and after each
+job, so heap readings are taken after collection.
+
+| Check | 10 runs | 30 runs |
+|---|---|---|
+| Jobs succeeded | 10 / 10 | 30 / 30 |
+| Frames in the page after each run | 1 (same frame every run) | 1 (same frame every run) |
+| `<style>` elements in the frame after each run | 0 | 0 |
+| Paged.js pages left in the frame after each run | 0 | 0 |
+| Heap after GC, run 1 | 9.93 MB | 9.93 MB |
+| Heap after GC, run 10 | 10.56 MB (+6.3%) | 10.57 MB (+6.4%) |
+| Heap after GC, run 15 / run 30 | — | 10.61 MB / 10.63 MB (+7.1% at run 30) |
+
+The heap rises by about 0.6 MB over the first 10 runs, then holds at about
+10.6 MB from run 15 to run 30 (under 0.2% change). That pattern looks like a one-time
+warm-up step, not a per-run leak. The plan's limit is 5% over 10 runs. This
+measurement is 6.3% from run 1, or about 4.8% if the cold first run is excluded
+(run 2 to run 10). The limit's baseline needs a decision before it is judged.
+
+The style check reads the frame after each job returns. It does not sample the
+frame during pagination, so it shows that the cleanup happens, not how many styles
+exist at the peak.
 
 ## Feature flags
 

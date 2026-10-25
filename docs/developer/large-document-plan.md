@@ -448,4 +448,14 @@ after a one-section edit costs at most 20% of a full run.
   development is kept. G1 and G4 now name Chromium and WebKit. The B1 entry
   above no longer lists Firefox. Earlier log entries that mention Firefox are
   unchanged, as they record the state at the time.
+- 2026-10-25: B1 repeated-pagination check. The app reuses one host and frame, so
+  the check runs every job on one host, with forced GC before and after each job
+  (the profiler's new `--reuse-host` mode). At 300 pages, 30 jobs succeeded, the
+  frame was the same element every time, and it held 0 `<style>` elements and 0
+  Paged.js pages after each job. Heap after GC rose from 9.93 MB (run 1) to
+  10.56 MB (run 10), +6.3%, and held at about 10.6 MB from run 15 to 30. This
+  looks like a one-time warm-up, but it is above the plan's 5% limit over 10 runs,
+  which needs a decision about its baseline. Also fixed in the profiler: a
+  timeout timer was left running after each call, which kept the process alive
+  until the timeout.
 
