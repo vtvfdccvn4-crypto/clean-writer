@@ -463,4 +463,12 @@ after a one-section edit costs at most 20% of a full run.
   at 300 pages on one host with forced GC: growth 4.8%, under the 5% limit. The
   profiler computes this as `heapGate`. Over 30 runs the heap levels off at about
   5.5% above run 2, so the margin is small.
+- 2026-10-25: B1 real keyboard input latency. New driver
+  `scripts/typing-input-latency.mjs` sends trusted key events over the DevTools
+  protocol into the 1,000-page corpus (`test/fixtures/editor-keyboard-latency.*`).
+  Over 200 keystrokes in three runs: frame latency p50 15 ms, p95 15.7 to 16.7 ms,
+  max 17 to 36 ms; Event Timing for interactions over 16 ms, slowest 32 ms; no long
+  task in any run. Both gates pass on this machine. The earlier typing bench
+  dispatched transactions, so this is the first measurement of real input. Remaining
+  B1 item: WebKit, which needs a machine that has it.
 

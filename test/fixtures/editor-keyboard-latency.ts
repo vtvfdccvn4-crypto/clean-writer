@@ -1,0 +1,79 @@
+import { createEditor } from '../../src/editor';
+
+// The same 1,000-page corpus as editor-typing-bench: headings, paragraphs, a list,
+// and a table every tenth page, in one section. The driver sends real key events
+// through the browser's input pipeline, so this page only has to measure what the
+// editor does with them.
+const PAGES = 1_000;
+const page = (index: number) => [
+  `## Section ${index}`,
+  '',
+  'Lorem ipsum dolor sit amet, **consectetur** adipiscing elit, sed do _eiusmod_ tempor incididunt ut labore. '.repeat(12),
+  '',
+  '- first item with `code`',
+  '- second item',
+  '',
+  'Second paragraph with a [link](https://example.com) and more prose to fill the page. '.repeat(10),
+  ...(index % 10 === 0 ? ['', '| a | b | c |', '|---|---|---|', '| 1 | 2 | 3 |', '| 4 | 5 | 6 |'] : []),
+  ''
+].join('\n');
+
+declare global {
+  interface Window {
+    __KEYBOARD_BENCH__?: {
+      documentChars: number;
+      focus(position: number): void;
+      /** Resolves at the next animation frame, and returns the keystroke's latency in ms. */
+      afterKeystroke(): Promise<number>;
+      takeLongTasks(): number[];
+      takeEventTimings(): number[];
+    };
+  }
+}
+
+const document1000 = Array.from({ length: PAGES }, (_, index) => page(index + 1)).join('\n');
+const parent = document.getElementById('editor');
+if (!parent) throw new Error('Editor root missing.');
+const editor = createEditor(parent, document1000, { onChange: () => undefined, onDirty: () => undefined });
+const contentEditable = editor.view.contentDOM;
+
+// The input event's timestamp is when the browser received the key. The animation
+// callback of the frame that shows the edit runs before that frame is painted, so
+// its time is an upper bound on input-to-paint, within about one paint.
+let inputReceivedAt = 0;
+contentEditable.addEventListener('beforeinput', event => {
+  inputReceivedAt = event.timeStamp;
+}, { capture: true });
+
+const longTasks: number[] = [];
+new PerformanceObserver(list => {
+  for (const entry of list.getEntries()) longTasks.push(entry.duration);
+}).observe({ type: 'longtask', buffered: false });
+
+const eventTimings: number[] = [];
+new PerformanceObserver(list => {
+  for (const entry of list.getEntries()) {
+    if (entry.name === 'keydown' || entry.name === 'keypress' || entry.name === 'keyup' || entry.name === 'input') {
+      eventTimings.push(entry.duration);
+    }
+  }
+}).observe({ type: 'event', durationThreshold: 16, buffered: false } as PerformanceObserverInit);
+
+window.__KEYBOARD_BENCH__ = {
+  documentChars: document1000.length,
+  focus(position: number) {
+    editor.view.focus();
+    editor.view.dispatch({ selection: { anchor: position }, scrollIntoView: true });
+  },
+  afterKeystroke() {
+    return new Promise<number>(resolve => {
+      requestAnimationFrame(() => resolve(performance.now() - inputReceivedAt));
+    });
+  },
+  takeLongTasks() {
+    return longTasks.splice(0);
+  },
+  takeEventTimings() {
+    return eventTimings.splice(0);
+  }
+};

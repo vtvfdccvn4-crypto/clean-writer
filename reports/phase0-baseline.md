@@ -42,6 +42,22 @@ Run 1 has one long task of 51 ms, just over the 50 ms release gate. The cause is
 known. Frame p95 is close to the 16.7 ms frame interval, so it is limited by the
 display, not by the editor.
 
+### Real keyboard input (1,000 pages, one section, 200 keystrokes after 20 warm-up)
+
+Keys are sent as trusted key events over the DevTools protocol
+(`scripts/typing-input-latency.mjs`), so they go through the browser's input
+pipeline. Latency is from the input event to the animation frame that shows it.
+
+| Run | Frame latency p50 | p95 | max | Event Timing (≥16 ms) p95 | max | Long tasks |
+|---|---|---|---|---|---|---|
+| 1 | 15.1 ms | 16.7 ms | 35.9 ms | 24 ms | 32 ms | 0 |
+| 2 | 15.1 ms | 15.8 ms | 23.5 ms | 16 ms | 24 ms | 0 |
+| 3 | 15.0 ms | 15.7 ms | 17.3 ms | 16 ms | 24 ms | 0 |
+
+All three runs pass the plan's typing gates: no long task over 50 ms, and p95 latency
+under 100 ms. The p95 INP gate has room: the slowest Event Timing entry was 32 ms.
+The runs are on one headless machine, so they are a baseline, not the gate.
+
 ### Pagination (isolated frame, one sample each)
 
 | Scenario | Pages | Elapsed | Heap used | Status |
@@ -113,8 +129,6 @@ Flags are read from the address query. Each is off unless its value is `true`.
   been run on any browser other than Chromium.
 - `scripts/profile-preview.mjs` still calls `compileMarkdown` with the old
   signature. It has not been run since the compiler's signature changed.
-- The typing harness dispatches transactions directly, so it does not measure
-  input-to-paint latency for real keystrokes.
 - All numbers come from one machine, with one or three samples. Variance has not
   been estimated.
 
