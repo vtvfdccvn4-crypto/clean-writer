@@ -6,7 +6,7 @@ import { CompileClient, isAbortError, type CompileOutcome } from '../workers/Com
 import { createCompileWorkerClient } from '../workers/compile-client-factory';
 import { buildCompileAssets } from '../workers/compile-assets';
 import { isCompileWorkerEnabled } from '../config/feature-flags';
-import type { CompileJob } from '../workers/compile-protocol';
+import type { CompileJob, CompilePhaseTimings } from '../workers/compile-protocol';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { AssetResolver } from '../platform/types';
 import type { ImageSetup, ListSetup, PageSetup, TableSetup, TypographySetup } from '../types';
@@ -158,6 +158,7 @@ export class PreviewCoordinator {
       readonly sourceLineOffset?: number;
       readonly sourceSegments?: readonly DocumentPreviewSourceSegment[];
       readonly onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void;
+      readonly onCacheHit?: (cacheHit: boolean) => void;
     }
   ): Promise<CompiledPreview> {
     if (!this.compileClient) {
@@ -175,6 +176,7 @@ export class PreviewCoordinator {
       sourceLineOffset: options.sourceLineOffset ?? 0,
       sourceSegments: options.sourceSegments
     });
+    options.onCacheHit?.(outcome.cacheHit);
     for (const [phase, durationMs] of Object.entries(outcome.phases)) {
       options.onPhase?.(phase as Extract<PreviewTimingPhase, `compile-${string}`>, durationMs ?? 0);
     }
@@ -183,11 +185,15 @@ export class PreviewCoordinator {
 
   /** The page-side fallback for a worker job, with the page's own asset resolver. */
   private async compileOnPage(job: CompileJob): Promise<CompileOutcome> {
+    const phases: CompilePhaseTimings = {};
     const compiled = await compilePreviewDocument(job.markdown, this.assetResolver, job.settings, {
       sourceLineOffset: job.sourceLineOffset,
-      sourceSegments: job.sourceSegments
+      sourceSegments: job.sourceSegments,
+      onPhase: (phase, durationMs) => {
+        phases[phase] = durationMs;
+      }
     });
-    return { compiled, cacheHit: false, phases: {} };
+    return { compiled, cacheHit: false, phases };
   }
 
   /**
@@ -207,10 +213,11 @@ export class PreviewCoordinator {
   async compileFullDocument(
     markdown: string,
     sourceSegments: readonly DocumentPreviewSourceSegment[] = [],
-    onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void
+    onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void,
+    onCacheHit?: (cacheHit: boolean) => void
   ): Promise<CompiledPreview> {
     const started = performance.now();
-    const compiled = await this.compileOnPreferredThread(markdown, this.getCompileSettings(), { lane: 'full', sourceSegments, onPhase });
+    const compiled = await this.compileOnPreferredThread(markdown, this.getCompileSettings(), { lane: 'full', sourceSegments, onPhase, onCacheHit });
     previewMetrics.recordPreviewCompile('full-document', performance.now() - started);
     return compiled;
   }

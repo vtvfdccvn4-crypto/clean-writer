@@ -154,7 +154,12 @@ export class DocumentRenderCoordinator {
           sourceCharacterCount = markdown.length;
           const endCompile = timing.start('compile');
           try {
-            return await this.preview.compileFullDocument(markdown, sourceSegments, (phase, durationMs) => timing.record(phase, durationMs));
+            return await this.preview.compileFullDocument(
+              markdown,
+              sourceSegments,
+              (phase, durationMs) => timing.record(phase, durationMs),
+              compileCacheHit => timing.updateMetadata({ compileCacheHit })
+            );
           } finally {
             endCompile();
           }

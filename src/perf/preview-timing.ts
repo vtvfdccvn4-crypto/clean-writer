@@ -77,6 +77,8 @@ export interface PreviewDocumentMetadata {
   artifactCharacterCount?: number;
   paginationCssCharacterCount?: number;
   paginationStyleCount?: number;
+  /** True when the compile was served from the worker's result cache, so no compile phases ran. */
+  compileCacheHit?: boolean;
 }
 
 export interface PreviewTimingRecord {

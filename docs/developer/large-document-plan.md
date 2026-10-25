@@ -423,6 +423,12 @@ after a one-section edit costs at most 20% of a full run.
   `data-ref`. The live path stays on the page by default: about 290 ms per update
   at 300 pages, so B14 must decide the default for large documents.
   Found while checking the worker flag: `browser-authoring-performance-smoke`
-  fails with the flag on, on HEAD as well. The worker returns no phase timings on
-  a cache hit, and the fixture expects them on a repeat compile of unchanged
-  text. Not fixed here; it is outside the default smoke gate.
+  failed with the flag on, on HEAD as well. Two causes. The page fallback for a
+  stranded worker job (`compileOnPage`) returned no phase timings, so the
+  fixture found no compile sub-phases. Fixed: the fallback now reports them. The
+  worker also cannot run under the dev server: the dev client throws
+  `document is not defined` inside the worker, the worker crashes, and its jobs
+  run on the page. Fixture-visible result: a cache hit now sets
+  `compileCacheHit` in the timing metadata, and the fixture requires compile
+  sub-phases only when a compile ran. Not fixed: the worker under the dev server.
+  The production build is unaffected (the compile-worker harness passes).
