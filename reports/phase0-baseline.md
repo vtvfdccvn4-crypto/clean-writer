@@ -80,9 +80,15 @@ job, so heap readings are taken after collection.
 
 The heap rises by about 0.6 MB over the first 10 runs, then holds at about
 10.6 MB from run 15 to run 30 (under 0.2% change). That pattern looks like a one-time
-warm-up step, not a per-run leak. The plan's limit is 5% over 10 runs. This
-measurement is 6.3% from run 1, or about 4.8% if the cold first run is excluded
-(run 2 to run 10). The limit's baseline needs a decision before it is judged.
+warm-up step, not a per-run leak.
+
+**Gate baseline (set):** run 1 is cold, because it creates the frame and loads
+Paged.js. The baseline is therefore run 2, the first warm run, and the window is
+runs 2 to 10. Growth in that window is **4.8%**, under the 5% limit, so the gate
+passes. The profiler computes it as `heapGate` in the output. Measured from run 1 the
+figure would be 6.3%, but run 1 is excluded by definition. Over 30 runs the heap
+levels off at about 5.5% above run 2, so the gate is close to its limit and should
+be watched when the pagination code changes.
 
 The style check reads the frame after each job returns. It does not sample the
 frame during pagination, so it shows that the cleanup happens, not how many styles

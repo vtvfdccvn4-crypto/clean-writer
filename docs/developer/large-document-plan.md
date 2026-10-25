@@ -185,7 +185,7 @@ after a one-section edit costs at most 20% of a full run.
 | Live preview after a one-block edit | same | ≤ 300 ms after the scheduler fires; ≤ 50 ms main-thread work | |
 | Full compile in worker | 1,000 pages / 50 sections | ≤ 5 s cold, ≤ 300 ms warm cache; no main-thread task > 50 ms except the DOM commit (≤ 200 ms) | |
 | Pagination | 1,000 pages | Finishes or fails visibly through the stall watchdog, never a fixed cap; progress ≤ 1 s apart; cancel → responsive ≤ 500 ms. Throughput target set from Phase 0 measurements | |
-| Repeated pagination | | ≤ 5% heap growth, 0 extra Paged.js style elements over 10 runs | |
+| Repeated pagination | 300 pages, one host and frame, forced GC before and after each job | ≤ 5% heap growth after forced GC from the baseline (run 2, the first warm run) to run 10, and 0 extra Paged.js style elements after each run. Run 1 is excluded because it is cold (it creates the frame and loads Paged.js). `profile-pagination.mjs --scale --reuse-host` computes the gate as `heapGate` | |
 | Offline cold boot after first install | | ≤ 3 s to an interactive editor | |
 
 ## 7. Decision gates
@@ -458,4 +458,9 @@ after a one-section edit costs at most 20% of a full run.
   which needs a decision about its baseline. Also fixed in the profiler: a
   timeout timer was left running after each call, which kept the process alive
   until the timeout.
+- 2026-10-25: Repeated-pagination gate baseline set. Run 1 is cold, so the
+  baseline is run 2 (the first warm run) and the window is runs 2 to 10. Measured
+  at 300 pages on one host with forced GC: growth 4.8%, under the 5% limit. The
+  profiler computes this as `heapGate`. Over 30 runs the heap levels off at about
+  5.5% above run 2, so the margin is small.
 

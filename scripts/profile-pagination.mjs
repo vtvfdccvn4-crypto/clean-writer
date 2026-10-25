@@ -361,9 +361,22 @@ async function runReusedHostProfile(session, scenarioList, samples) {
       runs.push({ ...record, heapBytesAfterPriorRunGc: heapBeforeRunBytes, heapBytesAfterRunGc: heapAfterRunBytes });
     }
     await session.evaluate('window.__REUSE_TEARDOWN__()');
-    results.push({ name: scenario.name, repeatedHostRuns: runs });
+    results.push({ name: scenario.name, repeatedHostRuns: runs, heapGate: repeatedHeapGate(runs) });
   }
   return { scenarios: results, cancellation: null };
+}
+
+/**
+ * The repeated-pagination gate from the plan: heap after forced GC may grow by at
+ * most 5% over ten runs. Run 1 is cold (it creates the frame and loads Paged.js), so
+ * the baseline is the first warm run, run 2, and the window is runs 2 to 10.
+ */
+function repeatedHeapGate(runs) {
+  const baseline = runs[1]?.heapBytesAfterRunGc;
+  const end = runs[9]?.heapBytesAfterRunGc;
+  if (typeof baseline !== 'number' || typeof end !== 'number') return null;
+  const growthPercent = Math.round(((end - baseline) / baseline) * 1000) / 10;
+  return { baselineRun: 2, endRun: 10, limitPercent: 5, growthPercent, passed: growthPercent <= 5 };
 }
 
 async function connectToTarget(webSocketUrl) {
