@@ -3,7 +3,7 @@ import type { EditorManager } from './editor-manager';
 import type { Platform, WorkspaceSession } from '../platform/types';
 import { extractMarkdownHeadings, type MarkdownHeading } from '../editor/markdown-headings';
 import { extractWritingStatistics, calculateReadingTime } from '../editor/writing-statistics';
-import { escapeHtml } from '../utils/escapeHtml';
+import { outlineSectionHtml, createOutlineView, type OutlineSectionChunk } from './outline-view';
 import { normalizeExplorerPath } from '../utils/path-utils';
 import { OUTLINE_ACTIVATED_EVENT, PROJECT_STATS_REFRESH_EVENT, type ProjectStatsRefreshDetail } from './outline-events';
 
@@ -23,6 +23,10 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
   }
   const outlineDrawer = drawer;
   let outlineDirty = true;
+  const outlineView = createOutlineView(content, activation => {
+    if (activation.action === 'section') void navigateToSection(activation.path);
+    else void navigateToHeading(activation.path, activation.line);
+  });
   let rebuildInFlight: Promise<void> | null = null;
   // Parsed outline per section, so a save only re-reads the section it wrote.
   const sectionCache = new Map<string, SectionOutline>();
@@ -128,7 +132,7 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
       const summaryStats = document.getElementById('project-statistics-summary');
       let totalHeadings = 0;
       let totalWords = 0;
-      const htmlChunks: string[] = [];
+      const sectionChunks: OutlineSectionChunk[] = [];
       const livePaths = new Set<string>();
 
       for (const section of sections) {
@@ -154,31 +158,14 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
 
         const sectionName = section.path.split('/').pop() || section.path;
 
-        let sectionHtml = `<div class="document-outline-section">`;
-        sectionHtml += `
-          <div class="document-outline-section-name" data-path="${escapeHtml(section.path)}">
-            ${escapeHtml(sectionName)}
-          </div>
-        `;
-
-        for (const heading of headings) {
-          const indent = (heading.level - 1) * 12 + 12;
-          sectionHtml += `
-            <div class="document-outline-heading" data-path="${escapeHtml(section.path)}" data-line="${heading.line}" style="padding-left: ${indent}px">
-              ${escapeHtml(heading.text || '(empty heading)')}
-            </div>
-          `;
-        }
-
-        sectionHtml += `</div>`;
-        htmlChunks.push(sectionHtml);
+        sectionChunks.push({ key: `section:${key}`, html: outlineSectionHtml(section.path, sectionName, headings) });
       }
 
       for (const key of sectionCache.keys()) {
         if (!livePaths.has(key)) sectionCache.delete(key);
       }
 
-      content.innerHTML = htmlChunks.join('');
+      outlineView.render(sectionChunks);
       
       if (summaryStats) {
         if (totalWords > 0 || totalHeadings > 0) {
@@ -199,27 +186,6 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
         emptyState.classList.add('hidden');
       }
 
-      content.querySelectorAll('.document-outline-section-name').forEach(el => {
-        el.addEventListener('click', async (e) => {
-          const target = e.currentTarget as HTMLElement;
-          const path = target.dataset.path;
-          if (path) {
-            await navigateToSection(path);
-          }
-        });
-      });
-
-      content.querySelectorAll('.document-outline-heading').forEach(el => {
-        el.addEventListener('click', async (e) => {
-          const target = e.currentTarget as HTMLElement;
-          const path = target.dataset.path;
-          const line = target.dataset.line ? parseInt(target.dataset.line, 10) : 1;
-          if (path) {
-            await navigateToHeading(path, line);
-          }
-        });
-      });
-      
     } catch (e) {
       console.error('Failed to rebuild outline', e);
       clearOutline();
@@ -229,7 +195,7 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
 
   function clearOutline() {
     if (!content || !emptyState) return;
-    content.innerHTML = '';
+    outlineView.clear();
     content.classList.add('hidden');
     emptyState.classList.remove('hidden');
     const summaryStats = document.getElementById('project-statistics-summary');

@@ -398,6 +398,20 @@ const fixtures = [
     }
   },
   {
+    name: 'browser-outline-view-smoke',
+    path: '/test/fixtures/browser-outline-view-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Outline view smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.buttons === true && result.oneTabStop === true, 'Outline items are not buttons with a single tab stop.');
+      expect(result.movedDown === true && result.movedUp === true && result.endIsLast === true && result.homeIsFirst === true, 'Arrow, Home and End keys do not move between outline items.');
+      expect(result.activatedHeading === true && result.activatedSection === true, 'Activating an outline item did not report its section or heading.');
+      expect(result.sameNodes === true && result.alphaNodeKept === true, 'An unchanged outline section was rebuilt on save.');
+      expect(result.focusKept === true, 'Focus left the outline item when its section was re-rendered.');
+      expect(result.scrollKept === true, 'The outline scroll position was lost on re-render.');
+      expect(result.positionKept === true, 'Focus did not follow its heading when that heading moved to another line.');
+    }
+  },
+  {
     name: 'pdf-visual',
     path: '/test/fixtures/pdf-visual.html',
     validate(result) {

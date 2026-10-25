@@ -358,4 +358,19 @@ after a one-section edit costs at most 20% of a full run.
   Not done: the in-app paginated refresh has no progress strip (B14 covers the
   freshness state); axe, NVDA and VoiceOver checks, zoom and forced-colors have
   not been run; the real-browser pagination progress rate is unmeasured (B1).
+- 2026-10-25: B11 implemented. `src/ui/outline-view.ts` renders the outline as
+  buttons with a roving tab stop (Arrow keys, Home, End), and delegates clicks and
+  keys once on the container. Each section's markup is cached by key, so a save
+  replaces only the sections whose markup changed. Focus is restored by heading
+  identity (text plus occurrence, not line), then by position; scroll is kept.
+  `document-outline.ts` now only chooses what to show.
+  Tests: `outline-view.test.cjs` (3), `browser-outline-view-smoke` (keyboard
+  movement, activation, node reuse, focus and scroll across re-renders, a moved
+  heading keeping focus). A mutation that rebuilds every section fails it.
+  Caught while building: the first identity used the line number, so focus moved
+  to a neighbouring heading when a line shifted. It now uses the text.
+  Not done: `aria-current` on the heading at the caret (no caret event reaches the
+  outline yet); page jump and reduced motion (B19); axe, screen-reader, zoom and
+  forced-colour checks. The keyboard test dispatches key events, not real key
+  presses.
 

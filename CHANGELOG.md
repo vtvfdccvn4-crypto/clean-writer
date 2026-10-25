@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- The document outline is keyboard-operable. Its entries are buttons, with one
+  in the tab order at a time, and the arrow, Home and End keys move between
+  them. Saving re-renders only the sections that changed, and focus and scroll
+  position are kept. A heading keeps its focus when its line moves.
 - PDF preview now shows its progress in a strip above the export button: the
   current phase, the page count against its estimate, and a Cancel button. The
   page count is announced to screen readers every 25 pages, and when the job
