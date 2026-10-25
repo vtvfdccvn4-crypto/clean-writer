@@ -376,6 +376,28 @@ const fixtures = [
     }
   },
   {
+    name: 'browser-pdf-job-status-smoke',
+    path: '/test/fixtures/browser-pdf-job-status-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `PDF job status smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.startedIndeterminate === true, 'The progress bar was determinate before any page was known.');
+      expect(result.milestone25 === true && result.milestone50 === true, 'Page milestones were not announced.');
+      expect(result.noAnnouncementBetween === true, 'Pages between milestones were announced, which floods screen readers.');
+      expect(result.focusable === true, 'The Cancel control is not a focusable button.');
+      expect(result.cancelledOnce === true, 'A Cancel press reached an earlier export\'s handler instead of only the current one.');
+      expect(result.hiddenAfterCancel === true, 'The strip did not hide or announce the cancellation.');
+    }
+  },
+  {
+    name: 'browser-pdf-export-progress-smoke',
+    path: '/test/fixtures/browser-pdf-export-progress-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `PDF export progress smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.hiddenAfterCancel === true, 'The export progress strip stayed visible after Cancel.');
+      expect(result.buttonRestored === true, 'The PDF preview button stayed disabled after Cancel.');
+    }
+  },
+  {
     name: 'pdf-visual',
     path: '/test/fixtures/pdf-visual.html',
     validate(result) {

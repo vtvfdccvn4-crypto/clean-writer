@@ -93,7 +93,8 @@ test('isolated PDF preview is exposed through a dedicated button and boot route'
   assert.doesNotMatch(diagnostics, /html|css|marginImageSources/);
   assert.match(setup, /AbortController/);
   assert.match(setup, /cancelOnEscape/);
-  assert.match(setup, /approximately/);
+  // The page count is an estimate, shown as one, in the job status module.
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'pdf-job-status.ts'), 'utf8'), /of about/);
   assert.match(main, /pdf-preview/);
 });
 

@@ -1,5 +1,6 @@
 import { materialIcon } from './icon';
 import { toolbarButton } from './toolbarButton';
+import { pdfJobStatusTemplate } from '../pdf-job-status';
 
 function previewEyeIconMarkup(): string {
   return materialIcon('document_scanner');
@@ -29,6 +30,7 @@ export const previewPanelTemplate = (): string => `
       <pre id="preview-diagnostics-output" aria-live="polite">No preview timing recorded.</pre>
     </details>
 
+    ${pdfJobStatusTemplate()}
     <div class="preview-footer-toolbar panel-bar panel-footer">
       <output id="preview-page-indicator" class="preview-page-indicator" aria-live="polite" aria-label="Preview page" hidden>Page 1 of 1 Pages</output>
       <div class="panel-actions preview-export-actions">

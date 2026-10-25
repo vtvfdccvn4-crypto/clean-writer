@@ -1,6 +1,7 @@
 import type { EditorManager } from '../ui/editor-manager';
 import { PdfPreviewPrintTarget } from '../pdf-preview/PdfPreviewPrintTarget';
 import { showNotice } from '../ui/components/Notice';
+import { createPdfJobStatus } from '../ui/pdf-job-status';
 
 let pipelineLoader: Promise<typeof import('../pdf-preview/IsolatedPdfPreviewPipeline')> | undefined;
 
@@ -17,6 +18,8 @@ export function setupPdfPreview(editorManager: EditorManager): void {
     const cancelOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') abortController.abort();
     };
+    // The strip's Cancel button and Escape both end the same abort signal.
+    const status = createPdfJobStatus(() => abortController.abort());
     button.disabled = true;
     button.dataset.previewStatus = 'preparing';
     // Open the target synchronously during the click event so popup blockers
@@ -25,9 +28,11 @@ export function setupPdfPreview(editorManager: EditorManager): void {
     if (!printTarget) {
       button.disabled = false;
       button.dataset.previewStatus = 'failed';
+      status.complete({ kind: 'blocked' });
       showNotice('PDF preview was blocked. Allow popups for this site and try again.', 'error');
       return;
     }
+    status.start();
     // Register cancellation before feature loading and snapshot compilation;
     // large documents can spend noticeable time in those preparatory phases.
     window.addEventListener('keydown', cancelOnEscape);
@@ -36,36 +41,37 @@ export function setupPdfPreview(editorManager: EditorManager): void {
       const preparedArtifact = editorManager.getPreparedPdfArtifact(input);
       if (preparedArtifact) {
         button.dataset.previewStatus = 'install-print-document';
+        status.update({ type: 'clear-writer-pdf-preview-progress', requestId: 'prepared', phase: 'install-print-document' });
         await printTarget.printArtifact(preparedArtifact);
         button.dataset.previewStatus = 'complete';
+        status.complete({ kind: 'printing' });
         return;
       }
       const { IsolatedPdfPreviewPipeline } = await loadPdfPreviewPipeline();
       const pipeline = new IsolatedPdfPreviewPipeline();
       const pipelineResult = await pipeline.run(input, printTarget, progress => {
         button.dataset.previewStatus = progress.phase;
-        if (progress.pagesCompleted !== undefined) {
-          const estimate = progress.estimatedPages ? ` of approximately ${progress.estimatedPages}` : '';
-          const elapsed = progress.elapsedMs === undefined ? '' : ` (${Math.ceil(progress.elapsedMs / 1000)}s)`;
-          button.title = `PDF preview: page ${progress.pagesCompleted}${estimate}${elapsed}`;
-        }
+        status.update(progress);
       }, abortController.signal);
       button.dataset.previewStatus = pipelineResult.status;
+      status.complete(pipelineResult.status === 'cancelled' ? { kind: 'cancelled' } : { kind: 'printing' });
     } catch (error) {
       printTarget.close();
       if (abortController.signal.aborted) {
         button.dataset.previewStatus = 'cancelled';
+        status.complete({ kind: 'cancelled' });
       } else {
+        const message = error instanceof Error ? error.message : String(error);
         button.dataset.previewStatus = 'failed';
         console.error('PDF preview failed', error);
-        showNotice(`PDF preview failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+        status.complete({ kind: 'failed', message });
+        showNotice(`PDF preview failed: ${message}`, 'error');
       }
     } finally {
       window.removeEventListener('keydown', cancelOnEscape);
       button.disabled = false;
       window.setTimeout(() => {
         button.dataset.previewStatus = 'idle';
-        button.title = 'PDF preview';
       }, 3000);
     }
   });

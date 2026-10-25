@@ -344,4 +344,18 @@ after a one-section edit costs at most 20% of a full run.
   engagement, so a real profile may show a different answer.
   Not done: the draft-store quota handling (B3) is not yet tied to this
   estimate, and Firefox and WebKit persistence behaviour is unchecked.
+- 2026-10-25: B10 implemented for the PDF preview (export) job. The strip
+  (`src/ui/pdf-job-status.ts`, in the preview footer) shows the phase, a native
+  `<progress>` (indeterminate until a page count exists; the maximum grows past
+  the estimate), and a Cancel button. A `role="status"` live region, outside the
+  hidden strip, announces the start, every 25 pages, the print dialog, and the
+  outcome (`setupPdfPreview.ts` drives it; Escape still cancels).
+  Tests: `pdf-job-status.test.cjs` (6), `browser-pdf-job-status-smoke` (progress,
+  milestones without floods, keyboard-focusable Cancel, one handler per click —
+  the mutation that re-adds listeners fails it), and
+  `browser-pdf-export-progress-smoke` (the real export in a stand-in print frame,
+  since headless Chromium blocks pop-ups; the strip appears and Cancel ends the job).
+  Not done: the in-app paginated refresh has no progress strip (B14 covers the
+  freshness state); axe, NVDA and VoiceOver checks, zoom and forced-colors have
+  not been run; the real-browser pagination progress rate is unmeasured (B1).
 

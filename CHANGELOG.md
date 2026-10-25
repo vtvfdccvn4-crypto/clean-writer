@@ -4,6 +4,11 @@
 
 ### Fixed
 
+- PDF preview now shows its progress in a strip above the export button: the
+  current phase, the page count against its estimate, and a Cancel button. The
+  page count is announced to screen readers every 25 pages, and when the job
+  starts, opens the print dialog, is cancelled, or fails. Before, progress
+  appeared only in the button's tooltip, and cancelling required the Escape key.
 - Clear Writer asks the browser to keep its storage when a project opens, and
   tells the user when the browser has not agreed. The shell preferences show
   whether storage is protected and how much of the site's quota is used. A
