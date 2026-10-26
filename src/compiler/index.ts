@@ -8,7 +8,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { VFile } from 'vfile';
 
 import { listMarkerPlugin, imageAttributesPlugin, imageSourcePlugin, customStylesPlugin, customBlockStylesPlugin, specialHeadingsPlugin, metadataSubstitutionPlugin, tableStylePlugin } from './remark-plugins';
-import { listLayoutPlugin, tocPlaceholderPlugin, previewManifestPlugin, type PreviewSourceManifestEntry } from './rehype-plugins';
+import { listLayoutPlugin, tocPlaceholderPlugin, previewManifestPlugin, externalLinkPlugin, type PreviewSourceManifestEntry } from './rehype-plugins';
 
 const documentSchema = {
   ...defaultSchema,
@@ -51,6 +51,7 @@ const createMarkdownCompiler = (assetResolver: AssetResolver | null | undefined,
   .use(rehypeSanitize, documentSchema)
   .use(tocPlaceholderPlugin)
   .use(listLayoutPlugin)
+  .use(externalLinkPlugin)
   .use(imageSourcePlugin, { assetResolver })
   .use(customStylesPlugin, settings)
   .use(customBlockStylesPlugin, { ...settings, assetResolver })

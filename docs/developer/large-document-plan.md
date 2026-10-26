@@ -229,7 +229,7 @@ after a one-section edit costs at most 20% of a full run.
 | B15 | Medium | `content-visibility` on pages and blocks | B14 (measured, not shipped: see log) |
 | B16 | Medium | Hash-based `PdfArtifactKey` (validates E19) | B1 (done, see log) |
 | B17 | Medium | Writable abort on failure; trash-based delete; external-modification check | — (done, see log) |
-| B18 | Medium | External links with `noopener`; print waits for image decoding | — |
+| B18 | Medium | External links with `noopener`; print waits for image decoding | — (done, see log) |
 | B19 | Medium | Page jump, heading navigator, reduced motion, status region | B11 |
 | B20 | Medium | Frame-isolation experiment (G3) | B4–B6 |
 | B21 | Medium | Chapter composition prototype (G4) | G2 |
@@ -549,4 +549,19 @@ after a one-section edit costs at most 20% of a full run.
     32 fixtures, including `browser-external-change-smoke`, which changes the file
     while the editor has it open, types, and checks that the file keeps the outside
     change and the notice appears.
+- 2026-10-26: B18 done.
+  - External links: a rehype plugin (`src/compiler/rehype-plugins/externalLinks.ts`)
+    sets `target="_blank"` and `rel="noopener noreferrer"` on `http`/`https` links.
+    It runs after sanitizing, so the sanitizer does not strip the attributes.
+    In-document and relative links are unchanged. Before, clicking an external link
+    in the preview navigated the app away from the document.
+  - Print waits for decoding: `waitForPrintResources` calls `image.decode()` on each
+    image after it has loaded, because `complete` only means the bytes arrived. The
+    2 s safety cap is kept. Limitation: no test forces a slow decode, so this is
+    covered by the existing print fixtures, not by a targeted check.
+  - The print window opened by `PdfPreviewPrintTarget.open` is still opened without
+    `noopener`, on purpose: it is a same-origin window that the app writes into,
+    and `noopener` would make `window.open` return null.
+  - Verified: 343 unit tests pass (new: `test/external-links.test.cjs`). The full
+    browser smoke suite passes with 32 fixtures.
 

@@ -13,6 +13,10 @@
   overwritten silently.
 - A failed file write is aborted, so the previous contents are kept. Before, the
   stream was left open.
+- Web links in a document open in a new window without access to the app. Before,
+  clicking one in the preview navigated the app away from the document.
+- Printing waits until each image has been decoded, not only until it has
+  arrived, so a large image is drawn before the print dialog opens.
 - Full-document and single-document compiles can run in a background worker,
   enabled with `?compile-worker=true`. It is off by default. In a 1,000-page
   test, the page's main thread went from one 6 s task to no long tasks, and its

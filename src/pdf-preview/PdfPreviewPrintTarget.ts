@@ -98,12 +98,16 @@ async function waitForPrintResources(doc: Document): Promise<void> {
   await new Promise<void>(resolve => window.setTimeout(resolve, 250));
 }
 
-function waitForImage(image: HTMLImageElement): Promise<void> {
-  if (image.complete) return Promise.resolve();
-  return new Promise(resolve => {
-    image.addEventListener('load', () => resolve(), { once: true });
-    image.addEventListener('error', () => resolve(), { once: true });
-  });
+async function waitForImage(image: HTMLImageElement): Promise<void> {
+  if (!image.complete) {
+    await new Promise<void>(resolve => {
+      image.addEventListener('load', () => resolve(), { once: true });
+      image.addEventListener('error', () => resolve(), { once: true });
+    });
+  }
+  // "complete" means the bytes have arrived. decode() resolves once the pixels are ready to print,
+  // so the print dialog does not open before a large image is drawn.
+  await image.decode().catch(() => undefined);
 }
 
 function waitForResources(resourcesReady: Promise<unknown>): Promise<void> {
