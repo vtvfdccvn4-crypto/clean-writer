@@ -1,6 +1,7 @@
 import { IsolatedPaginationHost } from '../../src/pdf-preview/IsolatedPaginationHost';
 import type { PdfPreviewJob } from '../../src/pdf-preview/contracts';
 import { PDF_RENDER_COMPILER_VERSION } from '../../src/pdf-preview/PdfRenderSnapshot';
+import { pdfDigest } from '../../src/pdf-preview/digest';
 
 type ProfileScenario = {
   name: string;
@@ -129,10 +130,10 @@ function createJob(scenario: ProfileScenario): PdfPreviewJob {
     css: layoutCss(scenario.layoutVariant),
     key: {
       compilerVersion: PDF_RENDER_COMPILER_VERSION,
-      document: scenario.html,
-      stylesheet: layoutCss(scenario.layoutVariant),
-      margins: '{}',
-      assets: '[]'
+      documentDigest: pdfDigest(scenario.html),
+      stylesheetDigest: pdfDigest(layoutCss(scenario.layoutVariant)),
+      marginsDigest: pdfDigest('{}'),
+      assetsDigest: pdfDigest('[]')
     },
     artifactPrintCss: '@media print { @page { size: A4; margin: 0; } }',
     listMarkerStyles: { bulletIcon: 'decimal', parenthesized: { bulletIcon: 'decimal' } },

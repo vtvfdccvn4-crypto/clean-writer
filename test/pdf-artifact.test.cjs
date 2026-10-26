@@ -18,10 +18,10 @@ const validArtifact = () => ({
   artifactId: 'artifact-1',
   key: {
     compilerVersion: 'pdf-render-v2',
-    document: 'document',
-    stylesheet: 'stylesheet',
-    margins: 'margins',
-    assets: 'assets'
+    documentDigest: 'a'.repeat(64),
+    stylesheetDigest: 'b'.repeat(64),
+    marginsDigest: 'c'.repeat(64),
+    assetsDigest: 'd'.repeat(64)
   },
   html: '<main class="pagedjs_pages"><section class="pagedjs_page"></section></main>',
   css: '@page { size: A4; }',
@@ -43,5 +43,6 @@ test('PDF artifacts reject incomplete or inconsistent render products', () => {
   assert.throws(() => createPdfArtifact({ ...validArtifact(), html: '' }), /missing page HTML/);
   assert.throws(() => createPdfArtifact({ ...validArtifact(), pageCount: 2 }), /page metadata/);
   assert.throws(() => createPdfArtifact({ ...validArtifact(), schemaVersion: 999 }), /Unsupported/);
-  assert.throws(() => createPdfArtifact({ ...validArtifact(), key: { ...validArtifact().key, assets: '' } }), /incomplete render identity/);
+  assert.throws(() => createPdfArtifact({ ...validArtifact(), key: { ...validArtifact().key, assetsDigest: '' } }), /incomplete render identity/);
+  assert.throws(() => createPdfArtifact({ ...validArtifact(), key: { ...validArtifact().key, documentDigest: 'not-a-digest' } }), /incomplete render identity/);
 });

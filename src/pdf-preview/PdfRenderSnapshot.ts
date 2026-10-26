@@ -5,16 +5,21 @@ import { compilePrintDocument } from '../print/PrintDocumentCompiler';
 import type { PrintLayoutSettings } from '../print/PrintLayoutSettings';
 import { parseMarkdownImages } from '../images/markdownImages';
 import type { PdfPreviewMarginData } from './contracts';
+import { pdfDigest } from './digest';
 
 export const PDF_RENDER_COMPILER_VERSION = 'pdf-render-v2';
 
-/** Exact, collision-free identity used to decide whether an artifact may be reused. */
+/**
+ * Identity used to decide whether an artifact may be reused. Each part is a SHA-256
+ * digest, so the key is small and the document is not carried twice in a snapshot.
+ * Two different inputs share a digest only with negligible probability.
+ */
 export interface PdfArtifactKey {
   readonly compilerVersion: typeof PDF_RENDER_COMPILER_VERSION;
-  readonly document: string;
-  readonly stylesheet: string;
-  readonly margins: string;
-  readonly assets: string;
+  readonly documentDigest: string;
+  readonly stylesheetDigest: string;
+  readonly marginsDigest: string;
+  readonly assetsDigest: string;
 }
 
 export interface PdfResolvedAsset {
@@ -50,10 +55,10 @@ export function createPdfRenderSnapshot(
   const marginImageSources = Object.freeze(Object.fromEntries(assets.map(asset => [asset.source, asset.resolvedUrl])));
   const key = Object.freeze({
     compilerVersion: PDF_RENDER_COMPILER_VERSION,
-    document,
-    stylesheet: css,
-    margins: canonicalJson(margins),
-    assets: canonicalJson(assets)
+    documentDigest: pdfDigest(document),
+    stylesheetDigest: pdfDigest(css),
+    marginsDigest: pdfDigest(canonicalJson(margins)),
+    assetsDigest: pdfDigest(canonicalJson(assets))
   });
 
   return Object.freeze({
@@ -73,10 +78,10 @@ export function createPdfRenderSnapshot(
 
 export function samePdfArtifactKey(left: PdfArtifactKey, right: PdfArtifactKey): boolean {
   return left.compilerVersion === right.compilerVersion
-    && left.document === right.document
-    && left.stylesheet === right.stylesheet
-    && left.margins === right.margins
-    && left.assets === right.assets;
+    && left.documentDigest === right.documentDigest
+    && left.stylesheetDigest === right.stylesheetDigest
+    && left.marginsDigest === right.marginsDigest
+    && left.assetsDigest === right.assetsDigest;
 }
 
 function resolveMarginAssets(layout: PrintLayoutSettings, assetResolver: AssetResolver): PdfResolvedAsset[] {

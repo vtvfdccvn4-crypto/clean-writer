@@ -1,6 +1,7 @@
 import { IsolatedPaginationHost } from '../../src/pdf-preview/IsolatedPaginationHost';
 import type { PdfPreviewJob } from '../../src/pdf-preview/contracts';
 import { createIsolatedJob, countIsolatedFrames } from './helpers/isolated-pagination.ts';
+import { pdfDigest } from '../../src/pdf-preview/digest';
 
 declare global {
   interface Window { __HARNESS_RESULT__?: Record<string, unknown>; }
@@ -16,7 +17,7 @@ const longDocument = (marker: string) => Array.from({ length: 160 }, (_, index) 
 ).join('');
 
 function withCss(job: PdfPreviewJob, css: string): PdfPreviewJob {
-  return { ...job, css, key: { ...job.key, stylesheet: css } };
+  return { ...job, css, key: { ...job.key, stylesheetDigest: pdfDigest(css) } };
 }
 
 async function run(): Promise<void> {

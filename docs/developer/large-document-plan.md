@@ -227,7 +227,7 @@ after a one-section edit costs at most 20% of a full run.
 | B13 | High | Block model, document index, block-keyed renderer, differential tests | B12 |
 | B14 | Medium | Live default above a measured threshold; freshness state; on-demand pagination | B1, B10 (done, see log) |
 | B15 | Medium | `content-visibility` on pages and blocks | B14 (measured, not shipped: see log) |
-| B16 | Medium | Hash-based `PdfArtifactKey` (validates E19) | B1 |
+| B16 | Medium | Hash-based `PdfArtifactKey` (validates E19) | B1 (done, see log) |
 | B17 | Medium | Writable abort on failure; trash-based delete; external-modification check | — |
 | B18 | Medium | External links with `noopener`; print waits for image decoding | — |
 | B19 | Medium | Page jump, heading navigator, reduced motion, status region | B11 |
@@ -514,4 +514,17 @@ after a one-section edit costs at most 20% of a full run.
 - 2026-10-26: Full browser smoke suite passes with 31 fixtures, including
   `browser-large-document-smoke`, after the draft-store fixture race was fixed
   (c37b7c4). Unit tests: 329 pass.
+- 2026-10-26: B16 done. E19 is confirmed: the pagination snapshot's key held the
+  whole compiled document and stylesheet as strings, and `html` repeated the
+  document, so the frame received it twice. The key now holds four SHA-256
+  digests (`documentDigest`, `stylesheetDigest`, `marginsDigest`, `assetsDigest`),
+  computed with a synchronous implementation in `src/pdf-preview/digest.ts`
+  (`pdfDigest`), which is checked against the platform SHA-256 in
+  `test/pdf-digest.test.cjs`. For a 583,000-character document the key is now 370
+  characters; before it carried the whole document and stylesheet (15,632
+  characters). Artifact reuse still compares the whole key, so a changed document,
+  stylesheet, margin or asset gives a different key. The reuse rule is the same
+  as before, apart from the 256-bit digest collision risk. Fixtures that built keys
+  by hand now use digests. Unit tests: 333 pass. The full browser smoke suite
+  passes with 31 fixtures.
 
