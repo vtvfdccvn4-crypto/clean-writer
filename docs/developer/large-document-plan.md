@@ -226,7 +226,7 @@ after a one-section edit costs at most 20% of a full run.
 | B12 | High | Production-build compile worker | G1 |
 | B13 | High | Block model, document index, block-keyed renderer, differential tests | B12 |
 | B14 | Medium | Live default above a measured threshold; freshness state; on-demand pagination | B1, B10 (done, see log) |
-| B15 | Medium | `content-visibility` on pages and blocks | B14 |
+| B15 | Medium | `content-visibility` on pages and blocks | B14 (measured, not shipped: see log) |
 | B16 | Medium | Hash-based `PdfArtifactKey` (validates E19) | B1 |
 | B17 | Medium | Writable abort on failure; trash-based delete; external-modification check | — |
 | B18 | Medium | External links with `noopener`; print waits for image decoding | — |
