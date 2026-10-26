@@ -81,6 +81,12 @@
 
 ### Changed
 
+- A large document (more than 400,000 characters, about 85 printed pages) opens
+  in the live preview. Its print preview is built when you ask for it, with the
+  Build print preview button, and an edit marks it out of date instead of
+  re-paginating it. Page-break guides are not drawn for large documents. Smaller
+  documents open in the print preview as before. The threshold is set from the
+  Phase 0 baseline and is provisional.
 - The outline panel re-reads only the section that was saved instead of every
   section in the project.
 - Internal restructuring with no intended behaviour change: preview objects are

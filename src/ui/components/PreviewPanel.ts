@@ -30,6 +30,10 @@ export const previewPanelTemplate = (): string => `
       <pre id="preview-diagnostics-output" aria-live="polite">No preview timing recorded.</pre>
     </details>
 
+    <div id="preview-freshness" class="preview-freshness" hidden>
+      <span id="preview-freshness-text" class="preview-freshness-text" role="status" aria-live="polite"></span>
+      <button id="preview-freshness-action" class="preview-freshness-action" type="button"></button>
+    </div>
     ${pdfJobStatusTemplate()}
     <div class="preview-footer-toolbar panel-bar panel-footer">
       <output id="preview-page-indicator" class="preview-page-indicator" aria-live="polite" aria-label="Preview page" hidden>Page 1 of 1 Pages</output>

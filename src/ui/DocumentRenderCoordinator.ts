@@ -20,6 +20,9 @@ import { dispatchSectionSaved } from './outline-events';
 import { captureCurrentPrintLayout, type CompiledPreviewCache, type LatestCompiledPreview } from './CompiledPreviewCache';
 import { PreviewScheduler } from './PreviewScheduler';
 import { isAbortError } from '../workers/CompileClient';
+import { isLargeDocument } from '../preview/PreviewPolicy';
+import type { CompiledPreview } from '../compiler';
+import { updatePreviewFreshness } from './preview-freshness';
 
 /** Preview refresh pauses. Live preview is cheap enough to follow typing closely; the paginated preview runs a full layout, so it waits as long as it did when it followed autosave. */
 const LIVE_PREVIEW_DELAY_MS = 250;
@@ -42,6 +45,10 @@ export interface DocumentRenderCoordinatorOptions {
   getIsSupressingPreviewNavigation: () => boolean;
   scheduleCanonicalPageBreakGuides: () => void;
   syncFinalPrintPreviewToggle: () => void;
+  /** Turns the print preview on or off, without rendering it. */
+  setFinalPrintPreview: (active: boolean) => void;
+  /** Builds the print preview for the open section, or re-renders it when it is on. */
+  buildPrintPreview: () => Promise<void>;
   updateSaveStatus: (status: EditorSaveStatus) => void;
   updateActiveSectionLabel: (filename: string | null, customLabel?: string) => void;
   reportWorkflowError: (message: string, error: unknown) => void;
@@ -61,6 +68,8 @@ export class DocumentRenderCoordinator {
   private readonly drafts: DraftStore = createBrowserDraftStore();
   private readonly draftWriter = new DraftWriter(this.drafts);
   private readonly previewScheduler: PreviewScheduler<PreviewEdit>;
+  /** The full document's compiled preview, kept so its print preview can be built on request. */
+  private fullDocumentCompiled: CompiledPreview | null = null;
 
   constructor(opts: DocumentRenderCoordinatorOptions) {
     this.opts = opts;
@@ -174,6 +183,14 @@ export class DocumentRenderCoordinator {
         outcome = 'stale';
         return;
       }
+      this.fullDocumentCompiled = initialDocument;
+      if (isLargeDocument(sourceCharacterCount)) {
+        // A large document is shown live. Its pagination runs only when the user asks.
+        this.showLiveDocument(initialDocument, revision);
+        updatePreviewFreshness('not-built', () => void this.buildFullDocumentPrintPreview());
+        return;
+      }
+      updatePreviewFreshness(null, () => undefined);
       const endJobCreation = timing.start('create-pagination-job');
       const job = createPdfPreviewJob(initialDocument.html, this.capturePrintLayout(), this.platform.assetResolver);
       endJobCreation();
@@ -360,15 +377,26 @@ export class DocumentRenderCoordinator {
       compiled: initialPreview
     };
 
-    this.pageGuides.cancel();
-    await this.preview.forceRenderIsolated(
-      createPdfPreviewJob(initialPreview.html, this.capturePrintLayout(), this.platform.assetResolver),
-      initialPreview.html,
-      initialPreview.manifest,
-      initialRevision
-    );
+    if (isLargeDocument(markdownToCompile.length)) {
+      // A large document opens live. The editor's print-preview setting is set on
+      // every open, so the next document that is small enough opens in print again.
+      this.opts.setFinalPrintPreview(false);
+      this.opts.syncFinalPrintPreviewToggle();
+      this.showLiveDocument(initialPreview, initialRevision);
+      updatePreviewFreshness('not-built', () => void this.opts.buildPrintPreview());
+    } else {
+      updatePreviewFreshness(null, () => undefined);
+      this.pageGuides.cancel();
+      await this.preview.forceRenderIsolated(
+        createPdfPreviewJob(initialPreview.html, this.capturePrintLayout(), this.platform.assetResolver),
+        initialPreview.html,
+        initialPreview.manifest,
+        initialRevision
+      );
+      if (!this.preview.isCurrent(initialRevision) || !isLatest()) return;
+      this.opts.syncFinalPrintPreviewToggle();
+    }
     if (!this.preview.isCurrent(initialRevision) || !isLatest()) return;
-    this.opts.syncFinalPrintPreviewToggle();
 
     this.preview.scrollToTop();
     if (!focusedPendingLine) {
@@ -389,6 +417,12 @@ export class DocumentRenderCoordinator {
       state.current.sections,
       0
     );
+    const large = isLargeDocument(markdownToCompile.length);
+    if (large && this.opts.getIsFinalPrintPreview()) {
+      // Pagination of a large document runs only on request, so an edit only marks the print preview out of date.
+      updatePreviewFreshness('out-of-date', () => void this.opts.buildPrintPreview());
+      return;
+    }
 
     void this.preview.compileLatestDocument(markdownToCompile)
       .then(compiledPreview => {
@@ -417,6 +451,32 @@ export class DocumentRenderCoordinator {
       .catch(previewError => {
         console.warn(`[DocumentRenderCoordinator] Preview refresh failed for ${filename}.`, previewError);
       });
-    if (!this.opts.getIsFinalPrintPreview()) this.opts.scheduleCanonicalPageBreakGuides();
+    // Page-break guides paginate in the background, so a large document shows none until its print preview is built.
+    if (!this.opts.getIsFinalPrintPreview() && !large) this.opts.scheduleCanonicalPageBreakGuides();
+  }
+
+  /** Shows the compiled document in the live preview, without paginating it. */
+  private showLiveDocument(compiled: CompiledPreview, revision: number): void {
+    this.preview.setMode('live');
+    this.pageGuides.cancel();
+    this.preview.publish(compiled, revision);
+    this.opts.syncFinalPrintPreviewToggle();
+  }
+
+  /** Paginates the full document once, on request. */
+  private async buildFullDocumentPrintPreview(): Promise<void> {
+    const compiled = this.fullDocumentCompiled;
+    if (!compiled) return;
+    const revision = this.preview.beginRevision();
+    this.preview.setMode('paginated');
+    this.preview.clearVisiblePreview();
+    this.pageGuides.cancel();
+    const result = await this.preview.forceRenderIsolated(
+      createPdfPreviewJob(compiled.html, this.capturePrintLayout(), this.platform.assetResolver),
+      compiled.html,
+      compiled.manifest,
+      revision
+    );
+    if (result.status === 'rendered' && this.preview.isCurrent(revision)) updatePreviewFreshness(null, () => undefined);
   }
 }

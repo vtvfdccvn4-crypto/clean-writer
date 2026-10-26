@@ -11,6 +11,8 @@ const sampleCount = positiveInteger(readArgument('--samples'), 3);
 const scaleMode = process.argv.includes('--scale');
 const contentProfileMode = process.argv.includes('--content-profile');
 const reuseHostMode = process.argv.includes('--reuse-host');
+const realisticMode = process.argv.includes('--realistic');
+const requestedRealisticPages = readArgument('--realistic-pages');
 const layoutProfileMode = process.argv.includes('--layout-profile');
 const requestedScalePages = positiveInteger(readArgument('--pages'), null);
 const requestedContentPages = readArgument('--content-pages');
@@ -73,8 +75,8 @@ try {
       userAgent: browserVersion.UserAgent
     },
     samples: sampleCount,
-    profile: layoutProfileMode ? 'layout-ablation' : contentProfileMode ? 'content-classification' : scaleMode ? 'scale' : 'standard',
-    scenarios: profile.scenarios,
+    profile: layoutProfileMode ? 'layout-ablation' : contentProfileMode ? 'content-classification' : realisticMode ? 'realistic' : scaleMode ? 'scale' : 'standard',
+    scenarios: profile.scenarios.map(result => ({ ...result, ...sourceFacts(scenarios, result.name) })),
     cancellation: profile.cancellation
   };
   await writeReport(report);
@@ -134,6 +136,26 @@ async function buildScenarios(buildFullDocumentMarkdown, compileMarkdown) {
       buildFullDocumentMarkdown,
       compileMarkdown
     ))));
+  }
+  if (realisticMode) {
+    // One section of prose-heavy pages, like the typing corpus, so the source size
+    // per page is realistic. Each size is compiled once and its source size recorded.
+    const pageTargets = requestedRealisticPages
+      ? requestedRealisticPages.split(',').map(value => positiveInteger(value.trim(), null)).filter(value => value !== null)
+      : [50, 100, 200, 400, 600, 1000];
+    const realistic = [];
+    for (const pageTarget of pageTargets) {
+      const markdown = realisticMarkdown(pageTarget);
+      const started = performance.now();
+      const scenario = await compileScenario(
+        `realistic-${pageTarget}-pages`,
+        { blocks: [{ path: 'Realistic.md', pageBreak: false, markdown }] },
+        buildFullDocumentMarkdown,
+        compileMarkdown
+      );
+      realistic.push({ ...scenario, sourceCharacters: markdown.length, compileMs: Math.round(performance.now() - started) });
+    }
+    return realistic;
   }
   if (scaleMode) {
     const pageTargets = requestedScalePages ? [requestedScalePages] : [50, 100, 200, 300];
@@ -220,6 +242,29 @@ async function compileScenario(name, scenario, buildFullDocumentMarkdown, compil
     sentinel: scenario.sentinel,
     layoutVariant: scenario.layoutVariant
   };
+}
+
+function sourceFacts(scenarioList, name) {
+  const scenario = scenarioList.find(item => item.name === name);
+  if (!scenario || scenario.sourceCharacters === undefined) return {};
+  return { sourceCharacters: scenario.sourceCharacters, compileMs: scenario.compileMs };
+}
+
+/** The typing corpus's page, repeated: headings, prose, a list, and a table every tenth page. */
+function realisticMarkdown(pageCount) {
+  const page = index => [
+    `## Section ${index}`,
+    '',
+    'Lorem ipsum dolor sit amet, **consectetur** adipiscing elit, sed do _eiusmod_ tempor incididunt ut labore. '.repeat(12),
+    '',
+    '- first item with `code`',
+    '- second item',
+    '',
+    'Second paragraph with a [link](https://example.com) and more prose to fill the page. '.repeat(10),
+    ...(index % 10 === 0 ? ['', '| a | b | c |', '|---|---|---|', '| 1 | 2 | 3 |', '| 4 | 5 | 6 |'] : []),
+    ''
+  ].join('\n');
+  return Array.from({ length: pageCount }, (_, index) => page(index + 1)).join('\n');
 }
 
 function scaleScenario(pageTarget) {

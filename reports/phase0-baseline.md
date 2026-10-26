@@ -110,6 +110,24 @@ The style check reads the frame after each job returns. It does not sample the
 frame during pagination, so it shows that the cleanup happens, not how many styles
 exist at the peak.
 
+### Realistic corpus (one section of typing-corpus pages, source size and compile)
+
+Compile is in Node (`compileMarkdown`); pagination is in headless Chromium, three samples,
+median. Sizes are the number of pages in the corpus's one section; printed pages differ
+(the 1,000-page corpus prints as 467 pages).
+
+| Corpus pages | Source characters | Printed pages | Compile | Paginate (median) | Total |
+|---|---|---|---|---|---|
+| 50 | 109,925 | 24 | 0.46 s | 0.31 s | 0.8 s |
+| 100 | 219,861 | 47 | 0.62 s | 0.67 s | 1.3 s |
+| 200 | 439,831 | 94 | 1.04 s | 0.92 s | 2.0 s |
+| 400 | 879,771 | 187 | 1.97 s | 1.90 s | 3.9 s |
+| 600 | 1,319,711 | 280 | 3.57 s | 3.20 s | 6.8 s |
+| 1,000 | 2,199,592 | 467 | 4.36 s | 7.50 s | 11.9 s |
+
+The large-document threshold (`src/preview/PreviewPolicy.ts`) is 400,000 characters,
+just under the point where compile plus pagination reaches about 2 s.
+
 ## Feature flags
 
 Flags are read from the address query. Each is off unless its value is `true`.

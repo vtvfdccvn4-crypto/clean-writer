@@ -365,6 +365,13 @@ const fixtures = [
     }
   },
   {
+    name: 'browser-large-document-smoke',
+    path: '/test/fixtures/browser-large-document-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Large document smoke reported failure: ${JSON.stringify(result)}`);
+    }
+  },
+  {
     name: 'browser-storage-status-smoke',
     path: '/test/fixtures/browser-storage-status-smoke.html',
     validate(result) {

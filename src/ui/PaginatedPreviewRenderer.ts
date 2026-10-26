@@ -8,6 +8,7 @@ import type { Platform } from '../platform/types';
 import type { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
 import { captureCurrentPrintLayout, type CompiledPreviewCache } from './CompiledPreviewCache';
 import { isAbortError } from '../workers/CompileClient';
+import { updatePreviewFreshness } from './preview-freshness';
 
 export interface PaginatedPreviewRendererOptions {
   preview: PreviewCoordinator;
@@ -72,6 +73,44 @@ export class PaginatedPreviewRenderer {
     if (!this._isActive) this.pageGuides.schedule(layoutChanged ? 'layout' : 'typing');
   }
 
+  /** Builds the print preview, turning it on if it is off, or re-renders it if it is on. */
+  public async buildPrintPreview(): Promise<void> {
+    if (!this._isActive) {
+      await this.toggle();
+      return;
+    }
+    await this.refreshPrintPreview();
+  }
+
+  /** Re-renders the active section's print preview from its current text, keeping the view on screen. */
+  private async refreshPrintPreview(): Promise<void> {
+    const { projectRef, activeFile, sections } = state.current;
+    const editor = this.documentSession.currentEditor;
+    if (!projectRef || !activeFile || !editor) return;
+
+    await this.opts.flushCurrentDocument();
+    const revision = this.preview.beginRevision();
+    const markdown = renderDocumentSection({ path: activeFile, markdown: editor.getValue() }, sections, 0);
+    let compiled: Awaited<ReturnType<PreviewCoordinator['compileDocument']>>;
+    try {
+      compiled = await this.preview.compileDocument(markdown, 'single-document-load');
+    } catch (error) {
+      if (isAbortError(error)) return;
+      throw error;
+    }
+    if (!this.preview.isCurrent(revision)
+      || state.current.activeFile !== activeFile
+      || !this.documentSession.currentEditor) return;
+    this.pageGuides.cancel();
+    const result = await this.preview.forceRenderIsolated(
+      createPdfPreviewJob(compiled.html, captureCurrentPrintLayout(), this.platform.assetResolver),
+      compiled.html,
+      compiled.manifest,
+      revision
+    );
+    if (result.status === 'rendered' && this.preview.isCurrent(revision)) updatePreviewFreshness(null, () => undefined);
+  }
+
   public async toggle(): Promise<void> {
     const { projectRef, activeFile, sections } = state.current;
     const editor = this.documentSession.currentEditor;
@@ -101,12 +140,13 @@ export class PaginatedPreviewRenderer {
       || !this.documentSession.currentEditor) return;
     if (this._isActive) {
       this.pageGuides.cancel();
-      await this.preview.forceRenderIsolated(
+      const result = await this.preview.forceRenderIsolated(
         createPdfPreviewJob(compiled.html, captureCurrentPrintLayout(), this.platform.assetResolver),
         compiled.html,
         compiled.manifest,
         revision
       );
+      if (result.status === 'rendered' && this.preview.isCurrent(revision)) updatePreviewFreshness(null, () => undefined);
     } else {
       await this.preview.forceRender(compiled.html, compiled.manifest, revision);
     }

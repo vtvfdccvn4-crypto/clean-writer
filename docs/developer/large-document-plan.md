@@ -225,7 +225,7 @@ after a one-section edit costs at most 20% of a full run.
 | B11 | High | Keyboard-operable outline; focus and scroll preserved | — |
 | B12 | High | Production-build compile worker | G1 |
 | B13 | High | Block model, document index, block-keyed renderer, differential tests | B12 |
-| B14 | Medium | Live default above a measured threshold; freshness state; on-demand pagination | B1, B10 |
+| B14 | Medium | Live default above a measured threshold; freshness state; on-demand pagination | B1, B10 (done, see log) |
 | B15 | Medium | `content-visibility` on pages and blocks | B14 |
 | B16 | Medium | Hash-based `PdfArtifactKey` (validates E19) | B1 |
 | B17 | Medium | Writable abort on failure; trash-based delete; external-modification check | — |
@@ -471,4 +471,28 @@ after a one-section edit costs at most 20% of a full run.
   task in any run. Both gates pass on this machine. The earlier typing bench
   dispatched transactions, so this is the first measurement of real input. Remaining
   B1 item: WebKit, which needs a machine that has it.
+- 2026-10-26: B14 implemented. Large documents (more than 400,000 source
+  characters) open in the live preview, and pagination runs only on request.
+  Threshold: the realistic corpus (one section of typing-corpus pages, compile
+  plus pagination) reaches about 2 s near 440,000 characters on the baseline
+  machine (`profile-pagination.mjs --realistic`). The threshold is set at 400,000
+  and is a decision to confirm.
+  - Measured curve (source characters, printed pages, compile in Node, paginate
+    median in headless Chromium): 110k, 24, 0.46 s, 0.31 s; 220k, 47, 0.62 s,
+    0.67 s; 440k, 94, 1.04 s, 0.92 s; 880k, 187, 1.97 s, 1.90 s; 1.32M, 280,
+    3.57 s, 3.20 s; 2.2M, 467, 4.36 s, 7.50 s. The 1,000-section corpus prints as
+    467 pages, so its name counts sections.
+  - Also on the large path: page-break guides, which paginate in the background
+    after a typing pause, are not scheduled, and edits to a print preview mark it
+    out of date instead of re-paginating.
+  - Browser check (`browser-large-document-smoke`, 450k characters): opening a
+    large document paginates nothing; the single document and the merged view
+    both show "not built" and build to 234 pages (about 5.5 s); an edit marks the
+    print preview out of date without re-paginating it; the update shows the edit.
+  - Open problem: the live preview recompiles the whole section on the page's main
+    thread after each pause. On the 450k-character check that is about 1.0 s per
+    edit (one run gave 977 ms, another 1,087 ms), above the plan's 50 ms budget for
+    live work. The compile worker (B12, behind its flag) is the fix, but G2 is not
+    met, so the worker is not on by default. Whether to enable it for large documents
+    is a decision for you.
 
