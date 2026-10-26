@@ -10,6 +10,9 @@ import type {
 export type WorkspaceId = string;
 export type ProjectPath = string; // relative path
 
+/** `conflict`: the file changed outside the app since it was last read or written, so it was left as it is. */
+export type SectionWriteOutcome = 'saved' | 'conflict' | 'failed';
+
 export interface WorkspaceCapabilities {
   readonly canSelectDirectory: boolean;
   readonly canSaveFile: boolean;
@@ -34,6 +37,8 @@ export interface WorkspaceSession {
   listImages(): Promise<FileNode[]>;
   readSection(path: ProjectPath): Promise<string>;
   writeSection(path: ProjectPath, content: string): Promise<boolean>;
+  /** Like writeSection, but says whether the file changed outside the app. */
+  writeSectionChecked(path: ProjectPath, content: string): Promise<SectionWriteOutcome>;
   createSection(fileName: string, content: string): Promise<{ success: boolean; newPath?: string }>;
   createFolder(folderName: string): Promise<{ success: boolean; newPath?: string }>;
   renameSection(oldName: string, newName: string): Promise<boolean>;

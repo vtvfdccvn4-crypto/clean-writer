@@ -304,12 +304,19 @@ export class DocumentRenderCoordinator {
         if (isOpen() && isNewest()) this.opts.updateSaveStatus('saving');
 
         try {
-          let saved = await session.writeSection(filename, newDoc);
-          if (!saved) {
+          let outcome = await session.writeSectionChecked(filename, newDoc);
+          if (outcome === 'failed') {
             const refreshedSession = await this.platform.workspaceRepository.open(projectRef);
-            saved = await refreshedSession.writeSection(filename, newDoc);
+            outcome = await refreshedSession.writeSectionChecked(filename, newDoc);
           }
-          if (!saved) throw new Error(`Workspace rejected writes for ${filename}.`);
+          if (outcome === 'conflict') {
+            // The file changed outside Clear Writer. It is left as it is; this edit stays in its recovery draft.
+            if (isOpen()) this.opts.updateSaveStatus('error');
+            showNotice(`${filename} changed outside Clear Writer, so your latest edits were not saved. They are kept in recovery.`, 'error');
+            console.warn(`[DocumentRenderCoordinator] ${filename} changed on disk; the save was skipped.`);
+            return;
+          }
+          if (outcome !== 'saved') throw new Error(`Workspace rejected writes for ${filename}.`);
 
           const stillOpen = isOpen();
           // A newer edit to the open document owns its draft and the status bar.

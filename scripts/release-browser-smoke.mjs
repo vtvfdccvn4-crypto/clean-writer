@@ -374,6 +374,13 @@ const fixtures = [
     }
   },
   {
+    name: 'browser-external-change-smoke',
+    path: '/test/fixtures/browser-external-change-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `External change smoke reported failure: ${JSON.stringify(result)}`);
+    }
+  },
+  {
     name: 'browser-large-document-smoke',
     path: '/test/fixtures/browser-large-document-smoke.html',
     validate(result) {

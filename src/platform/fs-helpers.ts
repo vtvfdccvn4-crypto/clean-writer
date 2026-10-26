@@ -6,10 +6,23 @@ export async function readJson<T>(handle: FileSystemFileHandle): Promise<T> {
   return JSON.parse(await file.text()) as T;
 }
 
-export async function writeJson(handle: FileSystemFileHandle, value: unknown): Promise<void> {
+/**
+ * Writes a whole file. Browser writes land in a swap buffer and replace the file
+ * only on close, so a failed write that is aborted leaves the previous contents in place.
+ */
+export async function writeFile(handle: FileSystemFileHandle, data: FileSystemWriteChunkType): Promise<void> {
   const writable = await handle.createWritable();
-  await writable.write(JSON.stringify(value, null, 2));
-  await writable.close();
+  try {
+    await writable.write(data);
+    await writable.close();
+  } catch (error) {
+    await writable.abort().catch(() => undefined);
+    throw error;
+  }
+}
+
+export async function writeJson(handle: FileSystemFileHandle, value: unknown): Promise<void> {
+  await writeFile(handle, JSON.stringify(value, null, 2));
 }
 
 export async function ensureDirectory(parent: FileSystemDirectoryHandle, name: string): Promise<FileSystemDirectoryHandle> {
@@ -89,9 +102,7 @@ export async function copyEntry(source: FileSystemDirectoryHandle | FileSystemFi
   if (source.kind === 'file') {
     const file = await source.getFile();
     const target = await targetParent.getFileHandle(targetName, { create: true });
-    const writable = await target.createWritable();
-    await writable.write(await file.arrayBuffer());
-    await writable.close();
+    await writeFile(target, await file.arrayBuffer());
     return;
   }
 
@@ -99,4 +110,48 @@ export async function copyEntry(source: FileSystemDirectoryHandle | FileSystemFi
   for await (const [name, child] of source) {
     await copyEntry(child as FileSystemDirectoryHandle | FileSystemFileHandle, targetDir, name);
   }
+}
+
+/** Deleted entries are moved here rather than removed, so a deletion can be undone. */
+export const TRASH_DIRECTORY = '.trash';
+
+/**
+ * Moves a file or folder into the project's trash and returns its trash path, or null
+ * when nothing was moved. The copy is made before the original is removed.
+ */
+export async function trashEntry(parent: FileSystemDirectoryHandle, path: string): Promise<string | null> {
+  const normalized = normalizeExplorerPath(path);
+  const segments = normalized.split('/').filter(Boolean);
+  const name = segments.pop();
+  if (!name) return null;
+  const source = await getFile(parent, normalized, false) ?? await getDirectory(parent, normalized, false);
+  if (!source) return null;
+
+  const batch = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const trash = await parent.getDirectoryHandle(TRASH_DIRECTORY, { create: true });
+  const batchDir = await trash.getDirectoryHandle(batch, { create: true });
+  await copyEntry(source, batchDir, name);
+  if (!await deleteEntry(parent, normalized)) {
+    await trash.removeEntry(batch, { recursive: true }).catch(() => undefined);
+    return null;
+  }
+  return `${TRASH_DIRECTORY}/${batch}/${name}`;
+}
+
+/** Puts a trashed entry back at its original path and empties its trash batch. */
+export async function restoreTrashedEntry(parent: FileSystemDirectoryHandle, trashPath: string, targetPath: string): Promise<boolean> {
+  const segments = normalizeExplorerPath(trashPath).split('/').filter(Boolean);
+  const [trashRoot, batch, name] = segments;
+  if (trashRoot !== TRASH_DIRECTORY || !batch || !name) return false;
+  const source = await getFile(parent, trashPath, false) ?? await getDirectory(parent, trashPath, false);
+  if (!source) return false;
+
+  const targetSegments = normalizeExplorerPath(targetPath).split('/').filter(Boolean);
+  const targetName = targetSegments.pop();
+  const targetParent = await getDirectory(parent, targetSegments.join('/'), true);
+  if (!targetName || !targetParent) return false;
+  await copyEntry(source, targetParent, targetName);
+  const trash = await parent.getDirectoryHandle(TRASH_DIRECTORY, { create: false }).catch(() => null);
+  await trash?.removeEntry(batch, { recursive: true }).catch(() => undefined);
+  return true;
 }

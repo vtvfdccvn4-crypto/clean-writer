@@ -228,7 +228,7 @@ after a one-section edit costs at most 20% of a full run.
 | B14 | Medium | Live default above a measured threshold; freshness state; on-demand pagination | B1, B10 (done, see log) |
 | B15 | Medium | `content-visibility` on pages and blocks | B14 (measured, not shipped: see log) |
 | B16 | Medium | Hash-based `PdfArtifactKey` (validates E19) | B1 (done, see log) |
-| B17 | Medium | Writable abort on failure; trash-based delete; external-modification check | — |
+| B17 | Medium | Writable abort on failure; trash-based delete; external-modification check | — (done, see log) |
 | B18 | Medium | External links with `noopener`; print waits for image decoding | — |
 | B19 | Medium | Page jump, heading navigator, reduced motion, status region | B11 |
 | B20 | Medium | Frame-isolation experiment (G3) | B4–B6 |
@@ -527,4 +527,26 @@ after a one-section edit costs at most 20% of a full run.
   as before, apart from the 256-bit digest collision risk. Fixtures that built keys
   by hand now use digests. Unit tests: 333 pass. The full browser smoke suite
   passes with 31 fixtures.
+- 2026-10-26: B17 done. Three changes in the workspace layer.
+  - Abort on failure: writes go through `writeFile` (`src/platform/fs-helpers.ts`),
+    which aborts the writable stream if a write or close fails. Before, sections,
+    settings, images, copies and the settings backup were written without any
+    abort. The in-memory file now has `abort` too.
+  - Trash-based delete: `deleteSection` moves the entry to `.trash/<batch>/`
+    (`trashEntry`) and restores it from there if the settings update fails
+    (`restoreTrashedEntry`). Renames and moves still remove the original after a copy,
+    because the copy already exists. The trash is not listed in the explorer.
+  - External-modification check: a session records the file version it last read or
+    wrote (size and last-modified time). `writeSectionChecked` refuses to save when
+    the file on disk differs, and returns `conflict`. Autosave does not retry a
+    conflict; it shows a notice and leaves the edit in its recovery draft. The
+    autosave retry through a refreshed session is kept for `failed` only.
+  - Gaps: the trash is never emptied, so it grows; a conflict has no "reload from
+    disk" or "overwrite" choice yet, so the user has to resolve it by hand; the
+    check compares timestamps and sizes, not contents.
+  - Verified: 341 unit tests pass (new: `test/fs-helpers-write.test.cjs`,
+    `test/workspace-write-safety.test.cjs`). The full browser smoke suite passes with
+    32 fixtures, including `browser-external-change-smoke`, which changes the file
+    while the editor has it open, types, and checks that the file keeps the outside
+    change and the notice appears.
 

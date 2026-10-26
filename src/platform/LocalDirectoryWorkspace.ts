@@ -6,7 +6,7 @@ import type {
 } from './types';
 import { createDefaultProjectSettings, normalizeProjectSettings } from '../project-settings/project-settings';
 import { DirectoryHandleCatalogue } from './DirectoryHandleCatalogue';
-import { readJson, writeJson, ensureDirectory, getDirectory, getFile } from './fs-helpers';
+import { readJson, writeFile, writeJson, ensureDirectory, getDirectory, getFile } from './fs-helpers';
 import { applyProjectSettingsMutation } from '../project-settings/settings-mutations';
 import { AbstractWorkspaceSession } from './AbstractWorkspaceSession';
 
@@ -120,9 +120,7 @@ export class LocalDirectoryWorkspaceSession extends AbstractWorkspaceSession {
           backupPath = `settings-${Date.now()}.bak`;
           const backupHandle = await getFile(this.projectDir, backupPath, true);
           if (backupHandle) {
-            const writable = await backupHandle.createWritable();
-            await writable.write(content);
-            await writable.close();
+            await writeFile(backupHandle, content);
           }
         } catch (err) {
           console.warn('Failed to backup settings.json', err);

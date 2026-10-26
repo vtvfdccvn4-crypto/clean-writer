@@ -4,6 +4,15 @@
 
 ### Fixed
 
+- Deleting a section or folder moves it to the project's `.trash` folder instead
+  of removing it, so the deletion can be undone by hand. The trash is not shown in
+  the explorer. Trash is not emptied automatically yet.
+- Saving checks whether the section's file changed outside Clear Writer since the
+  app last read or wrote it. If it did, the save is skipped, the file is left as
+  it is, and a notice says the edit is kept in recovery. Before, the file was
+  overwritten silently.
+- A failed file write is aborted, so the previous contents are kept. Before, the
+  stream was left open.
 - Full-document and single-document compiles can run in a background worker,
   enabled with `?compile-worker=true`. It is off by default. In a 1,000-page
   test, the page's main thread went from one 6 s task to no long tasks, and its
