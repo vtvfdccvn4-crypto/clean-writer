@@ -31,8 +31,8 @@ async function run(): Promise<void> {
   // there after the reload, so phase two verifies it from a fresh page.
   if (sessionStorage.getItem(PHASE_KEY) === null) {
     sessionStorage.setItem(PHASE_KEY, 'after-reload');
-    const written = await store.write(target, durableText, await hashDraftText('file on disk'));
-    window.__HARNESS_RESULT__ = { ok: false, phase: 'writing', written };
+    // No result is published before the reload: the runner would read it while the page is still loading.
+    await store.write(target, durableText, await hashDraftText('file on disk'));
     location.reload();
     return;
   }
