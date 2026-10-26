@@ -495,4 +495,23 @@ after a one-section edit costs at most 20% of a full run.
     live work. The compile worker (B12, behind its flag) is the fix, but G2 is not
     met, so the worker is not on by default. Whether to enable it for large documents
     is a decision for you.
+- 2026-10-26: B15 content-visibility measured; not shipped. Benchmark:
+  `preview-containment-bench` (1,000 pages, headless Chromium).
+  - Live blocks (4,100): the first layout went from about 1.3 s to 0.08 s with
+    placeholder sizes, but the total height was wrong (2.46 M px against 0.57 M),
+    and scrolling got worse (p95 16.8 to 33.4 ms). With exact placeholder sizes
+    the height was right and render plus layout fell to about 0.2 s, but scrolling
+    stayed worse (p95 33.4 ms), because blocks are laid out as they scroll into view.
+    Rejected.
+  - Printed pages (572): the first frame after pagination fell from about 2.9 s to
+    0.12 s, and layout from 159 ms to 3 ms; scrolling was unchanged (p95 16.8 ms).
+    But the same rule made the first-block click-to-source check fail in 3 of 6
+    runs (0 of 4 without the rule), because a click can land on the page instead of
+    the heading while the page is skipped. Rejected: source navigation must stay
+    reliable. The rule was removed; the benchmark stays as a measurement tool.
+  - Open: the roughly 2 s first frame that paints a long preview is not fixed by
+    containment.
+- 2026-10-26: Full browser smoke suite passes with 31 fixtures, including
+  `browser-large-document-smoke`, after the draft-store fixture race was fixed
+  (c37b7c4). Unit tests: 329 pass.
 

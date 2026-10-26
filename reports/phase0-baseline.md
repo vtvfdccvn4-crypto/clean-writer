@@ -128,6 +128,19 @@ median. Sizes are the number of pages in the corpus's one section; printed pages
 The large-document threshold (`src/preview/PreviewPolicy.ts`) is 400,000 characters,
 just under the point where compile plus pagination reaches about 2 s.
 
+### Content containment (B15, 1,000 pages, not shipped)
+
+`preview-containment-bench` (`CLEAR_WRITER_SMOKE_QUERY` with `surface=live|pages` and
+`contain=off|on|exact`). Results are for headless Chromium on one machine.
+
+| Surface | Variant | Layout or render | First frame | Scroll p95 | Verdict |
+|---|---|---|---|---|---|
+| Live blocks (4,100) | none | 1.9 s (render 0.6 + layout 1.3) | 1.95 s | 16.8 ms | baseline |
+| Live blocks | `on`, guessed heights | 0.14 s | 2.4 s | 33.4 ms | wrong total height (2.46 M px); rejected |
+| Live blocks | `exact` heights | 0.2 s | 2.0 s | 33.4 ms | scroll worse; rejected |
+| Pages (572) | none | 0.16 s layout | 2.9 s | 16.8 ms | baseline |
+| Pages | `on` | 0.003 s layout | 0.12 s | 16.7 ms | faster, but first-block click-to-source failed in 3 of 6 runs; rejected |
+
 ## Feature flags
 
 Flags are read from the address query. Each is off unless its value is `true`.

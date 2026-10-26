@@ -338,6 +338,15 @@ const fixtures = [
     }
   },
   {
+    // Measurement, not a gate: run on demand with CLEAR_WRITER_SMOKE_FIXTURE=preview-containment-bench
+    // and CLEAR_WRITER_SMOKE_QUERY="contain=on" (or unset) to compare the two variants.
+    name: 'preview-containment-bench',
+    path: '/test/fixtures/preview-containment-bench.html',
+    validate(result) {
+      expect(result.ok === true, `Preview containment benchmark failed: ${JSON.stringify(result)}`);
+    }
+  },
+  {
     // Measurement, not a gate: run on demand with CLEAR_WRITER_SMOKE_FIXTURE=editor-typing-bench.
     name: 'editor-typing-bench',
     path: '/test/fixtures/editor-typing-bench.html',
