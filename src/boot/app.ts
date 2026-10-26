@@ -17,6 +17,7 @@ import { initTaskPanelResizer } from '../ui/explorer/resizer';
 import { initEditorPreviewResizer } from '../ui/editor-preview-resizer';
 import { initTaskPanelActions } from '../ui/explorer/actions';
 import { initTaskPanelViews } from '../ui/explorer/views';
+import { setupPreviewNavigationControls } from '../ui/preview-navigation-controls';
 
 let editorManager: EditorManager;
 type StartupWindow = Window & {
@@ -113,6 +114,8 @@ export async function bootApp(platform: Platform) {
       throw error;
     }
   }
+
+  setupPreviewNavigationControls(editorManager.getPreviewNavigator());
 
   void import('./setupPdfPreview')
     .then(({ setupPdfPreview }) => setupPdfPreview(editorManager))

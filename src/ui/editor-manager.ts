@@ -24,6 +24,7 @@ import type { PaginatedPreviewRenderer } from './PaginatedPreviewRenderer';
 import { PreviewPipeline } from './PreviewPipeline';
 import type { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
 import { captureCurrentPrintLayout } from './CompiledPreviewCache';
+import type { PreviewNavigator } from './preview-navigation-controls';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -297,6 +298,11 @@ export class EditorManager {
   private setPreviewVisible(visible: boolean) {
     this.previewPane.classList.toggle('is-project-closed', !visible);
     this.previewPane.setAttribute('aria-hidden', String(!visible));
+  }
+
+  /** The preview's page and heading movement, for the preview footer's controls. */
+  public getPreviewNavigator(): PreviewNavigator {
+    return this.preview;
   }
 
   public getEditorView() {

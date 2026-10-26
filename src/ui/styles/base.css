@@ -45,3 +45,17 @@ input[type="range"] {
 a {
   color: var(--ui-brand);
 }
+
+/* People who ask for less motion get transitions and animations that finish at once.
+   The duration is 0.01 ms rather than 0 so that transitionend and animationend still fire.
+   Preview scrolling checks the same preference in PreviewViewport. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

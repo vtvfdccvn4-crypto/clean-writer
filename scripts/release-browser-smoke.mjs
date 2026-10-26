@@ -381,6 +381,13 @@ const fixtures = [
     }
   },
   {
+    name: 'browser-preview-navigation-smoke',
+    path: '/test/fixtures/browser-preview-navigation-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Preview navigation smoke reported failure: ${JSON.stringify(result)}`);
+    }
+  },
+  {
     name: 'browser-large-document-smoke',
     path: '/test/fixtures/browser-large-document-smoke.html',
     validate(result) {

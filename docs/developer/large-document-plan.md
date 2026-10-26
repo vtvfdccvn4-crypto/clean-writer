@@ -230,7 +230,7 @@ after a one-section edit costs at most 20% of a full run.
 | B16 | Medium | Hash-based `PdfArtifactKey` (validates E19) | B1 (done, see log) |
 | B17 | Medium | Writable abort on failure; trash-based delete; external-modification check | — (done, see log) |
 | B18 | Medium | External links with `noopener`; print waits for image decoding | — (done, see log) |
-| B19 | Medium | Page jump, heading navigator, reduced motion, status region | B11 |
+| B19 | Medium | Page jump, heading navigator, reduced motion, status region | B11 (done, see log) |
 | B20 | Medium | Frame-isolation experiment (G3) | B4–B6 |
 | B21 | Medium | Chapter composition prototype (G4) | G2 |
 | B22 | Low | Gradual `state` injection: lint rule, editor options, snapshot adapters, then move coordinators | B12, B13 |
@@ -564,4 +564,25 @@ after a one-section edit costs at most 20% of a full run.
     and `noopener` would make `window.open` return null.
   - Verified: 343 unit tests pass (new: `test/external-links.test.cjs`). The full
     browser smoke suite passes with 32 fixtures.
+- 2026-10-26: B19 done.
+  - Page jump: a page field in the preview footer, shown only while the paginated
+    preview has pages (it follows the page indicator's visibility). The entry is
+    checked by `resolvePageNumber` (whole numbers from 1 to the page count). A valid
+    page is named in the indicator at once, and the view then follows the scroll.
+  - Heading navigator: previous and next heading buttons in the footer, in both the
+    live and paginated previews. `adjacentHeadingIndex` picks the target from each
+    heading's offset. A heading within 2 px of the alignment line counts as reached,
+    because a scrolled-to heading settles a fraction of a pixel off it. Without that
+    tolerance, "next" found the same heading again (found by the browser check).
+  - Status region: one polite region (`#preview-navigation-status`) announces each
+    page jump, refused page, heading moved to, and missing heading.
+  - Reduced motion: a `prefers-reduced-motion: reduce` rule in `base.css` sets every
+    transition and animation to 0.01 ms and smooth scrolling to auto. Preview
+    scrolling already checked the setting. The rule is checked by its CSS text
+    (`test/reduced-motion.test.cjs`); no browser test forces the preference.
+  - Verified: 350 unit tests pass (new: `test/preview-page-navigation.test.cjs`,
+    `test/reduced-motion.test.cjs`). The full browser suite passes with 33 fixtures,
+    including `browser-preview-navigation-smoke`.
+  - Not done: a keyboard shortcut for the heading moves; the outline panel already
+    lists headings, so the footer buttons only step through them.
 

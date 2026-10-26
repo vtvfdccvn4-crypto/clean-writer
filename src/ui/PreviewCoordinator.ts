@@ -250,6 +250,18 @@ export class PreviewCoordinator {
     this.controller.scrollToTop();
   }
 
+  pageCount(): number {
+    return this.controller.pageCount();
+  }
+
+  scrollToPage(pageNumber: number): boolean {
+    return this.controller.scrollToPage(pageNumber);
+  }
+
+  scrollToAdjacentHeading(direction: 1 | -1): string | null {
+    return this.controller.scrollToAdjacentHeading(direction);
+  }
+
   setViewportResizeSuspended(suspended: boolean): void {
     this.controller.setViewportResizeSuspended(suspended);
   }

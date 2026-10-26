@@ -4,6 +4,12 @@
 
 ### Fixed
 
+- The preview footer has previous and next heading buttons, and a page field in
+  the paginated preview. Typing a page number moves to that page. A number outside
+  the document is refused and announced. Each move is announced once through a
+  status region.
+- Animations and transitions finish at once for people who have asked for reduced
+  motion, across the app. Before, only preview scrolling respected the setting.
 - Deleting a section or folder moves it to the project's `.trash` folder instead
   of removing it, so the deletion can be undone by hand. The trash is not shown in
   the explorer. Trash is not emptied automatically yet.
