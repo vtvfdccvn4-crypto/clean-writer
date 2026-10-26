@@ -78,7 +78,20 @@ async function run() {
   // Headings: next moves down and is announced; previous moves back up.
   // The preview scrolls smoothly, so each position is read once it has stopped changing.
   const settledScrollTop = async (from: number) => {
-    await waitFor('scroll moved', () => (scroller()?.scrollTop ?? 0) !== from ? true : null, 10_000);
+    try {
+      await waitFor('scroll moved', () => (scroller()?.scrollTop ?? 0) !== from ? true : null, 10_000);
+    } catch (error) {
+      const area = scroller();
+      const origin = area?.getBoundingClientRect().top ?? 0;
+      const headingTops = Array.from(document.querySelectorAll<HTMLElement>('#paged-stage h1, #paged-stage h2, #paged-stage h3, #paged-stage h4, #paged-stage h5, #paged-stage h6')).slice(0, 6).map(h => Math.round(h.getBoundingClientRect().top - origin));
+      const frames = await new Promise<number>(resolve => {
+        let count = 0;
+        const started = performance.now();
+        const tick = () => { count += 1; if (performance.now() - started < 500) requestAnimationFrame(tick); else resolve(count); };
+        requestAnimationFrame(tick);
+      });
+      throw new Error(`${(error as Error).message} framesIn500ms=${frames} from=${from} scrollTop=${area?.scrollTop} scrollHeight=${area?.scrollHeight} clientHeight=${area?.clientHeight} hidden=${document.hidden} visibility=${document.visibilityState} status=${JSON.stringify(status())} headingTops=${JSON.stringify(headingTops)}`);
+    }
     let last = -1;
     let current = scroller()?.scrollTop ?? 0;
     while (current !== last) {

@@ -141,6 +141,27 @@ just under the point where compile plus pagination reaches about 2 s.
 | Pages (572) | none | 0.16 s layout | 2.9 s | 16.8 ms | baseline |
 | Pages | `on` | 0.003 s layout | 0.12 s | 16.7 ms | faster, but first-block click-to-source failed in 3 of 6 runs; rejected |
 
+### Frame isolation (B20, Chromium only)
+
+`frame-isolation-bench`: a 16 ms parent timer is sampled for 2 s idle and then for 5 s while
+a frame runs. "Within 20%" means a tick at most 19.2 ms apart, the G3 criterion.
+
+| Frame | Parent tick p50 | Within 20% of idle | Worst tick |
+|---|---|---|---|
+| Idle (no frame) | 16 ms | 100% | 19–22 ms |
+| Busy loop, same origin | 124 ms (7.8×) | 10% | 245 ms |
+| Busy loop, sandboxed | 16 ms | 100% | 17 ms |
+| Busy loop, cross-site | 16 ms | 100% | 18 ms |
+| Real pagination, same origin, 300 sections (1.1 s) | 16 ms | 90% | 75 ms |
+| Real pagination, same origin, 1,000 sections (5.0 s) | 23 ms | 40% | 267 ms |
+
+The shipping pagination frame is same-origin. It fails the busy-loop criterion, and on
+1,000 sections the page stalls for up to 267 ms. The sandboxed and cross-site frames pass
+the busy-loop criterion in Chromium, but the host accepts messages only from its own
+origin, so isolated pagination would need a protocol change first. It has not been
+measured on WebKit, which is not installed here. The decision is to keep the same-origin
+frame.
+
 ## Feature flags
 
 Flags are read from the address query. Each is off unless its value is `true`.

@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+  <head><meta charset="UTF-8"><title>Busy frame</title></head>
+  <body>
+    <script>
+      // A hostile frame: long synchronous work in short bursts, with a yield between bursts.
+      // The busy time per burst is well over a frame, so the parent's timers are at risk.
+      const BURST_MS = 120;
+      (function busy() {
+        const end = performance.now() + BURST_MS;
+        while (performance.now() < end) { /* spin */ }
+        setTimeout(busy, 0);
+      })();
+    </script>
+  </body>
+</html>

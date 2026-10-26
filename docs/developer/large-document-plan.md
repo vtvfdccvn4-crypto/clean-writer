@@ -231,7 +231,7 @@ after a one-section edit costs at most 20% of a full run.
 | B17 | Medium | Writable abort on failure; trash-based delete; external-modification check | — (done, see log) |
 | B18 | Medium | External links with `noopener`; print waits for image decoding | — (done, see log) |
 | B19 | Medium | Page jump, heading navigator, reduced motion, status region | B11 (done, see log) |
-| B20 | Medium | Frame-isolation experiment (G3) | B4–B6 |
+| B20 | Medium | Frame-isolation experiment (G3) | B4–B6 (done: G3 not met, see log) |
 | B21 | Medium | Chapter composition prototype (G4) | G2 |
 | B22 | Low | Gradual `state` injection: lint rule, editor options, snapshot adapters, then move coordinators | B12, B13 |
 
@@ -585,4 +585,27 @@ after a one-section edit costs at most 20% of a full run.
     including `browser-preview-navigation-smoke`.
   - Not done: a keyboard shortcut for the heading moves; the outline panel already
     lists headings, so the footer buttons only step through them.
+- 2026-10-26: B20 frame-isolation experiment (G3), Chromium only.
+  - Method: `frame-isolation-bench` samples a 16 ms parent timer while a frame runs.
+    Busy-loop frames (same origin, sandboxed, cross-site) and the real pagination in
+    the shipping same-origin frame were measured. Results are in
+    `reports/phase0-baseline.md`.
+  - Result: the same-origin frame fails the busy-loop criterion. The parent's median tick
+    rises from 16 ms to 124 ms, and 10% of ticks are within 20% of idle. Real pagination
+    confirms it at 1,000 sections: 40% of ticks within 20%, a worst stall of 267 ms.
+    Real pagination at 300 sections is much better (90%, worst 75 ms), so the stall
+    grows with document size.
+  - Sandboxed and cross-site frames pass the busy-loop criterion in Chromium. The host
+    accepts messages only from its own origin, so isolated pagination needs a change to
+    the message protocol first, and it has not been measured with real pagination.
+  - Decision: G3 is not met, because WebKit has not been measured and the isolated
+    frame does not exist yet. The shipping frame stays same-origin. Isolation is not
+    shipped.
+  - Also fixed in the runner: a poll that landed during a deliberate page reload (the
+    draft-store fixture reloads on purpose) crashed the whole suite. The poll now treats
+    it as not ready yet.
+  - Open flake: `browser-preview-navigation-smoke` failed in 2 of 4 full-suite runs,
+    waiting for the smooth heading scroll to start (the scroll position did not change).
+    It passes when run alone and passed the most recent full run. The cause is not
+    identified. The diagnostics now report the scroll state and the frame count.
 

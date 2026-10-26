@@ -338,6 +338,15 @@ const fixtures = [
     }
   },
   {
+    // Measurement, not a gate: run on demand with CLEAR_WRITER_SMOKE_FIXTURE=frame-isolation-bench
+    // and CLEAR_WRITER_SMOKE_QUERY="variant=same-origin|sandboxed|cross-site".
+    name: 'frame-isolation-bench',
+    path: '/test/fixtures/frame-isolation-bench.html',
+    validate(result) {
+      expect(result.ok === true, `Frame isolation benchmark failed: ${JSON.stringify(result)}`);
+    }
+  },
+  {
     // Measurement, not a gate: run on demand with CLEAR_WRITER_SMOKE_FIXTURE=preview-containment-bench
     // and CLEAR_WRITER_SMOKE_QUERY="contain=on" (or unset) to compare the two variants.
     name: 'preview-containment-bench',
@@ -775,7 +784,8 @@ async function waitForHarnessResult(session) {
   let lastProgress;
   let nextProgressLog = started;
   while (Date.now() - started < fixtureTimeoutMs) {
-    const result = await session.evaluate(`window.__HARNESS_RESULT__ ?? null`);
+    // A fixture may reload the page on purpose. A poll that lands during the reload is simply not ready yet.
+    const result = await session.evaluate(`window.__HARNESS_RESULT__ ?? null`).catch(() => null);
     if (result) return result;
     const progress = await session.evaluate(`({ progress: window.__HARNESS_PROGRESS__ ?? null, ready: window.__CLEAR_WRITER_READY__ === true, bootError: window.__CLEAR_WRITER_BOOT_ERROR__ ?? null, body: document.body?.innerText?.slice(0, 120) ?? '' })`).catch(() => null);
     const progressLabel = progress?.progress ?? (progress?.bootError ? `boot-error: ${progress.bootError}` : progress?.ready ? 'app-ready' : 'booting');
