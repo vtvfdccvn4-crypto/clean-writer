@@ -108,9 +108,6 @@ export class IsolatedPaginationHost {
     const previousRequest = this.activeRequest;
     let releaseRequest!: () => void;
     let releaseAfterPrevious = false;
-    // Set once the job has been posted to the frame. Rejecting the promise on
-    // abort does not stop Paged.js, so only a posted job needs its frame discarded.
-    let requestPosted = false;
     this.activeRequest = new Promise(resolve => { releaseRequest = resolve; });
     const startedAt = performance.now();
     const timings: PdfPreviewPhaseTiming[] = [];
@@ -145,7 +142,6 @@ export class IsolatedPaginationHost {
           options.onPhase?.('load-pagination-frame', loadDurationMs);
         }
         const paginationStartedAt = performance.now();
-        requestPosted = true;
         const result = await this.request(frame, request, { ...options, startedAt }) as T;
         const responseElapsedMs = Math.round(performance.now() - paginationStartedAt);
         const paginationMs = Math.min(responseElapsedMs, result.paginationMs ?? responseElapsedMs);
