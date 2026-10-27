@@ -53,6 +53,7 @@ jobs:
         env:
           CLEAR_WRITER_SMOKE_BROWSER: webkit
           CLEAR_WRITER_BENCH_OUTPUT: ${{ runner.temp }}/webkit-performance.json
+          CLEAR_WRITER_BENCH_EDITS: 60
 
       - name: Upload WebKit performance results
         if: always()
