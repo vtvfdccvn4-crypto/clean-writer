@@ -5,6 +5,19 @@
 
 export const fixtures = [
   {
+    // Delete a section, find it in the trash, restore it, delete it for good, and empty the trash, all through the UI.
+    name: 'browser-trash-smoke',
+    path: '/test/fixtures/browser-trash-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Trash smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.listedWithOrigin === true, 'The trash did not show where a deleted section came from.');
+      expect(result.restoredContent === '# Gone', 'A restored section did not keep its content.');
+      expect(result.trashEmptyAfterRestore === true, 'A restored section stayed in the trash.');
+      expect(result.goneAfterPurge === false, 'A section deleted for good was still in the project or the trash.');
+      expect(result.trashItemsAfterEmpty === 0, 'Emptying the trash left items behind.');
+    }
+  },
+  {
     // No flag is set. Safari compiles 400,000 to 700,000 characters in the worker by default, and keeps smaller and
     // larger documents on the page. Chromium keeps every compile on the page until its own gate passes.
     name: 'browser-compile-worker-default-smoke',

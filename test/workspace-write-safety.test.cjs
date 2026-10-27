@@ -9,7 +9,7 @@ let restoreTrashedEntry;
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24724 } } });
   ({ InMemoryWorkspaceSession } = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts'));
-  ({ restoreTrashedEntry } = await server.ssrLoadModule('/src/platform/fs-helpers.ts'));
+  ({ restoreTrashedEntry } = await server.ssrLoadModule('/src/platform/trash.ts'));
 });
 
 after(async () => server?.close());
@@ -68,7 +68,7 @@ test('a deleted section is moved to the trash and can be restored', async () => 
   for await (const [name] of trash) batches.push(name);
   assert.equal(batches.length, 1);
 
-  const trashPath = `.trash/${batches[0]}/chapter.md`;
+  const trashPath = `.trash/${batches[0]}/data/chapter.md`;
   assert.equal(await restoreTrashedEntry(session.projectDir, trashPath, 'sections/chapter.md'), true);
   assert.equal(await session.readSection('sections/chapter.md'), '# Chapter');
 });

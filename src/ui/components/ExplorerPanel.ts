@@ -1,4 +1,4 @@
-import { materialIcon } from './icon';
+import { fontAwesomeIcon, materialIcon } from './icon';
 import { toolbarButton } from './toolbarButton';
 
 export const explorerPanelTemplate = (): string => `
@@ -11,6 +11,7 @@ export const explorerPanelTemplate = (): string => `
       <div id="task-panel-actions" class="task-toolbar-actions hidden" aria-label="Project tree actions">
         ${toolbarButton({ id: 'btn-task-new-folder', variant: 'icon', ariaLabel: 'New Container', title: 'New Container', icon: materialIcon('home_storage') })}
         ${toolbarButton({ id: 'btn-task-new-section', variant: 'icon', ariaLabel: 'New Section File', title: 'New Section File', icon: materialIcon('split_scene_down') })}
+        ${toolbarButton({ id: 'btn-task-trash', variant: 'icon', ariaLabel: 'Open trash', title: 'Trash: restore or permanently delete sections', icon: fontAwesomeIcon('trash-can') })}
       </div>
     </div>
     <div class="task-content panel-content">

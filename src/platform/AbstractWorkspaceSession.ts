@@ -8,12 +8,16 @@ import type {
   ProjectPath,
   SectionPlacement,
   SectionWriteOutcome,
+  TrashItem,
+  TrashRestoreResult,
   WorkspaceCapabilities,
   WorkspaceSession
 } from './types';
 import { calculateSectionMove } from './section-order';
-import { getDirectory, getFile, deleteEntry, listEntries, copyEntry, restoreTrashedEntry, trashEntry, writeFile } from './fs-helpers';
-import { resolveImagePath, resolveSectionPath } from '../project-settings/project-paths';
+import { getDirectory, getFile, deleteEntry, listEntries, copyEntry, writeFile } from './fs-helpers';
+import { listTrash, purgeAllTrash, purgeTrashEntry, restoreTrashedEntry, trashEntry } from './trash';
+import { resolveImagePath, resolveSectionPath, restoreSettingsPaths, snapshotSettingsPaths } from '../project-settings/project-paths';
+import { getBaseName, getParentPath } from '../utils/path-utils';
 import { applyProjectSettingsMutation } from '../project-settings/settings-mutations';
 import { runCoordinatedMutation } from './mutation-coordinator';
 
@@ -242,13 +246,15 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
     const entryDir = entryFile ? null : await getDirectory(this.projectDir, normalized, false);
     if (!entryFile && !entryDir) return false;
     // The entry moves to the trash rather than being removed, so the deletion can be
-    // rolled back here and undone later from the trash folder.
+    // rolled back here and undone later from the trash. The trash keeps the entry's
+    // place in the project order and its flags, so a restore can put them back.
+    const settingsSnapshot = snapshotSettingsPaths(await this.getSettings(), normalized);
     let trashPath: string | null = null;
     const result = await runCoordinatedMutation({
       readSettings: () => this.getSettings(),
       writeSettings: settings => this.writeSettingsSnapshot(settings),
       applyFilesystem: async () => {
-        trashPath = await trashEntry(this.projectDir, normalized);
+        trashPath = await trashEntry(this.projectDir, normalized, settingsSnapshot);
         if (!trashPath) throw new Error('Unable to move the entry to the trash.');
       },
       rollbackFilesystem: async () => {
@@ -258,6 +264,63 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
     });
     if (result) this.forgetVersions(normalized);
     return result;
+  }
+
+  async listTrash(): Promise<TrashItem[]> {
+    const entries = await listTrash(this.projectDir);
+    return entries.map(({ id, name, originalPath, kind, deletedAt }) => ({ id, name, originalPath, kind, deletedAt }));
+  }
+
+  async restoreFromTrash(id: string): Promise<TrashRestoreResult> {
+    this.sectionCache.clear();
+    const entry = (await listTrash(this.projectDir)).find(candidate => candidate.id === id);
+    if (!entry) return { success: false, reason: 'That item is no longer in the trash.' };
+    const source = await getFile(this.projectDir, entry.storedPath, false) ?? await getDirectory(this.projectDir, entry.storedPath, false);
+    if (!source) return { success: false, reason: 'The trashed item could not be read.' };
+
+    const targetPath = await this.freeRestorePath(entry.originalPath);
+    let copied = false;
+    const restored = await runCoordinatedMutation({
+      readSettings: () => this.getSettings(),
+      writeSettings: settings => this.writeSettingsSnapshot(settings),
+      applyFilesystem: async () => {
+        const parent = await getDirectory(this.projectDir, getParentPath(targetPath) ?? '', true);
+        if (!parent) throw new Error('The folder to restore into could not be created.');
+        await copyEntry(source, parent, getBaseName(targetPath));
+        copied = true;
+      },
+      rollbackFilesystem: async () => {
+        if (copied) await deleteEntry(this.projectDir, targetPath);
+      },
+      updateSettings: settings => restoreSettingsPaths(settings, entry.settings, entry.originalPath, targetPath)
+    });
+    if (!restored) return { success: false, reason: 'The item could not be restored. It is still in the trash.' };
+    await purgeTrashEntry(this.projectDir, id);
+    return { success: true, restoredPath: targetPath };
+  }
+
+  async purgeTrash(id?: string): Promise<boolean> {
+    if (id === undefined) {
+      await purgeAllTrash(this.projectDir);
+      return true;
+    }
+    return purgeTrashEntry(this.projectDir, id);
+  }
+
+  /** The original path if it is free; otherwise the name with "(restored)" added, so nothing is overwritten. */
+  private async freeRestorePath(originalPath: string): Promise<string> {
+    const taken = async (path: string) => Boolean(await getFile(this.projectDir, path, false) || await getDirectory(this.projectDir, path, false));
+    if (!await taken(originalPath)) return originalPath;
+    const parent = getParentPath(originalPath);
+    const name = getBaseName(originalPath);
+    const dot = name.lastIndexOf('.');
+    const stem = dot > 0 ? name.slice(0, dot) : name;
+    const extension = dot > 0 ? name.slice(dot) : '';
+    for (let attempt = 1; ; attempt += 1) {
+      const suffix = attempt === 1 ? ' (restored)' : ` (restored ${attempt})`;
+      const candidate = `${parent ? `${parent}/` : ''}${stem}${suffix}${extension}`;
+      if (!await taken(candidate)) return candidate;
+    }
   }
 
   /** Drops the recorded versions of a path and everything under it. */

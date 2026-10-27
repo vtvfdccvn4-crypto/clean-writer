@@ -4,6 +4,7 @@ import { projectSession } from '../../services/ProjectSessionStore';
 import { ProjectService } from '../../services/ProjectService';
 import { showNewProjectModal, showOpenProjectModal } from '../project-flow-modal';
 import { openProjectWithRecovery } from '../project-opening';
+import { showTrashDialog } from '../trash-dialog';
 
 export function initTaskPanelActions(platform: Platform): void {
   const btnNew = document.getElementById('btn-task-new-project');
@@ -38,6 +39,14 @@ export function initTaskPanelActions(platform: Platform): void {
     }
     if (!ref) return;
     await openProjectWithRecovery(platform, ref);
+  });
+
+  document.getElementById('btn-task-trash')?.addEventListener('click', () => {
+    void showTrashDialog({
+      list: () => projectSession.listTrash(),
+      restore: id => projectSession.restoreFromTrash(id),
+      purge: id => projectSession.purgeTrash(id)
+    }).then(() => document.getElementById('btn-task-trash')?.focus());
   });
 
   btnClose?.addEventListener('click', () => {

@@ -13,6 +13,24 @@ export type ProjectPath = string; // relative path
 /** `conflict`: the file changed outside the app since it was last read or written, so it was left as it is. */
 export type SectionWriteOutcome = 'saved' | 'conflict' | 'failed';
 
+/** A deleted file or folder waiting in the project's trash. */
+export interface TrashItem {
+  readonly id: string;
+  readonly name: string;
+  /** Where it was before it was deleted. */
+  readonly originalPath: ProjectPath;
+  readonly kind: 'file' | 'folder';
+  /** Milliseconds since the Unix epoch. */
+  readonly deletedAt: number;
+}
+
+export interface TrashRestoreResult {
+  readonly success: boolean;
+  /** Where it was put back. This differs from the original path when something else had taken that name. */
+  readonly restoredPath?: ProjectPath;
+  readonly reason?: string;
+}
+
 export interface WorkspaceCapabilities {
   readonly canSelectDirectory: boolean;
   readonly canSaveFile: boolean;
@@ -47,7 +65,12 @@ export interface WorkspaceSession {
     targetName: string | null,
     placement: SectionPlacement
   ): Promise<{ success: boolean; newPath?: string }>;
+  /** Moves a section or folder to the project's trash. */
   deleteSection(fileName: string): Promise<boolean>;
+  listTrash(): Promise<TrashItem[]>;
+  restoreFromTrash(id: string): Promise<TrashRestoreResult>;
+  /** Removes one item from the trash for good, or every item when no id is given. */
+  purgeTrash(id?: string): Promise<boolean>;
   writeImage(path: string, data: Uint8Array<ArrayBuffer>): Promise<boolean>;
   readBlob?(path: string): Promise<Blob>;
 }

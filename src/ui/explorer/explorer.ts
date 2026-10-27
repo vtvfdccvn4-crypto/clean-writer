@@ -155,13 +155,13 @@ export function renderTaskExplorer(content: HTMLElement, empty: HTMLElement, edi
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'task-explorer-item-action task-explorer-item-action--danger';
-      remove.title = 'Delete section';
-      remove.setAttribute('aria-label', 'Delete section');
+      remove.title = 'Move section to trash';
+      remove.setAttribute('aria-label', 'Move section to trash');
       remove.innerHTML = fontAwesomeIcon('trash-can');
       remove.addEventListener('click', async event => {
         event.preventDefault();
         event.stopPropagation();
-        const proceed = await showConfirmDialog({ title: 'Delete section', message: `Delete ${getBaseName(node.path)}? This cannot be undone.`, confirmLabel: 'Delete', cancelLabel: 'Cancel', tone: 'danger' });
+        const proceed = await showConfirmDialog({ title: 'Move to trash', message: `Move ${getBaseName(node.path)} to the trash? You can restore it from the trash.`, confirmLabel: 'Move to trash', cancelLabel: 'Cancel', tone: 'danger' });
         if (proceed) await projectSession.deleteSection(node.path);
       });
       const pageBreak = document.createElement('button');

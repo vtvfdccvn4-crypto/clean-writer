@@ -1,5 +1,5 @@
 import type { ImageSetup, ProjectSettingsPatch, WorkspaceRef, SectionPlacement } from '../types';
-import type { WorkspaceSession } from '../platform/types';
+import type { WorkspaceSession, TrashItem, TrashRestoreResult } from '../platform/types';
 import { state, type AppState } from '../state';
 import { projectServiceFor, type ProjectServiceApi } from './ProjectService';
 import { settingsServiceFor, type SettingsServiceApi } from './SettingsService';
@@ -151,6 +151,18 @@ export class ProjectSessionStore {
 
   async deleteSection(name: string): Promise<boolean> {
     return this.projectService.deleteSection(this.requireSession(), name);
+  }
+
+  async listTrash(): Promise<TrashItem[]> {
+    return this.projectService.listTrash(this.requireSession());
+  }
+
+  async restoreFromTrash(id: string): Promise<TrashRestoreResult> {
+    return this.projectService.restoreFromTrash(this.requireSession(), id);
+  }
+
+  async purgeTrash(id?: string): Promise<boolean> {
+    return this.projectService.purgeTrash(this.requireSession(), id);
   }
 
   async moveSection(source: string, target: string | null, placement: SectionPlacement): Promise<boolean> {
