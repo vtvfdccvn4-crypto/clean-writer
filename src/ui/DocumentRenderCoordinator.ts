@@ -22,7 +22,8 @@ import { PreviewScheduler } from './PreviewScheduler';
 import { isAbortError } from '../workers/CompileClient';
 import { isLargeDocument } from '../preview/PreviewPolicy';
 import type { CompiledPreview } from '../compiler';
-import { updatePreviewFreshness } from './preview-freshness';
+import { updatePreviewFreshness, updateLivePreviewStatus } from './preview-freshness';
+import { LivePreviewFreshness } from './live-preview-freshness';
 
 /** Preview refresh pauses. Live preview is cheap enough to follow typing closely; the paginated preview runs a full layout, so it waits as long as it did when it followed autosave. */
 const LIVE_PREVIEW_DELAY_MS = 250;
@@ -68,6 +69,8 @@ export class DocumentRenderCoordinator {
   private readonly drafts: DraftStore = createBrowserDraftStore();
   private readonly draftWriter = new DraftWriter(this.drafts);
   private readonly previewScheduler: PreviewScheduler<PreviewEdit>;
+  /** Tells the reader when the live preview is behind the editor. */
+  private readonly liveFreshness = new LivePreviewFreshness(updateLivePreviewStatus);
   /** The full document's compiled preview, kept so its print preview can be built on request. */
   private fullDocumentCompiled: CompiledPreview | null = null;
 
@@ -130,6 +133,7 @@ export class DocumentRenderCoordinator {
     try {
       this.preview.setMode('paginated');
       this.previewScheduler.cancel();
+      this.liveFreshness.settled();
       const revision = this.preview.beginRevision();
       this.preview.clearVisiblePreview();
       const { projectRef } = state.current;
@@ -224,6 +228,7 @@ export class DocumentRenderCoordinator {
   async renderSingleDocument(filename: string, isLatest: () => boolean): Promise<void> {
     this.preview.setMode('paginated');
     this.previewScheduler.cancel();
+    this.liveFreshness.settled();
     const initialRevision = this.preview.beginRevision();
     this.preview.clearVisiblePreview();
     const { projectRef } = state.current;
@@ -277,6 +282,7 @@ export class DocumentRenderCoordinator {
         if (this.documentSession.currentFilePath === filename && state.current.activeFile === filename) {
           this.draftWriter.schedule({ projectId: projectRef.id, path: filename }, snapshot, baseHash);
           this.opts.updateSaveStatus('dirty');
+          if (!this.opts.getIsFinalPrintPreview()) this.liveFreshness.typing();
           // Preview work is keyed to the edit, not to the autosave.
           // The revision advances when the refresh runs, not per keystroke:
           // starting a revision cancels in-flight pagination, which must not
@@ -431,6 +437,7 @@ export class DocumentRenderCoordinator {
       return;
     }
 
+    if (!this.opts.getIsFinalPrintPreview()) this.liveFreshness.updating();
     void this.preview.compileLatestDocument(markdownToCompile)
       .then(compiledPreview => {
         if (!compiledPreview) return;
@@ -453,9 +460,11 @@ export class DocumentRenderCoordinator {
           );
         } else {
           this.preview.publish(compiledPreview, changeRevision);
+          this.liveFreshness.settled();
         }
       })
       .catch(previewError => {
+        this.liveFreshness.settled();
         console.warn(`[DocumentRenderCoordinator] Preview refresh failed for ${filename}.`, previewError);
       });
     // Page-break guides paginate in the background, so a large document shows none until its print preview is built.

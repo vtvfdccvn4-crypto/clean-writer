@@ -1,4 +1,5 @@
 import type { PrintPreviewFreshness } from '../preview/PreviewPolicy';
+import type { LivePreviewFreshnessState } from './live-preview-freshness';
 
 const MESSAGES: Record<PrintPreviewFreshness, { readonly text: string; readonly action: string }> = {
   'not-built': {
@@ -9,6 +10,11 @@ const MESSAGES: Record<PrintPreviewFreshness, { readonly text: string; readonly 
     text: 'Print preview is out of date.',
     action: 'Update print preview'
   }
+};
+
+const LIVE_MESSAGES: Record<LivePreviewFreshnessState, string> = {
+  typing: 'Preview paused while typing; showing last completed revision.',
+  updating: 'Preview updating'
 };
 
 /**
@@ -32,4 +38,21 @@ export function updatePreviewFreshness(freshness: PrintPreviewFreshness | null, 
   text.textContent = message.text;
   action.textContent = message.action;
   action.onclick = () => onAction();
+}
+
+/**
+ * Shows what the live preview is doing about recent edits. It has its own strip, so it never
+ * replaces or hides the print-preview notice. Null hides it.
+ */
+export function updateLivePreviewStatus(state: LivePreviewFreshnessState | null): void {
+  const strip = document.getElementById('preview-live-status');
+  const text = document.getElementById('preview-live-status-text');
+  if (!strip || !text) return;
+  if (state === null) {
+    strip.hidden = true;
+    text.textContent = '';
+    return;
+  }
+  strip.hidden = false;
+  text.textContent = LIVE_MESSAGES[state];
 }

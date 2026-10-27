@@ -37,6 +37,12 @@ const freshnessVisible = () => {
   return strip !== null && !strip.hidden;
 };
 const printedPages = () => document.querySelectorAll('.pagedjs_page').length;
+const liveStatusText = () => document.getElementById('preview-live-status-text')?.textContent ?? '';
+const liveStatusVisible = () => {
+  const strip = document.getElementById('preview-live-status');
+  return strip !== null && !strip.hidden;
+};
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function run() {
   await resetBrowserStorage();
@@ -78,6 +84,17 @@ async function run() {
   await waitFor('live compile of the edit', () => (liveBucket()?.count ?? 0) > liveCountBefore ? true : null, 60_000);
   const liveEditCompileMs = Math.round(liveBucket()?.lastMs ?? 0);
 
+  // Typing faster than the pause: the live preview is behind, so its status says so. Once typing
+  // stops and the newest text renders, the status clears. The print notice is unaffected.
+  let sawPausedWhileTyping = false;
+  for (let index = 0; index < 20; index += 1) {
+    liveEditView.setValue(LARGE_SECTION + '\n\nTYPING_' + index, false);
+    await wait(100);
+    if (liveStatusVisible() && liveStatusText().includes('paused while typing')) sawPausedWhileTyping = true;
+  }
+  await waitFor('live status cleared after typing', () => !liveStatusVisible() ? true : null, 60_000);
+  const printNoticeKeptDuringLiveEdits = freshnessVisible() && freshnessText().includes('not built');
+
   // The user builds the print preview on request.
   const buildStarted = performance.now();
   await click('#preview-freshness-action');
@@ -114,14 +131,17 @@ async function run() {
   const fullPagesAfterBuild = printedPages();
 
   window.__HARNESS_RESULT__ = {
-    ok: updatedText.includes(marker) && pagesAfterBuild > 0 && fullPagesAfterBuild > 0,
+    ok: updatedText.includes(marker) && pagesAfterBuild > 0 && fullPagesAfterBuild > 0
+      && sawPausedWhileTyping && printNoticeKeptDuringLiveEdits,
     pagesBeforeBuild,
     pagesAfterBuild,
     liveEditCompileMs,
     fullPagesBeforeBuild,
     fullPagesAfterBuild,
     buildMs,
-    updateShowsEdit: updatedText.includes(marker)
+    updateShowsEdit: updatedText.includes(marker),
+    sawPausedWhileTyping,
+    printNoticeKeptDuringLiveEdits
   };
 }
 

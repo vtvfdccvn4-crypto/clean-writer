@@ -34,6 +34,9 @@ export const previewPanelTemplate = (): string => `
       <span id="preview-freshness-text" class="preview-freshness-text" role="status" aria-live="polite"></span>
       <button id="preview-freshness-action" class="preview-freshness-action" type="button"></button>
     </div>
+    <div id="preview-live-status" class="preview-freshness preview-live-status" hidden>
+      <span id="preview-live-status-text" class="preview-freshness-text" role="status" aria-live="polite"></span>
+    </div>
     ${pdfJobStatusTemplate()}
     <div class="preview-footer-toolbar panel-bar panel-footer">
       <output id="preview-page-indicator" class="preview-page-indicator" aria-live="polite" aria-label="Preview page" hidden>Page 1 of 1 Pages</output>
