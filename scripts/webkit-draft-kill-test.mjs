@@ -53,10 +53,10 @@ async function killWebKit() {
   return pids.length;
 }
 
-async function writeUntil(page, predicate) {
+async function writeUntil(page, version) {
   await page.goto(`${origin}/test/fixtures/draft-hard-kill.html?mode=write`);
   await page.waitForFunction(() => window.__acked !== undefined, null, { timeout: timeoutMs });
-  await page.waitForFunction(predicate, null, { timeout: timeoutMs });
+  await page.waitForFunction(target => window.__acked >= target, version, { timeout: timeoutMs });
 }
 
 async function readAfterRestart(userDataDir) {
@@ -75,7 +75,7 @@ async function trial(kind) {
   const { page } = await launch(userDataDir);
   try {
     const threshold = 3 + Math.floor(Math.random() * 20);
-    await writeUntil(page, () => window.__acked >= threshold);
+    await writeUntil(page, threshold);
     if (kind === 'paused') {
       await page.evaluate(() => { window.__pauseRequested = true; });
       await page.waitForFunction(() => window.__paused === true || window.__writeFailed === true, null, { timeout: timeoutMs });
