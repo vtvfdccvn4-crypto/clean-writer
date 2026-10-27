@@ -104,7 +104,7 @@ async function runFixture(fixture) {
     failure,
     pageErrors,
     consoleMessages: failure === null ? undefined : consoleMessages.slice(-20),
-    result: failure === null ? undefined : result
+    result: failure === null && process.env.CLEAR_WRITER_SMOKE_VERBOSE !== '1' ? undefined : result
   };
 }
 
@@ -115,6 +115,8 @@ try {
     const outcome = await runFixture(fixture);
     results.push(outcome);
     process.stdout.write(`${outcome.ok ? 'PASS' : 'FAIL'} ${fixture.name} (${outcome.elapsedMs} ms)${outcome.ok ? '' : `: ${outcome.failure}`}\n`);
+    // CLEAR_WRITER_SMOKE_VERBOSE=1 also prints the result of a passing fixture, for diagnosis.
+    if (outcome.ok && process.env.CLEAR_WRITER_SMOKE_VERBOSE === '1') process.stdout.write(`  result: ${JSON.stringify(outcome.result ?? null)}\n`);
   }
 } finally {
   await viteServer.close();
