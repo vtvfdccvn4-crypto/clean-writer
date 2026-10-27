@@ -9,7 +9,12 @@ import { detectBrowserExecutable, reservePort } from './lib/browser.mjs';
 // page's compiler, supersession, error reporting, crash fallback, and main-thread
 // responsiveness. The harness page reports its own checks; this script fails on any miss.
 
-const { chromium } = createRequire(import.meta.url)('playwright');
+// CLEAR_WRITER_SMOKE_BROWSER=webkit runs the same harness in Playwright's WebKit (the engine
+// behind Safari). It defaults to Chromium, which uses the browser named by CLEAR_WRITER_BROWSER.
+const browserName = process.env.CLEAR_WRITER_SMOKE_BROWSER?.trim() || 'chromium';
+const playwright = createRequire(import.meta.url)('playwright');
+const browserType = playwright[browserName];
+if (!browserType) throw new Error(`Unknown CLEAR_WRITER_SMOKE_BROWSER "${browserName}". Use chromium or webkit.`);
 const root = path.resolve(import.meta.dirname, '..');
 const outDir = path.join(root, 'dist-harness');
 const contentTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -30,7 +35,9 @@ const server = http.createServer(async (request, response) => {
 });
 await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
 
-const browser = await chromium.launch({ executablePath: await detectBrowserExecutable(), args: ['--no-sandbox'] });
+const browser = browserName === 'chromium'
+  ? await browserType.launch({ executablePath: await detectBrowserExecutable(), args: ['--no-sandbox'] })
+  : await browserType.launch();
 let result;
 try {
   const page = await browser.newPage();

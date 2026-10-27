@@ -208,6 +208,27 @@ async function run(): Promise<void> {
   const crashRecovered = crashed.compiled.html === mixedPage.html;
   crashing.dispose();
 
+  // 7b. A worker that stops answering is replaced: its job compiles on the page, and the next edit
+  // runs on a new worker. The first worker is a stand-in that never receives the job, so the real
+  // worker never answers it; this simulates a hang at the message boundary, not inside a compile.
+  let hangWorkers = 0;
+  const hanging = new CompileClient({
+    createWorker: () => {
+      hangWorkers += 1;
+      const real = new Worker(new URL('../../src/workers/compile.worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike;
+      if (hangWorkers > 1) return real;
+      real.terminate();
+      return { postMessage() { /* stuck: the job is never answered */ }, terminate() { /* already stopped */ }, onmessage: null, onerror: null, onmessageerror: null } as WorkerLike;
+    },
+    compileLocal: async job => ({ compiled: await compilePreviewDocument(job.markdown, createSnapshotAssetResolver(job.assets), job.settings, {}), cacheHit: false, phases: {} }),
+    hungAfterMs: 1500
+  });
+  const hungOutcome = await hanging.compile(request(MIXED, 'hung'));
+  const hungRecoveredOnPage = hungOutcome.compiled.html === mixedPage.html && hungOutcome.timing === undefined;
+  const afterHang = await hanging.compile(request(MIXED + '\n', 'hung'));
+  const hungRecovered = hungRecoveredOnPage && hangWorkers === 2 && afterHang.timing !== undefined && hanging.usesFallback === false;
+  hanging.dispose();
+
   client.dispose();
 
   // 8. Transfer, cold and warm compile times, and the cache, for the 50-section document.
@@ -250,7 +271,7 @@ async function run(): Promise<void> {
       && parity.mixedHasStyledSpan && parity.mixedHasImageSource && parity.mixedScriptRemoved
       && repeat.cacheHit === true && supersededRejected && newestHtml.includes('Replacement')
       && errorMessage.includes('must carry Markdown text') && cloneMessage.includes('could not be sent to the compile worker')
-      && afterClone && crashRecovered && client.usesFallback === false,
+      && afterClone && crashRecovered && hungRecovered && client.usesFallback === false,
     parity,
     repeatCacheHit: repeat.cacheHit,
     supersededRejected,
@@ -259,6 +280,7 @@ async function run(): Promise<void> {
     cloneMessage,
     afterClone,
     crashRecovered,
+    hungRecovered,
     workerUsed: client.usesFallback === false,
     pageCompile: onPageTiming,
     workerCompile: workerTiming,

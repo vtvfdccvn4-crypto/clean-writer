@@ -1,0 +1,32 @@
+name: WebKit compile worker smoke
+
+# Runs the compile-worker harness in WebKit, the engine behind Safari. It is not part of the
+# deploy gate: Safari keeps the compile worker opt-in until this job passes.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  webkit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps webkit
+
+      - run: node scripts/release-compile-worker-smoke.mjs
+        env:
+          CLEAR_WRITER_SMOKE_BROWSER: webkit
