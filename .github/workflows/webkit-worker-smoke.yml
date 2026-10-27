@@ -29,7 +29,7 @@ jobs:
       # Split so a stall shows in the log: the apt packages first, then the WebKit download.
       - name: Install WebKit system dependencies
         run: npx playwright install-deps webkit
-        timeout-minutes: 10
+        timeout-minutes: 20
 
       - name: Install WebKit
         run: npx playwright install webkit
