@@ -1,5 +1,7 @@
 import type { PdfArtifactKey } from './PdfRenderSnapshot';
 
+const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
+
 /** The completed, self-contained rendering product shared by preview and print. */
 export const PDF_ARTIFACT_SCHEMA_VERSION = 1;
 
@@ -23,7 +25,8 @@ export function createPdfArtifact(input: PdfArtifact): PdfArtifact {
   if (input.schemaVersion !== PDF_ARTIFACT_SCHEMA_VERSION) throw new Error('Unsupported PDF artifact schema.');
   if (!input.artifactId) throw new Error('PDF artifact is missing its identity.');
   if (!input.key) throw new Error('PDF artifact is missing its render identity.');
-  if (!input.key.compilerVersion || !input.key.document || !input.key.stylesheet || !input.key.margins || !input.key.assets) {
+  const { documentDigest, stylesheetDigest, marginsDigest, assetsDigest } = input.key;
+  if (!input.key.compilerVersion || ![documentDigest, stylesheetDigest, marginsDigest, assetsDigest].every(digest => DIGEST_PATTERN.test(digest))) {
     throw new Error('PDF artifact has an incomplete render identity.');
   }
   if (!input.html.trim()) throw new Error('PDF artifact is missing page HTML.');

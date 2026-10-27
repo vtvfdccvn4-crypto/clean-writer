@@ -4,6 +4,7 @@ import { renderAppShell, initProjectNameDisplay } from '../ui/components/AppShel
 import { initializeSymbolPicker } from '../ui/symbolPicker';
 import { projectSession } from '../services/ProjectSessionStore';
 import { registerServiceWorker } from '../sw-registration';
+import { initStorageStatus } from '../ui/storage-status';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { Platform } from '../platform/types';
 import { showNotice } from '../ui/components/Notice';
@@ -16,6 +17,7 @@ import { initTaskPanelResizer } from '../ui/explorer/resizer';
 import { initEditorPreviewResizer } from '../ui/editor-preview-resizer';
 import { initTaskPanelActions } from '../ui/explorer/actions';
 import { initTaskPanelViews } from '../ui/explorer/views';
+import { setupPreviewNavigationControls } from '../ui/preview-navigation-controls';
 
 let editorManager: EditorManager;
 type StartupWindow = Window & {
@@ -91,7 +93,7 @@ export async function bootApp(platform: Platform) {
   initProjectNameDisplay();
   initTaskPanelResizer();
   initEditorPreviewResizer();
-  initTaskPanelActions(platform);
+  initTaskPanelActions(platform, { flushCurrentDocument: () => editorManager?.flushCurrentDocument() ?? Promise.resolve() });
 
   editorManager = new EditorManager(platform);
   // Expose for smoke tests
@@ -112,6 +114,8 @@ export async function bootApp(platform: Platform) {
       throw error;
     }
   }
+
+  setupPreviewNavigationControls(editorManager.getPreviewNavigator());
 
   void import('./setupPdfPreview')
     .then(({ setupPdfPreview }) => setupPdfPreview(editorManager))
@@ -212,5 +216,6 @@ export async function bootApp(platform: Platform) {
   await restoreInitialWorkspace(platform, editorManager);
 
   (window as StartupWindow).__CLEAR_WRITER_READY__ = true;
-  registerServiceWorker();
+  initStorageStatus();
+  registerServiceWorker(() => editorManager.flushCurrentDocument());
 }

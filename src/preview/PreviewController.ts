@@ -20,6 +20,10 @@ import { LivePreviewIndex } from './live/LivePreviewIndex';
 import { applyImagePreviewStyle, applyListPreviewStyle, applyLiveDocumentStyle, applyTablePreviewStyle, applyTypographyPreviewStyle } from './PreviewStyleManager';
 import type { PreviewTimingPhase } from '../perf/preview-timing';
 import type { PreviewPageTiming } from '../perf/preview-timing';
+import { adjacentHeadingIndex } from './navigation/pageNavigation';
+
+/** The line, in pixels from the top of the scroll area, that a scrolled-to heading or page is aligned to. Matches PreviewViewport. */
+const NAVIGATION_TOP_INSET = 12;
 
 export interface PreviewControllerOptions {
   mode?: 'live' | 'paginated';
@@ -49,6 +53,8 @@ export class PreviewController {
   private readonly pageIndicator: HTMLOutputElement | null;
   private readonly previewScrollParent: HTMLElement | null;
   private pageIndicatorFrame: number | null = null;
+  /** Where the preview was scrolled when the latest render committed its pages. */
+  private scrollTopAtCommit = 0;
   private pageIndicatorGeometry: number[] = [];
   private pageIndicatorGeometryDirty = true;
   private disposed = false;
@@ -357,8 +363,53 @@ export class PreviewController {
     }
   }
 
+  /** Physical pages in the paginated preview. Zero in the live preview or before a render completes. */
+  public pageCount(): number {
+    return this.container.querySelectorAll('.pagedjs_page').length;
+  }
+
+  /** Scrolls so that the given 1-based page is at the top. Returns false if there is no such page. */
+  public scrollToPage(pageNumber: number): boolean {
+    const pages = this.container.querySelectorAll<HTMLElement>('.pagedjs_page');
+    const page = pages[pageNumber - 1];
+    if (!page) return false;
+    this.viewport.scrollElementToTop(page, { instant: true });
+    // Name the page asked for now. The indicator follows the scroll position as it settles.
+    this.showPageIndicator(pageNumber - 1, pages.length);
+    return true;
+  }
+
+  /** Scrolls to the next or previous heading. Returns its text, or null when there is no such heading. */
+  public scrollToAdjacentHeading(direction: 1 | -1): string | null {
+    const scrollParent = this.previewScrollParent;
+    if (!scrollParent) return null;
+    const headings = Array.from(this.container.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'));
+    const parentTop = scrollParent.getBoundingClientRect().top;
+    const tops = headings.map(heading => heading.getBoundingClientRect().top - parentTop);
+    const index = adjacentHeadingIndex(tops, NAVIGATION_TOP_INSET, direction);
+    if (index === null) return null;
+    const heading = headings[index]!;
+    this.viewport.scrollElementToTop(heading, { instant: true });
+    const pages = Array.from(this.container.querySelectorAll<HTMLElement>('.pagedjs_page'));
+    const pageIndex = pages.findIndex(page => page.contains(heading));
+    if (pageIndex >= 0) this.showPageIndicator(pageIndex, pages.length);
+    return heading.textContent?.trim() || 'Untitled heading';
+  }
+
   public scrollToTop() {
     this.viewport.scrollToTop();
+  }
+
+  /**
+   * Whether the reader has scrolled the preview since the latest render committed its pages. Scrolling that
+   * the app does on its own after a render, such as following the cursor, should yield to a reader who has moved.
+   */
+  public readerHasScrolledSinceCommit(): boolean {
+    return Math.abs((this.container.parentElement?.scrollTop ?? 0) - this.scrollTopAtCommit) > 1;
+  }
+
+  private markCommitted(): void {
+    this.scrollTopAtCommit = this.container.parentElement?.scrollTop ?? 0;
   }
 
   public setViewportResizeSuspended(suspended: boolean): void {
@@ -414,6 +465,7 @@ export class PreviewController {
       () => generation === this.liveRenderGeneration
     );
     if (!document) return { status: 'stale', pageCount: 0 };
+    this.markCommitted();
     return { status: 'rendered', pageCount: document.blocks.length };
   }
 
@@ -456,7 +508,12 @@ export class PreviewController {
       <= Math.abs(this.pageIndicatorGeometry[candidate]! - viewportCenter)
       ? previous
       : candidate;
-    this.pageIndicator.textContent = `Page ${currentIndex + 1} of ${pages.length} Pages`;
+    this.showPageIndicator(currentIndex, pages.length);
+  }
+
+  private showPageIndicator(pageIndex: number, pageCount: number): void {
+    if (!this.pageIndicator) return;
+    this.pageIndicator.textContent = `Page ${pageIndex + 1} of ${pageCount} Pages`;
   }
 
   private commitNavigation(sourceRevision: number | null, result: RenderResult): void {
@@ -503,6 +560,12 @@ export class PreviewController {
     const restoreStartedAt = performance.now();
     restoreScroll();
     onPhase?.('restore-scroll', Math.round(performance.now() - restoreStartedAt));
-    window.requestAnimationFrame(restoreScroll);
+    this.markCommitted();
+    window.requestAnimationFrame(() => {
+      // The restore on the next frame is for the layout settling after the commit. A reader who has scrolled
+      // in the meantime keeps their position: writing the old one back would throw them out of it.
+      if (this.readerHasScrolledSinceCommit()) scrollParent.style.overflowAnchor = previousOverflowAnchor;
+      else restoreScroll();
+    });
   }
 }

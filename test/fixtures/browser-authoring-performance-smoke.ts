@@ -111,8 +111,13 @@ async function run() {
     'restore-scroll',
     'total'
   ];
-  if (requiredPreviewPhases.some(phase => !previewPhaseNames.includes(phase))) {
-    throw new Error(`Full-document preview timing is missing phases: ${requiredPreviewPhases.filter(phase => !previewPhaseNames.includes(phase)).join(', ')}`);
+  // A result served from the worker's cache runs no compile, so it has no compile sub-phases.
+  const compileSubPhases = ['compile-parse-markdown', 'compile-transform-document', 'compile-stringify-html', 'compile-rebase-manifest'];
+  const expectedPhases = previewTiming.metadata?.compileCacheHit === true
+    ? requiredPreviewPhases.filter(phase => !compileSubPhases.includes(phase))
+    : requiredPreviewPhases;
+  if (expectedPhases.some(phase => !previewPhaseNames.includes(phase))) {
+    throw new Error(`Full-document preview timing is missing phases: ${expectedPhases.filter(phase => !previewPhaseNames.includes(phase)).join(', ')}; phases: ${previewPhaseNames.join(',')}; metadata: ${JSON.stringify(previewTiming.metadata)}`);
   }
   if (new URLSearchParams(window.location.search).get('preview-diagnostics') === 'true'
     && previewTiming.pageTimings?.length !== previewTiming.metadata?.pageCount) {

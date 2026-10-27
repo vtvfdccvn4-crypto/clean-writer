@@ -36,6 +36,12 @@ function headingStyleAttributes(heading: SpecialHeadingDefinition, editorSetup: 
   };
 }
 
+/**
+ * Decorates only the lines the viewport shows. CodeMirror draws nothing outside
+ * the visible ranges, and a viewport change rebuilds the set, so the cost of a
+ * keystroke no longer depends on the length of the document. Style pairs are
+ * matched within one line; the pattern's `.` never crosses a newline.
+ */
 function buildDecorations(
   view: EditorView,
   styles: readonly CustomStyle[],
@@ -44,52 +50,50 @@ function buildDecorations(
   editorSetup: EditorSetup
 ): DecorationSet {
   const ranges: Array<{ from: number; to: number; decoration: Decoration }> = [];
-  const text = view.state.doc.toString();
+  const doc = view.state.doc;
   const blockStylePrefixes = indexPrefixes(blockStyles, style => style.prefix);
   const specialHeadingPrefixes = indexPrefixes(specialHeadings, heading => heading.directive);
+  const inlinePatterns = styles
+    .filter(style => style.openingPair && style.closingPair)
+    .map(style => ({
+      style,
+      pattern: new RegExp(`${escapeRegExp(style.openingPair)}(.*?)${escapeRegExp(style.closingPair)}`, 'g')
+    }));
 
-  for (const style of styles) {
-    if (!style.openingPair || !style.closingPair) continue;
-    const pattern = new RegExp(`${escapeRegExp(style.openingPair)}(.*?)${escapeRegExp(style.closingPair)}`, 'g');
-    let match: RegExpExecArray | null;
-
-    while ((match = pattern.exec(text))) {
-      const from = match.index + style.openingPair.length;
-      const to = from + match[1].length;
-      if (to <= from) continue;
-      ranges.push({
-        from,
-        to,
-        decoration: Decoration.mark({
-          attributes: textStyleAttributes(style)
-        })
-      });
-    }
-  }
-
-  for (let lineNo = 1; lineNo <= view.state.doc.lines; lineNo += 1) {
-    const line = view.state.doc.line(lineNo);
-    const blockStyle = firstPrefixMatch(line.text, blockStylePrefixes, style => style.prefix);
-    if (blockStyle) {
-      ranges.push({
-        from: line.from,
-        to: line.from,
-        decoration: Decoration.line({
-          attributes: customBlockEditorLineAttributes(blockStyle)
-        })
-      });
-    }
-    const heading = firstPrefixMatch(line.text, specialHeadingPrefixes, item => item.directive);
-    if (heading && line.to > line.from) {
-      const from = line.from;
-      const to = line.to;
-      ranges.push({
-        from,
-        to,
-        decoration: Decoration.mark({
-          attributes: headingStyleAttributes(heading, editorSetup)
-        })
-      });
+  let lastLineNumber = 0;
+  for (const visible of view.visibleRanges) {
+    const firstLine = doc.lineAt(visible.from).number;
+    const lastLine = doc.lineAt(visible.to).number;
+    // Adjacent visible ranges can share a line, which must be decorated once.
+    for (let lineNumber = Math.max(firstLine, lastLineNumber + 1); lineNumber <= lastLine; lineNumber += 1) {
+      lastLineNumber = lineNumber;
+      const line = doc.line(lineNumber);
+      for (const { style, pattern } of inlinePatterns) {
+        pattern.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = pattern.exec(line.text))) {
+          const from = line.from + match.index + style.openingPair.length;
+          const to = from + match[1].length;
+          if (to <= from) continue;
+          ranges.push({ from, to, decoration: Decoration.mark({ attributes: textStyleAttributes(style) }) });
+        }
+      }
+      const blockStyle = firstPrefixMatch(line.text, blockStylePrefixes, style => style.prefix);
+      if (blockStyle) {
+        ranges.push({
+          from: line.from,
+          to: line.from,
+          decoration: Decoration.line({ attributes: customBlockEditorLineAttributes(blockStyle) })
+        });
+      }
+      const heading = firstPrefixMatch(line.text, specialHeadingPrefixes, item => item.directive);
+      if (heading && line.to > line.from) {
+        ranges.push({
+          from: line.from,
+          to: line.to,
+          decoration: Decoration.mark({ attributes: headingStyleAttributes(heading, editorSetup) })
+        });
+      }
     }
   }
 
@@ -147,7 +151,7 @@ class CustomStyleHighlighting {
   }
 
   update(update: ViewUpdate) {
-    if (update.docChanged) {
+    if (update.docChanged || update.viewportChanged) {
       this.decorations = buildDecorations(update.view, this.styles, this.blockStyles, this.specialHeadings, this.editorSetup);
     }
   }

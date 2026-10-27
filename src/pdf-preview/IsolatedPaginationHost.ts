@@ -9,7 +9,8 @@ import {
   type PdfPreviewPaginationOutcome,
   type PdfPreviewPhaseTiming,
   type PdfPreviewProgress,
-  type PdfPreviewRenderResult
+  type PdfPreviewRenderResult,
+  type PdfPreviewWatchdogLimits
 } from './contracts';
 import { estimatePdfPreviewBudget } from './PdfPreviewPaginationBudget';
 import { recordPdfPreviewDiagnostic } from './PdfPreviewDiagnosticsLog';
@@ -19,7 +20,6 @@ const FRAME_STARTUP_TIMEOUT_MS = 15_000;
 
 type HostOptions = {
   signal?: AbortSignal;
-  timeoutMs: number;
   budget: PdfPreviewPaginationBudget;
   onProgress?: (progress: PdfPreviewProgress) => void;
   onPhase?: (phase:
@@ -43,6 +43,16 @@ export class IsolatedPaginationHost {
   // Rejects (and is cleared) if the frame fails to boot.
   private frameReady: Promise<void> | null = null;
 
+  /**
+   * @param limits Overrides the watchdog limits estimated from each job. Tests
+   * use small values to exercise the stall and ceiling paths quickly.
+   */
+  private readonly limits: Partial<PdfPreviewWatchdogLimits>;
+
+  constructor(limits: Partial<PdfPreviewWatchdogLimits> = {}) {
+    this.limits = limits;
+  }
+
   /** Boot the pagination frame early so the first preview request finds it warm. */
   prewarm(): void {
     this.ensureWarmFrame();
@@ -61,9 +71,8 @@ export class IsolatedPaginationHost {
     signal?: AbortSignal,
     onPhase?: HostOptions['onPhase']
   ): Promise<PdfPreviewPaginationOutcome<PdfPreviewRenderResult>> {
-    const budget = estimatePdfPreviewBudget(input);
+    const budget: PdfPreviewPaginationBudget = { ...estimatePdfPreviewBudget(input), ...this.limits };
     return this.run({ type: 'clear-writer-pdf-preview-request', requestId: crypto.randomUUID(), input }, {
-      timeoutMs: budget.timeoutMs,
       budget,
       onProgress,
       signal,
@@ -99,6 +108,9 @@ export class IsolatedPaginationHost {
     const previousRequest = this.activeRequest;
     let releaseRequest!: () => void;
     let releaseAfterPrevious = false;
+    // Set once the job has been posted to the frame. Rejecting the promise on
+    // abort does not stop Paged.js, so only a posted job needs its frame discarded.
+    let requestPosted = false;
     this.activeRequest = new Promise(resolve => { releaseRequest = resolve; });
     const startedAt = performance.now();
     const timings: PdfPreviewPhaseTiming[] = [];
@@ -133,6 +145,7 @@ export class IsolatedPaginationHost {
           options.onPhase?.('load-pagination-frame', loadDurationMs);
         }
         const paginationStartedAt = performance.now();
+        requestPosted = true;
         const result = await this.request(frame, request, { ...options, startedAt }) as T;
         const responseElapsedMs = Math.round(performance.now() - paginationStartedAt);
         const paginationMs = Math.min(responseElapsedMs, result.paginationMs ?? responseElapsedMs);
@@ -169,7 +182,12 @@ export class IsolatedPaginationHost {
         }
         return complete({ status: 'success', result: this.freezeArtifactResult(result), diagnostics: finalDiagnostics });
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return complete({ status: 'cancelled', diagnostics: diagnostics() });
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          // Discard the frame before the queue slot is released, so the next
+          // job can never overlap a layout pass that is still running.
+          if (requestPosted) this.invalidateFrame();
+          return complete({ status: 'cancelled', diagnostics: diagnostics() });
+        }
         if (error instanceof PaginationTimeoutError) {
           // Frame timed out — discard it so the next request gets a fresh boot.
           this.invalidateFrame();
@@ -259,35 +277,65 @@ export class IsolatedPaginationHost {
     });
   }
 
+  /**
+   * Waits for the frame's result under a progress-aware watchdog. The stall
+   * timer restarts each time the frame reports a newly completed page, so a long
+   * job that keeps producing pages is not killed. The ceiling bounds the job
+   * regardless of progress.
+   *
+   * Watchdog timers fire only when the parent's event loop runs. Paged.js yields
+   * between pages, which is what lets this detect a stall; a frame that blocks
+   * the shared main thread cannot be watched from here (plan E12).
+   */
   private request(
     frame: HTMLIFrameElement,
     request: PdfPreviewFrameRequest,
     options: HostOptions & { startedAt: number }
   ): Promise<PdfPreviewFrameResult> {
     return new Promise((resolve, reject) => {
+      let highestPageSeen = 0;
+      let stallTimer: number | undefined;
       const finish = (error?: Error, result?: PdfPreviewFrameResult) => {
-        window.clearTimeout(timeout);
+        window.clearTimeout(stallTimer);
+        window.clearTimeout(ceilingTimer);
         window.removeEventListener('message', receive);
         options.signal?.removeEventListener('abort', abort);
         if (error) reject(error); else resolve(result!);
       };
-      const timeout = window.setTimeout(() => finish(new PaginationTimeoutError('PDF preview pagination timed out.')), options.timeoutMs);
+      const armStallTimer = () => {
+        window.clearTimeout(stallTimer);
+        stallTimer = window.setTimeout(() => finish(new PaginationTimeoutError(
+          `PDF preview pagination stalled after ${highestPageSeen} pages.`
+        )), options.budget.stallMs);
+      };
+      const ceilingTimer = window.setTimeout(() => finish(new PaginationTimeoutError(
+        `PDF preview pagination exceeded its ${options.budget.ceilingMs} ms ceiling.`
+      )), options.budget.ceilingMs);
+      armStallTimer();
       const abort = () => finish(new DOMException('PDF preview pagination was cancelled.', 'AbortError'));
       const receive = (event: MessageEvent<PdfPreviewFrameMessage>) => {
         if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
         if (event.data?.requestId !== request.requestId) return;
         if (event.data.type === 'clear-writer-pdf-preview-progress') {
+          const pagesCompleted = event.data.pagesCompleted ?? 0;
+          if (pagesCompleted > highestPageSeen) {
+            highestPageSeen = pagesCompleted;
+            armStallTimer();
+          }
           options.onProgress?.({
             ...event.data,
             estimatedPages: options.budget.estimatedPages,
-            elapsedMs: Math.round(performance.now() - options.startedAt),
-            timeoutMs: options.timeoutMs
+            elapsedMs: Math.round(performance.now() - options.startedAt)
           });
           return;
         }
         if (event.data.type === 'clear-writer-pdf-preview-result' && request.type === 'clear-writer-pdf-preview-request') {
           finish(undefined, event.data);
           return;
+        }
+        if (event.data.type === 'clear-writer-pdf-preview-busy') {
+          // The host serializes jobs, so a busy frame means the frame state is unknown.
+          finish(new Error('PDF preview renderer was still busy with another job.'));
         }
       };
       window.addEventListener('message', receive);
@@ -305,7 +353,7 @@ export class IsolatedPaginationHost {
     return {
       type: 'clear-writer-pdf-preview-progress', requestId, phase,
       estimatedPages: budget.estimatedPages,
-      elapsedMs: Math.round(performance.now() - startedAt), timeoutMs: budget.timeoutMs
+      elapsedMs: Math.round(performance.now() - startedAt)
     };
   }
 

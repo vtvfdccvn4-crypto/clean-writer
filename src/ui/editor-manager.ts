@@ -24,6 +24,7 @@ import type { PaginatedPreviewRenderer } from './PaginatedPreviewRenderer';
 import { PreviewPipeline } from './PreviewPipeline';
 import type { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
 import { captureCurrentPrintLayout } from './CompiledPreviewCache';
+import type { PreviewNavigator } from './preview-navigation-controls';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -92,7 +93,7 @@ export class EditorManager {
       getEditor: () => this.currentEditorView,
       updateStatus: status => this.updateSaveStatus(status),
       reportError: error => console.error('[EditorManager] Save failed.', error),
-      reportNavigationBlocked: () => showNotice('The current section could not be saved. Your changes remain open. Reconnect the project and try again before continuing.', 'error')
+      reportNavigationBlocked: () => showNotice('The current section could not be saved, so it stays open. Your changes are still here. Try again before moving on.', 'error')
     });
     this.setPreviewVisible(projectSession.isProjectPresent());
     // The project lifecycle is the only authority on which screen shows.
@@ -203,7 +204,7 @@ export class EditorManager {
   private reportWorkflowError(message: string, error: unknown) {
     console.error(`[EditorManager] ${message}`, error);
     this.updateSaveStatus('error');
-    showNotice(`${describeWorkspaceError(error, 'save')}\n\nYour current document has been kept open. Reconnect the project and try again before continuing.`, 'error');
+    showNotice(`${describeWorkspaceError(error, 'save')}\n\nYour current document has been kept open.`, 'error');
   }
 
 
@@ -297,6 +298,11 @@ export class EditorManager {
   private setPreviewVisible(visible: boolean) {
     this.previewPane.classList.toggle('is-project-closed', !visible);
     this.previewPane.setAttribute('aria-hidden', String(!visible));
+  }
+
+  /** The preview's page and heading movement, for the preview footer's controls. */
+  public getPreviewNavigator(): PreviewNavigator {
+    return this.preview;
   }
 
   public getEditorView() {

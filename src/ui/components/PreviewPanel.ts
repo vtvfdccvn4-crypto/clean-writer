@@ -1,5 +1,6 @@
 import { materialIcon } from './icon';
 import { toolbarButton } from './toolbarButton';
+import { pdfJobStatusTemplate } from '../pdf-job-status';
 
 function previewEyeIconMarkup(): string {
   return materialIcon('document_scanner');
@@ -29,8 +30,26 @@ export const previewPanelTemplate = (): string => `
       <pre id="preview-diagnostics-output" aria-live="polite">No preview timing recorded.</pre>
     </details>
 
+    <div id="preview-freshness" class="preview-freshness" hidden>
+      <span id="preview-freshness-text" class="preview-freshness-text" role="status" aria-live="polite"></span>
+      <button id="preview-freshness-action" class="preview-freshness-action" type="button"></button>
+    </div>
+    <div id="preview-live-status" class="preview-freshness preview-live-status" hidden>
+      <span id="preview-live-status-text" class="preview-freshness-text" role="status" aria-live="polite"></span>
+    </div>
+    ${pdfJobStatusTemplate()}
     <div class="preview-footer-toolbar panel-bar panel-footer">
       <output id="preview-page-indicator" class="preview-page-indicator" aria-live="polite" aria-label="Preview page" hidden>Page 1 of 1 Pages</output>
+      <div class="preview-navigation" role="group" aria-label="Preview navigation">
+        <button id="btn-preview-prev-heading" class="preview-nav-button" type="button" aria-label="Previous heading" title="Previous heading">${materialIcon('arrow_upward')}</button>
+        <button id="btn-preview-next-heading" class="preview-nav-button" type="button" aria-label="Next heading" title="Next heading">${materialIcon('arrow_downward')}</button>
+        <form id="preview-page-jump" class="preview-page-jump" hidden>
+          <label for="preview-page-jump-input">Go to page</label>
+          <input id="preview-page-jump-input" class="preview-page-jump-input" type="text" inputmode="numeric" autocomplete="off">
+          <button class="preview-nav-button" type="submit">Go</button>
+        </form>
+      </div>
+      <p id="preview-navigation-status" class="visually-hidden" role="status" aria-live="polite"></p>
       <div class="panel-actions preview-export-actions">
         ${toolbarButton({ id: 'btn-pdf-preview', variant: 'icon-text', ariaLabel: 'PDF preview', title: 'PDF preview', icon: materialIcon('picture_as_pdf') })}
       </div>

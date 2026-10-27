@@ -35,6 +35,14 @@ export const shellPreferencesDrawerTemplate = (): string => `
               ${renderDrawerControl('Activity bar labels', renderDrawerSwitchControl('shell-activity-labels', 'Show activity bar labels'))}
               ${renderDrawerControl('Status bar', renderDrawerSwitchControl('shell-status-bar', 'Show status bar'))}
             </section>
+            <section class="drawer-card" aria-labelledby="storage-card-title">
+              <div class="drawer-card-head">
+                <span id="storage-card-title">Browser storage</span>
+              </div>
+              <p id="storage-persistence-status" class="drawer-note" aria-live="polite">Checking storage…</p>
+              <progress id="storage-usage-meter" class="storage-usage-meter" max="100" value="0" aria-label="Browser storage used" hidden></progress>
+              <p id="storage-usage-summary" class="drawer-note"></p>
+            </section>
           </div>
         </section>
       </div>

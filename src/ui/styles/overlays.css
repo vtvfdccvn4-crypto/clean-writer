@@ -120,6 +120,49 @@
   font-size: 9pt;
 }
 
+.trash-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trash-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+}
+
+.trash-item-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trash-item-name {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-item-detail {
+  color: var(--ui-text-muted);
+  font-size: 9pt;
+  overflow-wrap: anywhere;
+}
+
+.trash-status {
+  min-height: 1.4em;
+}
+
 .modal-divider {
   height: 1px;
   margin: 8px 0;

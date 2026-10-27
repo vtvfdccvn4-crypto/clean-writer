@@ -2,10 +2,16 @@ import { compilePreviewDocument } from '../compiler';
 import type { CompiledPreview, DocumentCompileSettings } from '../compiler';
 import { preloadDocumentAssets } from '../services/ExportSnapshotService';
 import { PreviewController } from '../preview';
+import { CompileClient, isAbortError, type CompileOutcome } from '../workers/CompileClient';
+import { createCompileWorkerClient } from '../workers/compile-client-factory';
+import { buildCompileAssets } from '../workers/compile-assets';
+import { compileWorkerFlag, type CompileWorkerFlagValue } from '../config/feature-flags';
+import { compileOnWorker, compileWorkerMayBeUsed } from '../workers/compile-thread-policy';
+import { isSafari } from '../platform/safari';
+import type { CompileJob, CompilePhaseTimings } from '../workers/compile-protocol';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { AssetResolver } from '../platform/types';
 import type { ImageSetup, ListSetup, PageSetup, TableSetup, TypographySetup } from '../types';
-import { IncrementalPreviewCompiler } from '../preview/live/IncrementalPreviewCompiler';
 import type { CanonicalPageBreakGuide } from '../preview/live/LivePreviewRenderer';
 import type { DocumentPreviewSourceSegment } from '../preview/document-rendering';
 import type { PdfPreviewFrameTimings, PdfPreviewJob } from '../pdf-preview/contracts';
@@ -30,9 +36,12 @@ export class PreviewCoordinator {
   private liveCompileFrame: number | null = null;
   private liveCompileGeneration = 0;
   private liveCompileRunning = false;
-  private readonly incrementalCompiler = new IncrementalPreviewCompiler();
   private paginatedRefreshFrame: number | null = null;
   private readonly getCompileSettings: () => DocumentCompileSettings;
+  /** Set when the worker may be used: by the `compile-worker` flag, or by default in Safari. */
+  private readonly compileClient: CompileClient | null;
+  private readonly compileWorkerFlag: CompileWorkerFlagValue;
+  private readonly safari: boolean;
 
   constructor(
     stage: HTMLElement,
@@ -45,6 +54,11 @@ export class PreviewCoordinator {
   ) {
     this.assetResolver = assetResolver;
     this.getCompileSettings = getCompileSettings;
+    this.compileWorkerFlag = compileWorkerFlag();
+    this.safari = isSafari();
+    this.compileClient = compileWorkerMayBeUsed({ flag: this.compileWorkerFlag, safari: this.safari })
+      ? createCompileWorkerClient(job => this.compileOnPage(job))
+      : null;
     this.controller = new PreviewController(stage, {
       onPreviewSourceClick,
       onPreviewSourceTargetClick,
@@ -108,7 +122,6 @@ export class PreviewCoordinator {
 
   clear(): void {
     this.beginRevision();
-    this.incrementalCompiler.reset();
     this.controller.clear();
   }
 
@@ -118,13 +131,13 @@ export class PreviewCoordinator {
 
   /** Releases scheduled compilation and browser-owned preview resources. */
   dispose(): void {
+    this.compileClient?.dispose();
     this.liveCompileGeneration += 1;
     if (this.liveCompileFrame !== null) window.cancelAnimationFrame(this.liveCompileFrame);
     this.liveCompileFrame = null;
     this.cancelPaginatedRefresh();
     this.pendingLiveCompile?.resolve(null);
     this.pendingLiveCompile = null;
-    this.incrementalCompiler.reset();
     this.controller.dispose();
   }
 
@@ -133,9 +146,65 @@ export class PreviewCoordinator {
     const settings = this.getCompileSettings();
     await preloadDocumentAssets(markdown, this.assetResolver, settings.customBlockStyles);
     const started = performance.now();
-    const compiled = await compilePreviewDocument(markdown, this.assetResolver, settings, { sourceLineOffset: 2 });
+    const compiled = await this.compileOnPreferredThread(markdown, settings, { lane: 'single', sourceLineOffset: 2 });
     previewMetrics.recordPreviewCompile(metricKind, performance.now() - started);
     return compiled;
+  }
+
+  /**
+   * Runs a compile on the worker when the flag is on, otherwise on this thread.
+   * A superseded worker compile rejects with an AbortError, which callers treat as
+   * a stale result.
+   */
+  private async compileOnPreferredThread(
+    markdown: string,
+    settings: DocumentCompileSettings,
+    options: {
+      readonly lane: string;
+      readonly sourceLineOffset?: number;
+      readonly sourceSegments?: readonly DocumentPreviewSourceSegment[];
+      readonly onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void;
+      readonly onCacheHit?: (cacheHit: boolean) => void;
+    }
+  ): Promise<CompiledPreview> {
+    const onWorker = this.compileClient !== null && compileOnWorker({
+      flag: this.compileWorkerFlag,
+      safari: this.safari,
+      sourceCharacters: markdown.length
+    });
+    if (!this.compileClient || !onWorker) {
+      return compilePreviewDocument(markdown, this.assetResolver, settings, {
+        sourceLineOffset: options.sourceLineOffset,
+        sourceSegments: options.sourceSegments,
+        onPhase: options.onPhase
+      });
+    }
+    const outcome = await this.compileClient.compile({
+      lane: options.lane,
+      markdown,
+      settings,
+      assets: buildCompileAssets(markdown, settings.customBlockStyles, this.assetResolver),
+      sourceLineOffset: options.sourceLineOffset ?? 0,
+      sourceSegments: options.sourceSegments
+    });
+    options.onCacheHit?.(outcome.cacheHit);
+    for (const [phase, durationMs] of Object.entries(outcome.phases)) {
+      options.onPhase?.(phase as Extract<PreviewTimingPhase, `compile-${string}`>, durationMs ?? 0);
+    }
+    return outcome.compiled;
+  }
+
+  /** The page-side fallback for a worker job, with the page's own asset resolver. */
+  private async compileOnPage(job: CompileJob): Promise<CompileOutcome> {
+    const phases: CompilePhaseTimings = {};
+    const compiled = await compilePreviewDocument(job.markdown, this.assetResolver, job.settings, {
+      sourceLineOffset: job.sourceLineOffset,
+      sourceSegments: job.sourceSegments,
+      onPhase: (phase, durationMs) => {
+        phases[phase] = durationMs;
+      }
+    });
+    return { compiled, cacheHit: false, phases };
   }
 
   /**
@@ -155,10 +224,11 @@ export class PreviewCoordinator {
   async compileFullDocument(
     markdown: string,
     sourceSegments: readonly DocumentPreviewSourceSegment[] = [],
-    onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void
+    onPhase?: (phase: Extract<PreviewTimingPhase, `compile-${string}`>, durationMs: number) => void,
+    onCacheHit?: (cacheHit: boolean) => void
   ): Promise<CompiledPreview> {
     const started = performance.now();
-    const compiled = await compilePreviewDocument(markdown, this.assetResolver, this.getCompileSettings(), { sourceSegments, onPhase });
+    const compiled = await this.compileOnPreferredThread(markdown, this.getCompileSettings(), { lane: 'full', sourceSegments, onPhase, onCacheHit });
     previewMetrics.recordPreviewCompile('full-document', performance.now() - started);
     return compiled;
   }
@@ -187,8 +257,25 @@ export class PreviewCoordinator {
     return this.controller.getPdfArtifact(artifactKey);
   }
 
+  /** Whether the reader has scrolled the preview since its latest render committed. */
+  readerHasScrolledSinceCommit(): boolean {
+    return this.controller.readerHasScrolledSinceCommit();
+  }
+
   scrollToTop(): void {
     this.controller.scrollToTop();
+  }
+
+  pageCount(): number {
+    return this.controller.pageCount();
+  }
+
+  scrollToPage(pageNumber: number): boolean {
+    return this.controller.scrollToPage(pageNumber);
+  }
+
+  scrollToAdjacentHeading(direction: 1 | -1): string | null {
+    return this.controller.scrollToAdjacentHeading(direction);
   }
 
   setViewportResizeSuspended(suspended: boolean): void {
@@ -230,20 +317,16 @@ export class PreviewCoordinator {
       const started = performance.now();
       const settings = this.getCompileSettings();
       await preloadDocumentAssets(request.markdown, this.assetResolver, settings.customBlockStyles);
-      let compiled: CompiledPreview | null = null;
-      try {
-        compiled = await this.incrementalCompiler.compile(request.markdown, this.assetResolver, settings);
-      } catch (error) {
-        console.warn('[PreviewCoordinator] Incremental compile fell back to a full document.', error);
-      }
-      if (!compiled) {
-        this.incrementalCompiler.reset();
-        compiled = await compilePreviewDocument(request.markdown, this.assetResolver, settings, { sourceLineOffset: 2 });
-      }
+      // The full compile is the only live output. Its result is correct for
+      // every document, including fences and definitions that span blocks.
+      const compiled = await this.compileOnPreferredThread(request.markdown, settings, { lane: 'live', sourceLineOffset: 2 });
       previewMetrics.recordPreviewCompile('single-document-edit', performance.now() - started);
       request.resolve(request.generation === this.liveCompileGeneration ? compiled : null);
     } catch (error) {
-      if (request.generation === this.liveCompileGeneration) {
+      // A worker compile superseded by a newer edit is not a failure.
+      if (isAbortError(error)) {
+        request.resolve(null);
+      } else if (request.generation === this.liveCompileGeneration) {
         request.reject(error);
       } else {
         request.resolve(null);

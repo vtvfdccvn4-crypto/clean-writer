@@ -7,14 +7,24 @@ import type {
 import type {
   ProjectPath,
   SectionPlacement,
+  SectionWriteOutcome,
+  TrashItem,
+  TrashRestoreResult,
   WorkspaceCapabilities,
   WorkspaceSession
 } from './types';
 import { calculateSectionMove } from './section-order';
-import { getDirectory, getFile, deleteEntry, listEntries, copyEntry } from './fs-helpers';
-import { resolveImagePath, resolveSectionPath } from '../project-settings/project-paths';
+import { getDirectory, getFile, deleteEntry, listEntries, copyEntry, writeFile } from './fs-helpers';
+import { listTrash, purgeAllTrash, purgeTrashEntry, restoreTrashedEntry, trashEntry } from './trash';
+import { resolveImagePath, resolveSectionPath, restoreSettingsPaths, snapshotSettingsPaths } from '../project-settings/project-paths';
+import { normalizeProjectSettings } from '../project-settings/project-settings';
+import { getBaseName, getParentPath } from '../utils/path-utils';
 import { applyProjectSettingsMutation } from '../project-settings/settings-mutations';
 import { runCoordinatedMutation } from './mutation-coordinator';
+
+/** The folders and file that make up a project, apart from its trash. */
+const PROJECT_FILE_ROOTS = ['sections', 'images', 'assets'] as const;
+const SETTINGS_FILE = 'settings.json';
 
 export function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -38,6 +48,12 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
    * the app are picked up, and this session's own changes drop entries too.
    */
   private readonly sectionCache = new Map<string, { text: string; size: number; lastModified: number }>();
+  /**
+   * The file version this session last read or wrote, by resolved path. A save
+   * compares it with the file on disk, so a change made outside the app is not
+   * overwritten.
+   */
+  private readonly knownVersions = new Map<string, { size: number; lastModified: number }>();
 
   constructor(id: string, displayName: string) {
     this.id = id;
@@ -83,6 +99,7 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
       throw new Error(`File not found: ${resolvedPath}`);
     }
     const file = await handle.getFile();
+    this.knownVersions.set(resolvedPath, { size: file.size, lastModified: file.lastModified });
     const cached = this.sectionCache.get(resolvedPath);
     if (cached && cached.size === file.size && cached.lastModified === file.lastModified) return cached.text;
     const text = await file.text();
@@ -90,19 +107,30 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
     return text;
   }
 
+  /** Saves a section unless its file changed since this session last read or wrote it. */
   async writeSection(path: ProjectPath, content: string): Promise<boolean> {
+    return (await this.writeSectionChecked(path, content)) === 'saved';
+  }
+
+  async writeSectionChecked(path: ProjectPath, content: string): Promise<SectionWriteOutcome> {
     const normalized = resolveSectionPath(path);
-    let success = false;
+    let outcome: SectionWriteOutcome = 'failed';
     await this.serializedWrite(normalized, async () => {
       const file = await getFile(this.projectDir, normalized, true);
       if (!file) return;
+      const onDisk = await file.getFile();
+      const known = this.knownVersions.get(normalized);
+      if (known && (known.size !== onDisk.size || known.lastModified !== onDisk.lastModified)) {
+        outcome = 'conflict';
+        return;
+      }
       this.sectionCache.delete(normalized);
-      const writable = await file.createWritable();
-      await writable.write(content);
-      await writable.close();
-      success = true;
+      await writeFile(file, content);
+      const written = await file.getFile();
+      this.knownVersions.set(normalized, { size: written.size, lastModified: written.lastModified });
+      outcome = 'saved';
     });
-    return success;
+    return outcome;
   }
 
   async createSection(fileName: string, content: string): Promise<{ success: boolean; newPath?: string }> {
@@ -222,21 +250,131 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
     const entryFile = await getFile(this.projectDir, normalized, false);
     const entryDir = entryFile ? null : await getDirectory(this.projectDir, normalized, false);
     if (!entryFile && !entryDir) return false;
-    let deleted = false;
-    return runCoordinatedMutation({
+    // The entry moves to the trash rather than being removed, so the deletion can be
+    // rolled back here and undone later from the trash. The trash keeps the entry's
+    // place in the project order and its flags, so a restore can put them back.
+    const settingsSnapshot = snapshotSettingsPaths(await this.getSettings(), normalized);
+    let trashPath: string | null = null;
+    const result = await runCoordinatedMutation({
       readSettings: () => this.getSettings(),
       writeSettings: settings => this.writeSettingsSnapshot(settings),
       applyFilesystem: async () => {
-        if (!await deleteEntry(this.projectDir, normalized)) throw new Error('Unable to delete the entry.');
-        deleted = true;
+        trashPath = await trashEntry(this.projectDir, normalized, settingsSnapshot);
+        if (!trashPath) throw new Error('Unable to move the entry to the trash.');
       },
       rollbackFilesystem: async () => {
-        if (!deleted) return;
-        const parent = await getDirectory(this.projectDir, normalized.split('/').slice(0, -1).join('/'), true);
-        if (parent) await copyEntry(entryFile ?? entryDir!, parent, normalized.split('/').pop()!);
+        if (trashPath) await restoreTrashedEntry(this.projectDir, trashPath, normalized);
       },
       updateSettings: settings => applyProjectSettingsMutation(settings, { type: 'remove-path', path: normalized })
     });
+    if (result) this.forgetVersions(normalized);
+    return result;
+  }
+
+  async listProjectFiles(): Promise<string[]> {
+    const files = [SETTINGS_FILE];
+    for (const root of PROJECT_FILE_ROOTS) {
+      const directory = await this.projectDir.getDirectoryHandle(root, { create: true });
+      for (const entry of await listEntries(directory, root)) {
+        if (!entry.isDir) files.push(entry.path);
+      }
+    }
+    return files.sort();
+  }
+
+  async readProjectFile(path: string): Promise<Uint8Array> {
+    if (path === SETTINGS_FILE) return new TextEncoder().encode(JSON.stringify(await this.getSettings(), null, 2));
+    const handle = this.isProjectFilePath(path) ? await getFile(this.projectDir, path, false) : null;
+    if (!handle) throw new Error(`File not found: ${path}`);
+    return new Uint8Array(await (await handle.getFile()).arrayBuffer());
+  }
+
+  async writeProjectFile(path: string, data: Uint8Array): Promise<void> {
+    if (path === SETTINGS_FILE) {
+      const parsed: unknown = JSON.parse(new TextDecoder().decode(data));
+      await this.writeSettingsSnapshot(normalizeProjectSettings(parsed as ProjectSettingsData).settings);
+      return;
+    }
+    if (!this.isProjectFilePath(path)) throw new Error(`Not a project file path: ${path}`);
+    this.sectionCache.delete(path);
+    this.knownVersions.delete(path);
+    await this.serializedWrite(path, async () => {
+      const handle = await getFile(this.projectDir, path, true);
+      if (!handle) throw new Error(`Could not create ${path}.`);
+      await writeFile(handle, data as Uint8Array<ArrayBuffer>);
+    });
+  }
+
+  /** A path inside sections, images or assets, with no segment that could leave them. */
+  private isProjectFilePath(path: string): boolean {
+    const segments = path.split('/');
+    return segments.length >= 2
+      && (PROJECT_FILE_ROOTS as readonly string[]).includes(segments[0]!)
+      && segments.every(segment => segment !== '' && segment !== '.' && segment !== '..' && !segment.includes('\0'));
+  }
+
+  async listTrash(): Promise<TrashItem[]> {
+    const entries = await listTrash(this.projectDir);
+    return entries.map(({ id, name, originalPath, kind, deletedAt }) => ({ id, name, originalPath, kind, deletedAt }));
+  }
+
+  async restoreFromTrash(id: string): Promise<TrashRestoreResult> {
+    this.sectionCache.clear();
+    const entry = (await listTrash(this.projectDir)).find(candidate => candidate.id === id);
+    if (!entry) return { success: false, reason: 'That item is no longer in the trash.' };
+    const source = await getFile(this.projectDir, entry.storedPath, false) ?? await getDirectory(this.projectDir, entry.storedPath, false);
+    if (!source) return { success: false, reason: 'The trashed item could not be read.' };
+
+    const targetPath = await this.freeRestorePath(entry.originalPath);
+    let copied = false;
+    const restored = await runCoordinatedMutation({
+      readSettings: () => this.getSettings(),
+      writeSettings: settings => this.writeSettingsSnapshot(settings),
+      applyFilesystem: async () => {
+        const parent = await getDirectory(this.projectDir, getParentPath(targetPath) ?? '', true);
+        if (!parent) throw new Error('The folder to restore into could not be created.');
+        await copyEntry(source, parent, getBaseName(targetPath));
+        copied = true;
+      },
+      rollbackFilesystem: async () => {
+        if (copied) await deleteEntry(this.projectDir, targetPath);
+      },
+      updateSettings: settings => restoreSettingsPaths(settings, entry.settings, entry.originalPath, targetPath)
+    });
+    if (!restored) return { success: false, reason: 'The item could not be restored. It is still in the trash.' };
+    await purgeTrashEntry(this.projectDir, id);
+    return { success: true, restoredPath: targetPath };
+  }
+
+  async purgeTrash(id?: string): Promise<boolean> {
+    if (id === undefined) {
+      await purgeAllTrash(this.projectDir);
+      return true;
+    }
+    return purgeTrashEntry(this.projectDir, id);
+  }
+
+  /** The original path if it is free; otherwise the name with "(restored)" added, so nothing is overwritten. */
+  private async freeRestorePath(originalPath: string): Promise<string> {
+    const taken = async (path: string) => Boolean(await getFile(this.projectDir, path, false) || await getDirectory(this.projectDir, path, false));
+    if (!await taken(originalPath)) return originalPath;
+    const parent = getParentPath(originalPath);
+    const name = getBaseName(originalPath);
+    const dot = name.lastIndexOf('.');
+    const stem = dot > 0 ? name.slice(0, dot) : name;
+    const extension = dot > 0 ? name.slice(dot) : '';
+    for (let attempt = 1; ; attempt += 1) {
+      const suffix = attempt === 1 ? ' (restored)' : ` (restored ${attempt})`;
+      const candidate = `${parent ? `${parent}/` : ''}${stem}${suffix}${extension}`;
+      if (!await taken(candidate)) return candidate;
+    }
+  }
+
+  /** Drops the recorded versions of a path and everything under it. */
+  private forgetVersions(path: string): void {
+    for (const key of [...this.knownVersions.keys()]) {
+      if (key === path || key.startsWith(`${path}/`)) this.knownVersions.delete(key);
+    }
   }
 
   async writeImage(path: string, data: Uint8Array<ArrayBuffer>): Promise<boolean> {
@@ -244,9 +382,7 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
     try {
       const fileHandle = await getFile(this.projectDir, resolvedPath, true);
       if (!fileHandle) return false;
-      const writable = await fileHandle.createWritable();
-      await writable.write(data);
-      await writable.close();
+      await writeFile(fileHandle, data);
       return true;
     } catch {
       return false;

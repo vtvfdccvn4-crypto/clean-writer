@@ -1,126 +1,138 @@
-const CACHE_BUSTER = new URL(self.location.href).searchParams.get('v') || 'v3';
-const CACHE_NAME = `clear-writer-shell-${CACHE_BUSTER}`;
-const ASSET_ROOT_PATH = new URL('assets/', self.registration.scope).pathname;
+// The build writes its own id into this file. The URL's ?v= parameter is not
+// trusted for it: an update check re-requests the URL the page registered with,
+// which still carries the older build's id.
+const BUILD_ID = '__CLEAR_WRITER_SW_BUILD_ID__';
+const CACHE_BUSTER = BUILD_ID.startsWith('__CLEAR_WRITER_SW') ? new URL(self.location.href).searchParams.get('v') || 'dev' : BUILD_ID;
+const SHELL_CACHE_PREFIX = 'clear-writer-shell-';
+const CACHE_NAME = `${SHELL_CACHE_PREFIX}${CACHE_BUSTER}`;
+// Records which builds are retained: the active one and the one it replaced.
+const RETENTION_CACHE_NAME = 'clear-writer-retention';
+const RETENTION_RECORD = 'retention.json';
+const INDEX_PATH = new URL('index.html', self.registration.scope).pathname;
 
-// The shell files that must survive offline, as scope-relative paths.
-// `install` caches exactly this list and `pruneStaleAssets` walks it to find the
-// hashed assets still in use, so the two must never drift apart.
+// Every file in the build, as scope-relative paths. vite.web.config.ts replaces the
+// empty array below when it builds, so the list cannot drift from the output.
+const BUILD_ASSETS = /*__CLEAR_WRITER_BUILD_ASSETS__*/ [];
+
+// Files the shell needs even before the build list is known.
 const APP_SHELL = [
-  new URL('./', self.registration.scope).pathname,
-  new URL('index.html', self.registration.scope).pathname,
-  new URL('favicon.svg', self.registration.scope).pathname,
-  new URL('icon-192.png', self.registration.scope).pathname,
-  new URL('icon-512.png', self.registration.scope).pathname,
-  new URL('manifest.webmanifest', self.registration.scope).pathname
+  './',
+  'index.html',
+  'favicon.svg',
+  'icon-192.png',
+  'icon-512.png',
+  'manifest.webmanifest'
 ];
 
-function isScopedAsset(url) {
-  return url.origin === self.location.origin && url.pathname.startsWith(ASSET_ROOT_PATH);
+const scopedPath = relative => new URL(relative, self.registration.scope).pathname;
+const BUILD_ASSET_PATHS = new Set(BUILD_ASSETS.map(scopedPath));
+const PRECACHE = [...new Set([...APP_SHELL, ...BUILD_ASSETS])].map(relative => new URL(relative, self.registration.scope).href);
+
+function isShellCacheName(name) {
+  return name.startsWith(SHELL_CACHE_PREFIX);
 }
 
-function referencedAssetPaths(text, baseUrl) {
-  const paths = new Set();
-  const add = (value) => {
-    try {
-      const url = new URL(value, baseUrl);
-      if (isScopedAsset(url)) {
-        paths.add(url.pathname);
-      }
-    } catch {
-      // Ignore malformed asset references in cached source files.
-    }
-  };
-
-  for (const match of text.matchAll(/(?:src|href)=["']([^"']+)["']/g)) add(match[1]);
-  for (const match of text.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)) add(match[1]);
-  for (const match of text.matchAll(/import\(\s*["']([^"']+)["']\s*\)/g)) add(match[1]);
-  return paths;
-}
-
-async function pruneStaleAssets() {
-  const cache = await caches.open(CACHE_NAME);
-  const keep = new Set(APP_SHELL);
-  const pending = [...APP_SHELL];
-  const inspected = new Set();
-
-  // Follow the shell's CSS and JS references so current fonts and lazy chunks
-  // remain available offline while old hashed assets can be removed.
-  while (pending.length) {
-    const path = pending.pop();
-    if (inspected.has(path)) continue;
-    inspected.add(path);
-    const response = await cache.match(path);
-    if (!response) continue;
-
-    const references = referencedAssetPaths(await response.text(), new URL(path, self.location.origin));
-    for (const reference of references) {
-      if (keep.has(reference)) continue;
-      keep.add(reference);
-      pending.push(reference);
-    }
+/**
+ * Looks up a request in the caches of retained builds, newest first. A build
+ * that was replaced stays available to tabs that still run it.
+ */
+async function matchRetained(request) {
+  const names = (await caches.keys()).filter(isShellCacheName);
+  const newestFirst = [CACHE_NAME, ...names.filter(name => name !== CACHE_NAME)].filter(name => names.includes(name));
+  for (const name of newestFirst) {
+    const response = await (await caches.open(name)).match(request);
+    if (response) return response;
   }
-
-  const requests = await cache.keys();
-  await Promise.all(requests.map(request => {
-    const url = new URL(request.url);
-    return isScopedAsset(url)
-      && !keep.has(url.pathname)
-      ? cache.delete(request)
-      : Promise.resolve(false);
-  }));
+  return undefined;
 }
 
+async function readRetention(cache) {
+  const response = await cache.match(RETENTION_RECORD);
+  if (!response) return { current: null, previous: null };
+  try {
+    return JSON.parse(await response.text());
+  } catch {
+    return { current: null, previous: null };
+  }
+}
+
+/**
+ * Keeps the active build and the build it replaced. Hashed assets are not
+ * read or parsed, so pruning cannot depend on what a cached file contains.
+ */
+async function retainBuilds() {
+  const retention = await caches.open(RETENTION_CACHE_NAME);
+  const record = await readRetention(retention);
+  const previous = record.current && record.current !== CACHE_BUSTER ? record.current : record.previous;
+  const keep = new Set([CACHE_BUSTER, previous].filter(Boolean).map(build => `${SHELL_CACHE_PREFIX}${build}`));
+
+  await Promise.all((await caches.keys())
+    .filter(name => isShellCacheName(name) && !keep.has(name))
+    .map(name => caches.delete(name)));
+
+  await retention.put(RETENTION_RECORD, new Response(JSON.stringify({ current: CACHE_BUSTER, previous })));
+}
+
+// Install never forces activation. A new build waits until the open page asks
+// for it (see SKIP_WAITING), so an open tab cannot lose its chunks mid-session.
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await cache.addAll(APP_SHELL);
+    // addAll is all-or-nothing: a partial precache leaves the previous worker in place.
+    await cache.addAll(PRECACHE);
   })());
-  self.skipWaiting();
+});
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)));
-    // Pruning is an optimisation. It must never stop the new worker from taking
-    // control of open pages, so a failure here is reported and then ignored.
-    await pruneStaleAssets().catch(error => {
-      console.warn('[Clear Writer] Pruning stale cached assets failed:', error);
-    });
+    await retainBuilds();
     await self.clients.claim();
   })());
 });
 
 self.addEventListener('fetch', event => {
   const request = event.request;
-  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // Always check the network for the HTML shell so a new build is visible
-  // immediately. Hashed assets remain cacheable through the fallback below.
-  const indexPath = new URL('index.html', self.registration.scope).pathname;
-  if (request.mode === 'navigate' || new URL(request.url).pathname === indexPath) {
-    event.respondWith(
-      fetch(request).then(response => {
-        if (response.ok) {
-          const copy = response.clone();
-          void caches.open(CACHE_NAME)
-            .then(cache => cache.put(request, copy))
-            .then(() => pruneStaleAssets())
-            .catch(error => console.warn('[Clear Writer] Refreshing the cached shell failed:', error));
-        }
-        return response;
-      }).catch(() => caches.match(request))
-    );
+  if (request.mode === 'navigate' || url.pathname === INDEX_PATH) {
+    event.respondWith(networkFirstShell(request));
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then(cached => cached || fetch(request).then(response => {
-      if (response.ok) {
-        const copy = response.clone();
-        void caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-      }
-      return response;
-    }))
-  );
+  event.respondWith(cacheFirstAsset(request, url));
 });
+
+/**
+ * Always asks the network first, so a deployed build is seen immediately. The
+ * offline fallback is this build's own index, never an index from another build.
+ * Network responses are not written into the cache: a response served while a
+ * newer worker is waiting belongs to that newer build.
+ */
+async function networkFirstShell(request) {
+  try {
+    return await fetch(request);
+  } catch (error) {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = (await cache.match(request)) ?? (await cache.match(INDEX_PATH));
+    if (cached) return cached;
+    throw error;
+  }
+}
+
+/** Build assets are served from any retained build. Only this build's assets are stored. */
+async function cacheFirstAsset(request, url) {
+  const cached = await matchRetained(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response.ok && BUILD_ASSET_PATHS.has(url.pathname)) {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(request, response.clone());
+  }
+  return response;
+}

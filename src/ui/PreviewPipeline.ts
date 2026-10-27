@@ -77,6 +77,11 @@ export class PreviewPipeline {
       getIsSupressingPreviewNavigation: opts.getIsSuppressingPreviewNavigation,
       scheduleCanonicalPageBreakGuides: () => paginated.scheduleGuides(),
       syncFinalPrintPreviewToggle: () => paginated.syncToggle(),
+      setFinalPrintPreview: active => {
+        paginated.setActive(active);
+        paginated.syncToggle();
+      },
+      buildPrintPreview: () => paginated.buildPrintPreview(),
       updateSaveStatus: opts.updateSaveStatus,
       updateActiveSectionLabel: opts.updateActiveSectionLabel,
       reportWorkflowError: opts.reportWorkflowError,

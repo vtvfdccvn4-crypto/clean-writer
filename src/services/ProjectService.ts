@@ -3,7 +3,7 @@ import { getPathChain, isDescendantPath, normalizeExplorerPath, replacePathPrefi
 import { calculateSectionMove } from '../platform/section-order';
 import { sortSectionsByHierarchy } from '../utils/tree-utils';
 import { previewMetrics } from '../perf/preview-metrics';
-import type { WorkspaceSession, SectionPlacement } from '../platform/types';
+import type { WorkspaceSession, SectionPlacement, TrashItem, TrashRestoreResult } from '../platform/types';
 import type { ProjectHealthReport, ProjectSnapshot } from '../types';
 import type { ImageSetup } from '../types';
 import type { WorkspaceRef } from '../platform/types';
@@ -161,6 +161,22 @@ function createProjectService(appState: AppState) {
         return true;
       }
       return false;
+    },
+
+    async listTrash(session: WorkspaceSession): Promise<TrashItem[]> {
+      return session.listTrash();
+    },
+
+    /** Puts a trashed item back and refreshes the project tree so it shows up. */
+    async restoreFromTrash(session: WorkspaceSession, id: string): Promise<TrashRestoreResult> {
+      const result = await session.restoreFromTrash(id);
+      if (result.success) await this.refreshProjectTree(session, appState.current.activeFile ?? null);
+      return result;
+    },
+
+    /** Removes one item, or every item, from the trash for good. */
+    async purgeTrash(session: WorkspaceSession, id?: string): Promise<boolean> {
+      return session.purgeTrash(id);
     },
 
     async _appendOrder(session: WorkspaceSession, name: string): Promise<void> {

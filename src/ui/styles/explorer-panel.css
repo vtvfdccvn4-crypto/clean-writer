@@ -105,6 +105,35 @@
   margin-bottom: 3px;
 }
 
+/* Outline items are buttons: reset the button look, keep the text look. */
+.document-outline-content [data-outline-item] {
+  display: block;
+  width: 100%;
+  margin: 0 0 3px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.document-outline-content [data-outline-item]:hover {
+  background: var(--ui-surface-hover);
+}
+
+.document-outline-content [data-outline-item]:focus-visible {
+  outline: 2px solid var(--ui-focus-ring);
+  outline-offset: -2px;
+}
+
+.document-outline-content .document-outline-section-name {
+  font-weight: 600;
+}
+
 .document-outline-empty {
   display: grid;
   place-items: center;

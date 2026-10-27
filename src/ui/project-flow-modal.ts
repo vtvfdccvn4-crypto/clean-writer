@@ -1,3 +1,4 @@
+import { localFolderProjectsEnabled } from '../config/mvp-scope';
 import type { WorkspaceRef } from '../platform';
 import { escapeHtml } from '../utils/escapeHtml';
 
@@ -10,7 +11,7 @@ export function showNewProjectModal(): Promise<
     const modalHost = document.getElementById('project-flow-modal');
     if (!modalHost) return resolve(null);
 
-    const hasDirectoryPicker = 'showDirectoryPicker' in window;
+    const hasDirectoryPicker = localFolderProjectsEnabled() && 'showDirectoryPicker' in window;
 
     modalHost.innerHTML = `
       <div class="modal-overlay project-flow-modal-overlay is-selection-step" role="dialog" aria-modal="true" aria-labelledby="project-flow-modal-title">
@@ -97,13 +98,14 @@ export function showNewProjectModal(): Promise<
 export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef, displayName: string, time: number}>): Promise<
   | { action: 'directory-picker' }
   | { action: 'open-ref'; ref: WorkspaceRef }
+  | { action: 'import-backup'; file: File }
   | null
 > {
   return new Promise((resolve) => {
     const modalHost = document.getElementById('project-flow-modal');
     if (!modalHost) return resolve(null);
 
-    const hasDirectoryPicker = 'showDirectoryPicker' in window;
+    const hasDirectoryPicker = localFolderProjectsEnabled() && 'showDirectoryPicker' in window;
 
     const renderRecentItem = (entry: { ref: WorkspaceRef, displayName: string, time: number }, index: number) => {
       const icon = entry.ref.kind === 'directory' ? '📁' : '☁️';
@@ -128,7 +130,13 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
                 ${recentWorkspaces.map(renderRecentItem).join('')}
               </div>
             ` : '<p>No recent projects found.</p>'}
-            
+
+            <div class="modal-divider"></div>
+            <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-import-backup">
+              <span class="ui-button-icon">📦</span> Import a backup (.zip) as a new project...
+            </button>
+            <input type="file" id="input-import-backup" accept=".zip,application/zip" hidden>
+
             ${hasDirectoryPicker ? `
               <div class="modal-divider"></div>
               <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-open-dir">
@@ -151,6 +159,16 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
     btnCancel.addEventListener('click', () => {
       cleanup();
       resolve(null);
+    });
+
+    const importButton = modalHost.querySelector('#btn-modal-import-backup') as HTMLButtonElement;
+    const importInput = modalHost.querySelector('#input-import-backup') as HTMLInputElement;
+    importButton.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', () => {
+      const file = importInput.files?.[0];
+      if (!file) return;
+      cleanup();
+      resolve({ action: 'import-backup', file });
     });
 
     const btnOpenDir = modalHost.querySelector('#btn-modal-open-dir') as HTMLButtonElement | null;

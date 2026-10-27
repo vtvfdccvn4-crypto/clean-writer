@@ -80,7 +80,12 @@ export class PreviewViewport {
     this.container.parentElement?.scrollTo({ top: 0, behavior: 'auto' });
   }
 
-  public scrollElementToTop(target: HTMLElement) {
+  /**
+   * Scrolls so the target is near the top of the preview. Smooth by default; `instant`
+   * is for keyboard and button moves, which do not need an animation. Overlapping
+   * smooth scrolls can leave the later one unstarted in Chromium.
+   */
+  public scrollElementToTop(target: HTMLElement, options: { instant?: boolean } = {}) {
     const scrollParent = this.container.parentElement;
     if (!scrollParent) return;
 
@@ -95,7 +100,7 @@ export class PreviewViewport {
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     scrollParent.scrollTo({
       top: Math.min(maxTop, Math.max(0, desiredTop)),
-      behavior: reduceMotion ? 'auto' : 'smooth'
+      behavior: reduceMotion || options.instant ? 'auto' : 'smooth'
     });
   }
 }

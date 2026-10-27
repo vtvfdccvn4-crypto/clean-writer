@@ -19,20 +19,25 @@
     "test:browser-smoke": "node scripts/release-browser-smoke.mjs",
     "diagnose:browser-runtime": "node scripts/diagnose-browser-runtime.mjs",
     "test:pwa-smoke": "npm run build && node scripts/release-web-shell-smoke.mjs",
-    "release:prep": "npm run typecheck && npm run check:styles && npm run build && npm run check:bundle && npm run test:pagedjs-patch && npm test && npm run test:perf && npm run test:pdf-scale && npm run test:browser-smoke && npm run test:pwa-smoke",
+    "release:prep": "npm run typecheck && npm run check:styles && npm run build && npm run check:bundle && npm run test:pagedjs-patch && npm test && npm run test:perf && npm run test:pdf-scale && npm run test:browser-smoke && npm run test:pwa-smoke && npm run test:pwa-offline && npm run test:compile-worker",
     "profile:preview": "node --expose-gc scripts/profile-preview.mjs",
     "profile:pagination": "node scripts/profile-pagination.mjs",
     "profile:preview-baseline": "node scripts/profile-pagination.mjs --scale --output reports/preview-baseline.json",
     "test:pdf-scale": "node scripts/profile-pagination.mjs --scale",
     "preview": "vite preview --outDir dist-web",
     "postinstall": "patch-package",
-    "test:pagedjs-patch": "node scripts/verify-pagedjs-patch.mjs"
+    "test:pagedjs-patch": "node scripts/verify-pagedjs-patch.mjs",
+    "test:pwa-offline": "node scripts/release-pwa-smoke.mjs",
+    "test:compile-worker": "node scripts/release-compile-worker-smoke.mjs",
+    "test:draft-kill": "node scripts/draft-hard-kill-test.mjs",
+    "test:acceptance": "node scripts/mvp-acceptance.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
     "patch-package": "^8.0.1",
+    "playwright": "1.63.0",
     "typescript": "^7.0.2",
-    "vite": "^8.2.0"
+    "vite": "8.2.4"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

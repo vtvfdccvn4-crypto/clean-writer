@@ -27,14 +27,20 @@ export type PdfPreviewProgress = {
   pagesCompleted?: number;
   estimatedPages?: number;
   elapsedMs?: number;
-  timeoutMs?: number;
 };
 
-export type PdfPreviewPaginationBudget = {
+/** Watchdog limits for one pagination job, in milliseconds. */
+export type PdfPreviewWatchdogLimits = {
+  /** Longest allowed wait without a newly completed physical page. */
+  stallMs: number;
+  /** Absolute upper bound on the job, however much progress it makes. */
+  ceilingMs: number;
+};
+
+export type PdfPreviewPaginationBudget = PdfPreviewWatchdogLimits & {
   estimatedPages: number;
   imageCount: number;
   textCharacters: number;
-  timeoutMs: number;
 };
 
 export type PdfPreviewPhaseTiming = {
@@ -86,7 +92,13 @@ export type PdfPreviewFrameTimings = {
 
 export type PdfPreviewFrameRequest = PdfPreviewRenderRequest;
 export type PdfPreviewFrameResult = PdfPreviewRenderResult;
-export type PdfPreviewFrameMessage = PdfPreviewProgress | PdfPreviewFrameResult;
+/** Sent when a request arrives while the frame is still running another job. */
+export type PdfPreviewBusyMessage = {
+  type: 'clear-writer-pdf-preview-busy';
+  requestId: string;
+  activeRequestId: string;
+};
+export type PdfPreviewFrameMessage = PdfPreviewProgress | PdfPreviewFrameResult | PdfPreviewBusyMessage;
 
 /** Expected terminal states for an isolated pagination request. */
 export type PdfPreviewPaginationOutcome<T> =

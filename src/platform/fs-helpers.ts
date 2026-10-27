@@ -6,10 +6,23 @@ export async function readJson<T>(handle: FileSystemFileHandle): Promise<T> {
   return JSON.parse(await file.text()) as T;
 }
 
-export async function writeJson(handle: FileSystemFileHandle, value: unknown): Promise<void> {
+/**
+ * Writes a whole file. Browser writes land in a swap buffer and replace the file
+ * only on close, so a failed write that is aborted leaves the previous contents in place.
+ */
+export async function writeFile(handle: FileSystemFileHandle, data: FileSystemWriteChunkType): Promise<void> {
   const writable = await handle.createWritable();
-  await writable.write(JSON.stringify(value, null, 2));
-  await writable.close();
+  try {
+    await writable.write(data);
+    await writable.close();
+  } catch (error) {
+    await writable.abort().catch(() => undefined);
+    throw error;
+  }
+}
+
+export async function writeJson(handle: FileSystemFileHandle, value: unknown): Promise<void> {
+  await writeFile(handle, JSON.stringify(value, null, 2));
 }
 
 export async function ensureDirectory(parent: FileSystemDirectoryHandle, name: string): Promise<FileSystemDirectoryHandle> {
@@ -89,9 +102,7 @@ export async function copyEntry(source: FileSystemDirectoryHandle | FileSystemFi
   if (source.kind === 'file') {
     const file = await source.getFile();
     const target = await targetParent.getFileHandle(targetName, { create: true });
-    const writable = await target.createWritable();
-    await writable.write(await file.arrayBuffer());
-    await writable.close();
+    await writeFile(target, await file.arrayBuffer());
     return;
   }
 

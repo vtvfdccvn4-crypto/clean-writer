@@ -10,6 +10,9 @@ const projectArgument = readArgument('--project');
 const sampleCount = positiveInteger(readArgument('--samples'), 3);
 const scaleMode = process.argv.includes('--scale');
 const contentProfileMode = process.argv.includes('--content-profile');
+const reuseHostMode = process.argv.includes('--reuse-host');
+const realisticMode = process.argv.includes('--realistic');
+const requestedRealisticPages = readArgument('--realistic-pages');
 const layoutProfileMode = process.argv.includes('--layout-profile');
 const requestedScalePages = positiveInteger(readArgument('--pages'), null);
 const requestedContentPages = readArgument('--content-pages');
@@ -45,9 +48,11 @@ let browserVersion = {};
 try {
   await viteServer.listen();
 
-  const { compileMarkdown } = await viteServer.ssrLoadModule('/src/compiler/index.ts');
+  const { compileMarkdown, documentCompileSettings } = await viteServer.ssrLoadModule('/src/compiler/index.ts');
+  const { DEFAULT_APP_STATE } = await viteServer.ssrLoadModule('/src/config/defaults.ts');
+  const compileSettings = documentCompileSettings(DEFAULT_APP_STATE);
   const { buildFullDocumentMarkdown } = await viteServer.ssrLoadModule('/src/preview/document-rendering/index.ts');
-  scenarios = await buildScenarios(buildFullDocumentMarkdown, compileMarkdown);
+  scenarios = await buildScenarios(buildFullDocumentMarkdown, (markdown) => compileMarkdown(markdown, null, compileSettings));
 
   browserProcess = launchHeadlessBrowser(browserExecutable, browserDebugPort, userDataDir, NO_BACKGROUND_THROTTLING_FLAGS);
   browserVersion = await waitForJson(`http://127.0.0.1:${browserDebugPort}/json/version`);
@@ -55,10 +60,12 @@ try {
   browserSession = await connectToTarget(target.webSocketDebuggerUrl);
   await waitForProfilerReady(browserSession);
 
-  const profile = await browserSession.evaluate(
-    `window.__RUN_PAGINATION_PROFILE__(${JSON.stringify({ samples: sampleCount, scenarios })})`,
-    evaluationTimeoutMs
-  );
+  const profile = reuseHostMode
+    ? await runReusedHostProfile(browserSession, scenarios, sampleCount)
+    : await browserSession.evaluate(
+      `window.__RUN_PAGINATION_PROFILE__(${JSON.stringify({ samples: sampleCount, scenarios })})`,
+      evaluationTimeoutMs
+    );
 
   const report = {
     generatedAt: new Date().toISOString(),
@@ -68,12 +75,14 @@ try {
       userAgent: browserVersion.UserAgent
     },
     samples: sampleCount,
-    profile: layoutProfileMode ? 'layout-ablation' : contentProfileMode ? 'content-classification' : scaleMode ? 'scale' : 'standard',
-    scenarios: profile.scenarios,
+    profile: layoutProfileMode ? 'layout-ablation' : contentProfileMode ? 'content-classification' : realisticMode ? 'realistic' : scaleMode ? 'scale' : 'standard',
+    scenarios: profile.scenarios.map(result => ({ ...result, ...sourceFacts(scenarios, result.name) })),
     cancellation: profile.cancellation
   };
   await writeReport(report);
-  if (scaleMode && (profile.scenarios.some(result => result.passed !== true) || profile.cancellation?.passed !== true)) {
+  if (scaleMode && (profile.scenarios.some(result => result.repeatedHostRuns
+  ? result.repeatedHostRuns.some(run => run.status !== 'success')
+  : result.passed !== true) || (!reuseHostMode && profile.cancellation?.passed !== true))) {
     process.exitCode = 1;
   }
 } catch (error) {
@@ -127,6 +136,26 @@ async function buildScenarios(buildFullDocumentMarkdown, compileMarkdown) {
       buildFullDocumentMarkdown,
       compileMarkdown
     ))));
+  }
+  if (realisticMode) {
+    // One section of prose-heavy pages, like the typing corpus, so the source size
+    // per page is realistic. Each size is compiled once and its source size recorded.
+    const pageTargets = requestedRealisticPages
+      ? requestedRealisticPages.split(',').map(value => positiveInteger(value.trim(), null)).filter(value => value !== null)
+      : [50, 100, 200, 400, 600, 1000];
+    const realistic = [];
+    for (const pageTarget of pageTargets) {
+      const markdown = realisticMarkdown(pageTarget);
+      const started = performance.now();
+      const scenario = await compileScenario(
+        `realistic-${pageTarget}-pages`,
+        { blocks: [{ path: 'Realistic.md', pageBreak: false, markdown }] },
+        buildFullDocumentMarkdown,
+        compileMarkdown
+      );
+      realistic.push({ ...scenario, sourceCharacters: markdown.length, compileMs: Math.round(performance.now() - started) });
+    }
+    return realistic;
   }
   if (scaleMode) {
     const pageTargets = requestedScalePages ? [requestedScalePages] : [50, 100, 200, 300];
@@ -213,6 +242,29 @@ async function compileScenario(name, scenario, buildFullDocumentMarkdown, compil
     sentinel: scenario.sentinel,
     layoutVariant: scenario.layoutVariant
   };
+}
+
+function sourceFacts(scenarioList, name) {
+  const scenario = scenarioList.find(item => item.name === name);
+  if (!scenario || scenario.sourceCharacters === undefined) return {};
+  return { sourceCharacters: scenario.sourceCharacters, compileMs: scenario.compileMs };
+}
+
+/** The typing corpus's page, repeated: headings, prose, a list, and a table every tenth page. */
+function realisticMarkdown(pageCount) {
+  const page = index => [
+    `## Section ${index}`,
+    '',
+    'Lorem ipsum dolor sit amet, **consectetur** adipiscing elit, sed do _eiusmod_ tempor incididunt ut labore. '.repeat(12),
+    '',
+    '- first item with `code`',
+    '- second item',
+    '',
+    'Second paragraph with a [link](https://example.com) and more prose to fill the page. '.repeat(10),
+    ...(index % 10 === 0 ? ['', '| a | b | c |', '|---|---|---|', '| 1 | 2 | 3 |', '| 4 | 5 | 6 |'] : []),
+    ''
+  ].join('\n');
+  return Array.from({ length: pageCount }, (_, index) => page(index + 1)).join('\n');
 }
 
 function scaleScenario(pageTarget) {
@@ -336,6 +388,42 @@ async function markdownFiles(directory) {
   return nested.flat().sort((left, right) => left.localeCompare(right));
 }
 
+/**
+ * One job per call on a single host, with the browser's garbage collector run before
+ * and after each job, so heap readings are not dominated by collectable garbage.
+ */
+async function runReusedHostProfile(session, scenarioList, samples) {
+  const results = [];
+  for (const scenario of scenarioList) {
+    await session.evaluate(`window.__REUSE_SETUP__(${JSON.stringify(scenario)})`, evaluationTimeoutMs);
+    const runs = [];
+    for (let index = 0; index < samples; index += 1) {
+      await session.command('HeapProfiler.collectGarbage');
+      const heapBeforeRunBytes = await session.evaluate('performance.memory?.usedJSHeapSize ?? null');
+      const record = await session.evaluate('window.__REUSE_RUN__()', evaluationTimeoutMs);
+      await session.command('HeapProfiler.collectGarbage');
+      const heapAfterRunBytes = await session.evaluate('performance.memory?.usedJSHeapSize ?? null');
+      runs.push({ ...record, heapBytesAfterPriorRunGc: heapBeforeRunBytes, heapBytesAfterRunGc: heapAfterRunBytes });
+    }
+    await session.evaluate('window.__REUSE_TEARDOWN__()');
+    results.push({ name: scenario.name, repeatedHostRuns: runs, heapGate: repeatedHeapGate(runs) });
+  }
+  return { scenarios: results, cancellation: null };
+}
+
+/**
+ * The repeated-pagination gate from the plan: heap after forced GC may grow by at
+ * most 5% over ten runs. Run 1 is cold (it creates the frame and loads Paged.js), so
+ * the baseline is the first warm run, run 2, and the window is runs 2 to 10.
+ */
+function repeatedHeapGate(runs) {
+  const baseline = runs[1]?.heapBytesAfterRunGc;
+  const end = runs[9]?.heapBytesAfterRunGc;
+  if (typeof baseline !== 'number' || typeof end !== 'number') return null;
+  const growthPercent = Math.round(((end - baseline) / baseline) * 1000) / 10;
+  return { baselineRun: 2, endRun: 10, limitPercent: 5, growthPercent, passed: growthPercent <= 5 };
+}
+
 async function connectToTarget(webSocketUrl) {
   const socket = new WebSocket(webSocketUrl);
   await once(socket, 'open');
@@ -364,16 +452,24 @@ async function connectToTarget(webSocketUrl) {
   await send('Runtime.enable');
 
   return {
+    command: send,
     async evaluate(expression, timeoutMs = 30_000) {
       const result = send('Runtime.evaluate', {
         expression,
         awaitPromise: true,
         returnByValue: true
       });
+      let timer;
       const timeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(`Browser evaluation timed out after ${timeoutMs}ms.`)), timeoutMs);
+        timer = setTimeout(() => reject(new Error(`Browser evaluation timed out after ${timeoutMs}ms.`)), timeoutMs);
       });
-      const evaluated = await Promise.race([result, timeout]);
+      // The timer is cleared so a finished call does not keep the process alive until the timeout.
+      let evaluated;
+      try {
+        evaluated = await Promise.race([result, timeout]);
+      } finally {
+        clearTimeout(timer);
+      }
       if (evaluated.exceptionDetails) {
         throw new Error(evaluated.exceptionDetails.text || 'Runtime evaluation failed.');
       }

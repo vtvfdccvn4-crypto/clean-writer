@@ -1,6 +1,7 @@
 import { state } from '/src/state.ts';
 import { projectSession } from '/src/services/ProjectSessionStore.ts';
 import { click, waitFor } from './helpers/smoke-dom.ts';
+import { createBrowserDraftStore } from '/src/editor/DraftStore.ts';
 
 declare global {
   interface Window {
@@ -55,6 +56,9 @@ async function run() {
 
   await waitFor('saved status after edit', () => document.getElementById('editor-status')?.textContent === 'Saved' ? true : null);
 
+  // The save above discards the section's recovery draft. Read it before the
+  // reopen, so the check does not depend on what happens during reopen.
+  const draftAfterSave = await createBrowserDraftStore().read({ projectId, path: 'sections/SavedDraftState.md' });
   localStorage.setItem(`cw-draft:${projectId}:sections/SavedDraftState.md`, 'stale raw draft should not override saved content');
 
   await click('#btn-task-close-project');
@@ -79,7 +83,7 @@ async function run() {
     projectId,
     recoveryPromptShown,
     reopenedText,
-    savedMarkerPresent: typeof localStorage.getItem(`cw-draft-saved:${projectId}:sections/SavedDraftState.md`) === 'string'
+    savedDraftAbsent: draftAfterSave === null
   };
 }
 
@@ -106,7 +110,7 @@ function describeState(): Record<string, unknown> {
 run().catch(error => {
   window.__HARNESS_RESULT__ = {
     ok: false,
-    error: error instanceof Error ? error.stack : String(error),
+    error: error instanceof Error ? (error.stack || `${error.name}: ${error.message}`) : String(error),
     state: describeState()
   };
 });

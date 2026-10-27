@@ -26,12 +26,14 @@ export class MemoryFileHandle {
     return new File([this.data], this.name, { lastModified: this.lastModified });
   }
 
-  async createWritable(): Promise<{ write(data: BlobPart): Promise<void>; close(): Promise<void> }> {
+  async createWritable(): Promise<{ write(data: BlobPart): Promise<void>; close(): Promise<void>; abort(): Promise<void> }> {
     // Like the real API, writes land in a swap buffer and replace the file on close.
+    // An aborted swap buffer is discarded, so the file keeps its previous contents.
     const chunks: BlobPart[] = [];
     return {
       write: async data => { chunks.push(data); },
-      close: async () => { this.setBlob(new Blob(chunks)); }
+      close: async () => { this.setBlob(new Blob(chunks)); },
+      abort: async () => { chunks.length = 0; }
     };
   }
 

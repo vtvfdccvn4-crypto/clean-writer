@@ -82,13 +82,19 @@ test('isolated PDF preview is exposed through a dedicated button and boot route'
   assert.match(host, /FRAME_STARTUP_TIMEOUT_MS = 15_000/);
   assert.match(host, /frame\.removeEventListener\('error', frameError\)/);
   assert.match(host, /estimatePdfPreviewBudget/);
-  assert.match(budget, /PRINT_MAX_TIMEOUT_MS = 300_000/);
+  assert.match(budget, /PRINT_STALL_MS = 60_000/);
+  assert.match(budget, /PRINT_CEILING_MS = 45 \* 60_000/);
+  assert.doesNotMatch(budget, /300_000/);
+  assert.doesNotMatch(host, /timeoutMs/);
+  assert.match(host, /armStallTimer/);
+  assert.match(host, /ceilingTimer/);
   assert.match(budget, /estimatedPages/);
   assert.match(diagnostics, /MAX_ENTRIES = 50/);
   assert.doesNotMatch(diagnostics, /html|css|marginImageSources/);
   assert.match(setup, /AbortController/);
   assert.match(setup, /cancelOnEscape/);
-  assert.match(setup, /approximately/);
+  // The page count is an estimate, shown as one, in the job status module.
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'pdf-job-status.ts'), 'utf8'), /of about/);
   assert.match(main, /pdf-preview/);
 });
 

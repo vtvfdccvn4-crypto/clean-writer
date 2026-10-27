@@ -1,5 +1,5 @@
 import { EditorView } from 'codemirror';
-import { Compartment, EditorState } from '@codemirror/state';
+import { Compartment, EditorState, type Text } from '@codemirror/state';
 import { dropCursor, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { searchKeymap, openSearchPanel } from '@codemirror/search';
@@ -35,6 +35,30 @@ export interface EditorSelectionRange {
   to: number;
 }
 
+/**
+ * The document at one edit. Creating it copies nothing: CodeMirror documents
+ * are immutable, so the snapshot keeps a reference. The string form is built
+ * only when a consumer asks for it, and only once, so keystrokes never pay
+ * for a full-document copy.
+ */
+export interface EditorSnapshot {
+  readonly version: number;
+  readonly doc: Text;
+  toString(): string;
+}
+
+function createEditorSnapshot(version: number, doc: Text): EditorSnapshot {
+  let text: string | null = null;
+  return {
+    version,
+    doc,
+    toString: () => {
+      text ??= doc.toString();
+      return text;
+    }
+  };
+}
+
 export interface MarkdownEditor {
   getValue(): string;
   setValue(value: string, notify?: boolean): void;
@@ -58,12 +82,12 @@ export interface EditorCaretStatus {
 }
 
 export interface EditorCallbacks {
-  onChange: (doc: string) => void | Promise<void>;
+  onChange: (snapshot: EditorSnapshot) => void | Promise<void>;
   onError?: (error: unknown) => void;
   onSelectionChange?: (line: number) => void;
   /** Fires for caret moves and edits alike: typing moves the caret too. */
   onCaretStatusChange?: (status: EditorCaretStatus) => void;
-  onDirty?: (doc: string) => void;
+  onDirty?: (snapshot: EditorSnapshot) => void;
   resolveImageSource?: EditorImageSourceResolver;
   onImageFile?: (file: File) => Promise<PastedImageResult | null>;
 }
@@ -78,7 +102,9 @@ export function createEditor(
     if (callbacks.onError) callbacks.onError(error);
     else console.error('[MarkdownEditor] Autosave failed:', error);
   };
-  const changeQueue = new DocumentSaveCoordinator(callbacks.onChange, reportBackgroundSaveError);
+  const changeQueue = new DocumentSaveCoordinator<EditorSnapshot>(callbacks.onChange, reportBackgroundSaveError);
+  // Counts document-changing transactions, so consumers can tell edits apart.
+  let version = 0;
 
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.selectionSet && !update.docChanged) {
@@ -90,9 +116,10 @@ export function createEditor(
     }
 
     if (update.docChanged) {
-      const nextDoc = update.state.doc.toString();
-      if (callbacks.onDirty) callbacks.onDirty(nextDoc);
-      changeQueue.schedule(nextDoc);
+      version += 1;
+      const snapshot = createEditorSnapshot(version, update.state.doc);
+      callbacks.onDirty?.(snapshot);
+      changeQueue.schedule(snapshot);
     }
   });
 
@@ -256,7 +283,7 @@ export function createEditor(
         scrollIntoView: true
       });
       if (notify) {
-        changeQueue.schedule(value);
+        changeQueue.schedule(createEditorSnapshot(version, view.state.doc));
         void changeQueue.flush().catch(reportBackgroundSaveError);
       }
     },

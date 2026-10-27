@@ -83,4 +83,4 @@ async function run() {
   const searchShortcut = await waitFor('search shortcut', () => !isHidden(document.getElementById('project-search-drawer')));
   window.__HARNESS_RESULT__ = { ok: true, projectKind: state.current.projectRef?.kind, templateCount: 5, toolbarEdited, pdfPreviewAvailable, reviewCount, reviewKinds, outlineShortcut: Boolean(outlineShortcut), searchShortcut: Boolean(searchShortcut) };
 }
-run().catch(error => { window.__HARNESS_RESULT__ = { ok: false, error: error instanceof Error ? error.stack : String(error) }; });
+run().catch(error => { window.__HARNESS_RESULT__ = { ok: false, error: error instanceof Error ? (error.stack || `${error.name}: ${error.message}`) : String(error) }; });

@@ -41,6 +41,7 @@ const appShellTemplate = (): string => `
         ${toolbarButton({ id: 'btn-task-open-project', variant: 'icon', ariaLabel: 'Open project', title: 'Open project', icon: materialIcon('pending') })}
         ${toolbarButton({ id: 'btn-task-close-project', variant: 'icon', ariaLabel: 'Close project', title: 'Close project', content: '<span aria-hidden="true">×</span>' })}
         ${toolbarButton({ id: 'btn-task-refresh-project', variant: 'icon', ariaLabel: 'Refresh project files', title: 'Refresh project files (Ctrl+Shift+I)', icon: materialIcon('rotate_left') })}
+        ${toolbarButton({ id: 'btn-project-backup', variant: 'icon', ariaLabel: 'Download backup', title: 'Download backup: a ZIP of the whole project. After a crash, recent typing may be lost: up to 1 second, or up to 5 seconds in a section over 200,000 characters.', icon: materialIcon('download') })}
         ${toolbarButton({ id: 'btn-project-metadata', variant: 'icon', ariaLabel: 'Project metadata', title: 'Project metadata', icon: materialIcon('info') })}
       </div>
     </header>

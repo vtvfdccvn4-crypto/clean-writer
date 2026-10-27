@@ -1,0 +1,91 @@
+name: WebKit compile worker smoke
+
+# Runs the compile-worker harness in WebKit, the engine behind Safari. It is not part of the
+# deploy gate: Safari keeps the compile worker opt-in until this job passes.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      # The apt packages and the WebKit download are cached, so a slow mirror is hit once, not on every run.
+      # Each run saves the packages it downloaded, and the next run restores them before installing.
+      - name: Restore cached apt packages
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-cache
+          key: webkit-apt-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: webkit-apt-${{ runner.os }}-
+
+      - name: Restore cached WebKit browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-webkit-${{ hashFiles('package-lock.json') }}
+
+      - name: Use cached apt packages
+        run: |
+          mkdir -p "$HOME/apt-cache"
+          sudo cp -n "$HOME"/apt-cache/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+
+      # Split so a stall shows in the log: the apt packages first, then the WebKit download.
+      - name: Install WebKit system dependencies
+        run: npx playwright install-deps webkit
+        timeout-minutes: 20
+
+      - name: Save downloaded apt packages
+        if: always()
+        run: |
+          mkdir -p "$HOME/apt-cache"
+          sudo cp -n /var/cache/apt/archives/*.deb "$HOME/apt-cache/" 2>/dev/null || true
+          sudo chown -R "$(id -u):$(id -g)" "$HOME/apt-cache" || true
+
+      - name: Install WebKit
+        run: npx playwright install webkit
+        timeout-minutes: 10
+
+      - name: Compile worker in WebKit
+        run: node scripts/release-compile-worker-smoke.mjs
+        env:
+          CLEAR_WRITER_SMOKE_BROWSER: webkit
+
+      - name: Draft hard-kill durability in WebKit
+        run: node scripts/webkit-draft-kill-test.mjs
+
+      - name: Application fixtures in WebKit
+        run: node scripts/release-playwright-smoke.mjs
+        env:
+          CLEAR_WRITER_SMOKE_BROWSER: webkit
+
+      - name: Performance in WebKit for the proposed range
+        run: node scripts/browser-performance-bench.mjs
+        env:
+          CLEAR_WRITER_SMOKE_BROWSER: webkit
+          CLEAR_WRITER_BENCH_OUTPUT: ${{ runner.temp }}/webkit-performance.json
+          CLEAR_WRITER_BENCH_EDITS: 60
+
+      - name: Upload WebKit performance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-performance
+          path: ${{ runner.temp }}/webkit-performance.json
+          if-no-files-found: ignore

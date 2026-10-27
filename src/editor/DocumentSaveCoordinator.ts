@@ -5,17 +5,18 @@
  * flushed at navigation, export, and close boundaries. It never modifies the
  * editor document, so CodeMirror history remains available for undo/redo.
  */
-export class DocumentSaveCoordinator {
+export class DocumentSaveCoordinator<T = string> {
   private timer: ReturnType<typeof setTimeout> | null = null;
-  private pendingValue: string | null = null;
+  // Wrapped so a null-like value (such as an empty string) still counts as pending.
+  private pending: { readonly value: T } | null = null;
   private commitQueue: Promise<void> = Promise.resolve();
   private inFlightCommits = 0;
-  private readonly commit: (value: string) => void | Promise<void>;
+  private readonly commit: (value: T) => void | Promise<void>;
   private readonly onBackgroundError: (error: unknown) => void;
   private readonly delayMs: number;
 
   constructor(
-    commit: (value: string) => void | Promise<void>,
+    commit: (value: T) => void | Promise<void>,
     onBackgroundError: (error: unknown) => void,
     delayMs = 750
   ) {
@@ -25,11 +26,11 @@ export class DocumentSaveCoordinator {
   }
 
   hasUnsavedChanges(): boolean {
-    return this.pendingValue !== null || this.inFlightCommits > 0;
+    return this.pending !== null || this.inFlightCommits > 0;
   }
 
-  schedule(value: string): void {
-    this.pendingValue = value;
+  schedule(value: T): void {
+    this.pending = { value };
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = null;
@@ -42,16 +43,16 @@ export class DocumentSaveCoordinator {
       clearTimeout(this.timer);
       this.timer = null;
     }
-    if (this.pendingValue === null) return this.commitQueue;
+    if (this.pending === null) return this.commitQueue;
 
-    const value = this.pendingValue;
-    this.pendingValue = null;
+    const { value } = this.pending;
+    this.pending = null;
     this.inFlightCommits += 1;
     this.commitQueue = this.commitQueue.catch(() => undefined).then(async () => {
       try {
         await this.commit(value);
       } catch (error) {
-        if (this.pendingValue === null) this.pendingValue = value;
+        if (this.pending === null) this.pending = { value };
         throw error;
       } finally {
         this.inFlightCommits = Math.max(0, this.inFlightCommits - 1);
@@ -63,6 +64,6 @@ export class DocumentSaveCoordinator {
   cancel(): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
-    this.pendingValue = null;
+    this.pending = null;
   }
 }
