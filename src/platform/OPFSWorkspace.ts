@@ -93,6 +93,15 @@ export class OPFSWorkspaceRepository implements WorkspaceRepository {
     return session;
   }
 
+  async discardWorkspace(ref: WorkspaceRef): Promise<void> {
+    this.activeSessions.delete(ref.id);
+    const root = await navigator.storage.getDirectory();
+    const projectsDir = await root.getDirectoryHandle('projects', { create: true });
+    await projectsDir.removeEntry(ref.id, { recursive: true }).catch(() => undefined);
+    await this.catalogue.open();
+    await this.catalogue.remove(ref.id);
+  }
+
   async selectDirectory(options?: { kind?: 'opfs' | 'directory', name?: string }): Promise<WorkspaceRef | null> {
     const displayName = options?.name?.trim() || 'Untitled Project';
     if (!displayName) return null;

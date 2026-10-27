@@ -71,12 +71,22 @@ export interface WorkspaceSession {
   restoreFromTrash(id: string): Promise<TrashRestoreResult>;
   /** Removes one item from the trash for good, or every item when no id is given. */
   purgeTrash(id?: string): Promise<boolean>;
+  /**
+   * The project's files as stored, for backup and restore: every file under sections, images and assets, and
+   * `settings.json`. The trash is not included.
+   */
+  listProjectFiles(): Promise<string[]>;
+  readProjectFile(path: string): Promise<Uint8Array>;
+  /** Writes a file in the same set. `settings.json` is checked and normalised before it is kept. */
+  writeProjectFile(path: string, data: Uint8Array): Promise<void>;
   writeImage(path: string, data: Uint8Array<ArrayBuffer>): Promise<boolean>;
   readBlob?(path: string): Promise<Blob>;
 }
 
 export interface WorkspaceRepository {
   open(ref: WorkspaceRef): Promise<WorkspaceSession>;
+  /** Forgets a browser-storage project and deletes its files, for example after a restore that failed part-way. */
+  discardWorkspace?(ref: WorkspaceRef): Promise<void>;
   selectDirectory(options?: { kind?: 'opfs' | 'directory', name?: string }): Promise<WorkspaceRef | null>;
   pickWorkspace(): Promise<WorkspaceRef | null>;
   getLastOpenedWorkspace?(): Promise<WorkspaceRef | null>;

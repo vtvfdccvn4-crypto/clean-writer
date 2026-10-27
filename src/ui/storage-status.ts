@@ -35,7 +35,7 @@ async function onProjectOpened(): Promise<void> {
     persistenceRequested = true;
     const protectedStorage = await requestPersistentStorage(storageManager());
     if (!protectedStorage && (await readStorageStatus(storageManager())).supported) {
-      showNotice('This browser may clear Clear Writer\'s storage when disk space is low. Export a PDF of important work to keep a copy.', 'info');
+      showNotice('This browser may clear Clear Writer\'s storage when disk space is low. Use Download backup (in the project toolbar) to keep a copy of important work.', 'info');
     }
   }
   await checkStorageQuota();

@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Added
+
+- Project backup and restore. Download backup in the project toolbar saves the
+  whole project as one ZIP: sections, project settings and order, page-break,
+  header, footer, numbering and page-setup settings, images and assets. In Open
+  project, Import a backup restores a ZIP as a new project in browser storage
+  (named "... (imported)" if the name is taken). The ZIP is checked in full
+  before anything is created, and a failed import leaves no project behind.
+  Neither needs local-folder access. The trash is not included.
+
+### Changed
+
+- A recovery draft is now written at least every second while typing (before:
+  every 5 s). Documents above 200,000 characters wait longer, up to 5 s.
+- Local-folder projects are recorded as future development, not planned now.
+
+### Fixed (drafts)
+
+- After a save, a recovery draft written for text typed before the save is now
+  deleted. Before, it could outlive the save and the app asked to restore an
+  older draft after a reload.
+
 ### Fixed
 
 - Deleted sections can now be restored or deleted for good. A Trash button in the

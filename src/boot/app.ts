@@ -93,7 +93,7 @@ export async function bootApp(platform: Platform) {
   initProjectNameDisplay();
   initTaskPanelResizer();
   initEditorPreviewResizer();
-  initTaskPanelActions(platform);
+  initTaskPanelActions(platform, { flushCurrentDocument: () => editorManager?.flushCurrentDocument() ?? Promise.resolve() });
 
   editorManager = new EditorManager(platform);
   // Expose for smoke tests

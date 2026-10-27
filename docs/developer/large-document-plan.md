@@ -66,7 +66,7 @@ which stays a time-boxed feasibility prototype with a "do not proceed" outcome.
 
 ```
 Editor tx ─► change hub {version, changed ranges, Text ref}   (no full-text conversion)
-   ├─► DraftWriter   debounce 1 s / max wait 5 s ─► IndexedDB {baseHash, contentHash, schema}
+   ├─► DraftWriter   debounce 1 s / max wait 1 s (up to 5 s above 200k chars) ─► IndexedDB {baseHash, contentHash, schema}
    ├─► SaveScheduler 750 ms, serialized per path ─► WorkspaceSession.writeSection
    │        └─► SaveStateModel (save + draft health + preview freshness + pagination)
    └─► PreviewScheduler (latest wins) ─► BlockIndexer (bounded re-lex)
@@ -234,6 +234,7 @@ after a one-section edit costs at most 20% of a full run.
 | B20 | Medium | Frame-isolation experiment (G3) | B4–B6 (done: G3 not met, see log) |
 | B21 | Medium | Chapter composition prototype (G4) | G2 |
 | B22 | Low | Gradual `state` injection: lint rule, editor options, snapshot adapters, then move coordinators | B12, B13 |
+| B23 | Future | Local-folder (File System Access) projects, with a screen for resolving external file changes. Not planned now; hidden in the MVP | none |
 
 ## 9. Progress log
 

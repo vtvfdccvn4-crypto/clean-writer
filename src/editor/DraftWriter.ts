@@ -3,7 +3,10 @@ import type { DraftStore, DraftTarget } from './DraftStore';
 export interface DraftWriterOptions {
   /** Quiet period after the last edit before a draft is written. */
   readonly debounceMs?: number;
-  /** Longest a draft may wait during continuous typing, so loss stays bounded. */
+  /**
+   * Longest a draft may wait during continuous typing, so loss stays bounded. A fixed number applies to
+   * every document; by default the wait grows with the document, from about one second to five.
+   */
   readonly maxWaitMs?: number;
   /** Delay before retrying a draft whose write failed. */
   readonly retryMs?: number;
@@ -22,7 +25,19 @@ interface PendingDraft {
 }
 
 const DEFAULT_DEBOUNCE_MS = 1_000;
-const DEFAULT_MAX_WAIT_MS = 5_000;
+/** Typing loses at most this long for an ordinary document. */
+const MIN_MAX_WAIT_MS = 1_000;
+/** A very large document is converted to text and hashed for each write, so it is written less often. */
+const MAX_MAX_WAIT_MS = 5_000;
+const LARGE_DOCUMENT_CHARACTERS = 200_000;
+const SLOWEST_DOCUMENT_CHARACTERS = 1_000_000;
+
+/** How long a draft may wait, by document size: one second up to 200,000 characters, rising to five at 1,000,000. */
+export function draftMaxWaitMs(characters: number): number {
+  if (characters <= LARGE_DOCUMENT_CHARACTERS) return MIN_MAX_WAIT_MS;
+  const share = Math.min(1, (characters - LARGE_DOCUMENT_CHARACTERS) / (SLOWEST_DOCUMENT_CHARACTERS - LARGE_DOCUMENT_CHARACTERS));
+  return Math.round(MIN_MAX_WAIT_MS + share * (MAX_MAX_WAIT_MS - MIN_MAX_WAIT_MS));
+}
 const DEFAULT_RETRY_MS = 10_000;
 
 function keyOf(target: DraftTarget): string {
@@ -38,7 +53,7 @@ function keyOf(target: DraftTarget): string {
 export class DraftWriter {
   private readonly store: DraftStore;
   private readonly debounceMs: number;
-  private readonly maxWaitMs: number;
+  private readonly maxWaitMs: number | null;
   private readonly retryMs: number;
   private readonly pending = new Map<string, PendingDraft>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -47,16 +62,19 @@ export class DraftWriter {
   constructor(store: DraftStore, options: DraftWriterOptions = {}) {
     this.store = store;
     this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
-    this.maxWaitMs = options.maxWaitMs ?? DEFAULT_MAX_WAIT_MS;
+    this.maxWaitMs = options.maxWaitMs ?? null;
     this.retryMs = options.retryMs ?? DEFAULT_RETRY_MS;
   }
 
-  /** Records the latest text for a section and arms its write timer. */
-  schedule(target: DraftTarget, text: DraftText, baseHash: string): void {
+  /**
+   * Records the latest text for a section and arms its write timer. `characters` is the document's length,
+   * which sets how long continuous typing may wait; it is passed in so the text is not built to measure it.
+   */
+  schedule(target: DraftTarget, text: DraftText, baseHash: string, characters = 0): void {
     const key = keyOf(target);
     const queuedAt = this.pending.get(key)?.queuedAt ?? Date.now();
     this.pending.set(key, { target, text, baseHash, queuedAt });
-    const remainingWait = queuedAt + this.maxWaitMs - Date.now();
+    const remainingWait = queuedAt + (this.maxWaitMs ?? draftMaxWaitMs(characters)) - Date.now();
     this.arm(key, Math.min(this.debounceMs, Math.max(0, remainingWait)));
   }
 
@@ -69,16 +87,18 @@ export class DraftWriter {
   /**
    * Called after a save succeeds. A pending draft is dropped only when it holds
    * the saved text; newer edits keep their draft. A stored draft with the saved
-   * text is then deleted.
+   * text is then deleted. When the saved text is known to be the newest edit
+   * (`latest`), every earlier draft of the section is stale, including one
+   * written for text typed before the save, so it is deleted too.
    */
-  discardWhenSaved(target: DraftTarget, savedContent: string): Promise<void> {
+  discardWhenSaved(target: DraftTarget, savedContent: string, latest = false): Promise<void> {
     const key = keyOf(target);
     const pending = this.pending.get(key);
-    if (pending && pending.text.toString() === savedContent) {
+    if (pending && (latest || pending.text.toString() === savedContent)) {
       this.clearTimer(key);
       this.pending.delete(key);
     }
-    return this.enqueue(key, () => this.store.discardIfSaved(target, savedContent));
+    return this.enqueue(key, () => latest ? this.store.discard(target) : this.store.discardIfSaved(target, savedContent));
   }
 
   private arm(key: string, delayMs: number): void {

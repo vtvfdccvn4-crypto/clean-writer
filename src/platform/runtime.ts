@@ -52,6 +52,10 @@ class CompositeWorkspaceRepository implements WorkspaceRepository {
     return this.opfsRepo.open(ref);
   }
 
+  async discardWorkspace(ref: WorkspaceRef): Promise<void> {
+    if (ref.kind === 'opfs') await this.opfsRepo.discardWorkspace(ref);
+  }
+
   async selectDirectory(options?: { kind?: 'opfs' | 'directory', name?: string }): Promise<WorkspaceRef | null> {
     if (!this.directoryRepo) {
       return this.opfsRepo.selectDirectory(options);

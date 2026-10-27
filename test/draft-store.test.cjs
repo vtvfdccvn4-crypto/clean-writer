@@ -6,6 +6,7 @@ let server;
 let DraftStore;
 let MemoryDraftBackend;
 let DraftWriter;
+let draftMaxWaitMs;
 let FaultyBackend;
 let decideDraftRestore;
 let hashDraftText;
@@ -41,7 +42,7 @@ before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24691 } } });
   ({ DraftStore, MemoryDraftBackend, decideDraftRestore, hashDraftText, DRAFT_MAX_AGE_MS, DRAFT_ORPHAN_MAX_AGE_MS } =
     await server.ssrLoadModule('/src/editor/DraftStore.ts'));
-  ({ DraftWriter } = await server.ssrLoadModule('/src/editor/DraftWriter.ts'));
+  ({ DraftWriter, draftMaxWaitMs } = await server.ssrLoadModule('/src/editor/DraftWriter.ts'));
   FaultyBackend = defineFaultyBackend();
 });
 
@@ -290,4 +291,40 @@ test('discardWhenSaved cancels a pending draft of the saved text, so nothing is 
   await writer.discardWhenSaved(target, 'saved text');
   await writer.flush();
   assert.equal(await backend.get(target), undefined);
+});
+
+test('discardWhenSaved(latest) removes a draft written for text typed before the save', async () => {
+  const backend = new MemoryDraftBackend();
+  const store = new DraftStore(backend);
+  const writer = new DraftWriter(store, { debounceMs: 1 });
+  writer.schedule(target, 'halfway through typing', '');
+  await writer.flush();
+  assert.equal((await store.read(target)).record.content, 'halfway through typing');
+  await writer.discardWhenSaved(target, 'the final saved text', true);
+  assert.equal(await backend.get(target), undefined);
+});
+
+test('continuous typing in an ordinary document may wait one second for a draft, a very large one up to five', () => {
+  assert.equal(draftMaxWaitMs(0), 1_000);
+  assert.equal(draftMaxWaitMs(200_000), 1_000);
+  assert.equal(draftMaxWaitMs(600_000), 3_000);
+  assert.equal(draftMaxWaitMs(1_000_000), 5_000);
+  assert.equal(draftMaxWaitMs(5_000_000), 5_000);
+});
+
+test('a draft is written within a second of continuous typing by default', async () => {
+  const backend = new MemoryDraftBackend();
+  const writer = new DraftWriter(new DraftStore(backend), { debounceMs: 60_000 });
+  const target = { projectId: 'p', path: 'sections/typing.md' };
+  // Keystrokes arrive faster than the quiet period, so only the maximum wait can write the draft.
+  const deadline = Date.now() + 1_600;
+  let version = 0;
+  while (Date.now() < deadline) {
+    version += 1;
+    writer.schedule(target, { toString: () => `text ${version}` }, 'hash', 1_000);
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  const stored = await new DraftStore(backend).read(target);
+  assert.ok(stored, 'a draft must exist after 1.6 s of continuous typing');
+  assert.match(stored.record.content, /^text \d+$/);
 });

@@ -302,6 +302,45 @@ try {
     return announced;
   });
 
+  let backupFile = '';
+  await step('9. Download a backup of the project', async () => {
+    const downloadPromise = session.page.waitForEvent('download', { timeout: 30_000 });
+    await session.page.locator('#btn-project-backup').click();
+    const download = await downloadPromise;
+    backupFile = path.join(outDir, download.suggestedFilename());
+    await download.saveAs(backupFile);
+    const notice = await session.page.locator('#notice-container').innerText();
+    if (!/Backup downloaded/i.test(notice)) throw new Error(`No backup notice was shown: ${notice.slice(0, 100)}`);
+    const bytes = await fs.readFile(backupFile);
+    if (bytes.subarray(0, 2).toString('latin1') !== 'PK') throw new Error('The download is not a ZIP file.');
+    const { execFileSync } = await import('node:child_process');
+    const listing = execFileSync('python3', ['-I', '-c', 'import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; print("\\n".join(z.namelist()))', backupFile]).toString();
+    for (const needed of ['clear-writer-backup.json', 'settings.json', `sections/${SECTION}.md`]) {
+      if (!listing.split('\n').includes(needed)) throw new Error(`The backup does not contain ${needed}. It holds: ${listing.replace(/\n/g, ', ')}`);
+    }
+    await shot('13-backup-downloaded');
+    return `${path.basename(backupFile)}, ${bytes.length} bytes`;
+  });
+
+  await step('10. Import the backup as a new project', async () => {
+    await session.page.locator('#btn-task-open-project').click();
+    await session.page.locator('#btn-modal-import-backup').waitFor();
+    await shot('14-open-dialog');
+    await session.page.locator('#input-import-backup').setInputFiles(backupFile);
+    await session.page.waitForFunction(name => document.getElementById('project-name')?.textContent === name, `${PROJECT} (imported)`, { timeout: 30_000 });
+    await openSection();
+    const text = await editorText();
+    if (!text.includes('UNSAVED-MARKER') || !normalize(text).startsWith(normalize(CHAPTER_TEXT).slice(0, 60))) throw new Error('The imported section does not hold the original text.');
+    await shot('15-imported');
+    // The original project must still be there and untouched.
+    await session.page.locator('#btn-task-open-project').click();
+    await session.page.locator('.recent-item-btn').first().waitFor({ timeout: 15_000 });
+    const recent = await session.page.locator('.recent-item-name').allInnerTexts();
+    await session.page.locator('#btn-modal-cancel').click();
+    if (!recent.includes(PROJECT) || !recent.includes(`${PROJECT} (imported)`)) throw new Error(`The recent list is: ${recent.join(', ')}`);
+    return `"${PROJECT} (imported)" opened with the original text; both projects are listed`;
+  });
+
   if (problems.length > 0) {
     const unexpected = problems.filter(message => !/net::ERR_ABORTED|favicon/i.test(message));
     if (unexpected.length > 0) throw new Error(`The browser reported errors: ${unexpected.slice(0, 3).join(' | ')}`);

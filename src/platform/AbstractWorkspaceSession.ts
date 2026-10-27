@@ -17,9 +17,14 @@ import { calculateSectionMove } from './section-order';
 import { getDirectory, getFile, deleteEntry, listEntries, copyEntry, writeFile } from './fs-helpers';
 import { listTrash, purgeAllTrash, purgeTrashEntry, restoreTrashedEntry, trashEntry } from './trash';
 import { resolveImagePath, resolveSectionPath, restoreSettingsPaths, snapshotSettingsPaths } from '../project-settings/project-paths';
+import { normalizeProjectSettings } from '../project-settings/project-settings';
 import { getBaseName, getParentPath } from '../utils/path-utils';
 import { applyProjectSettingsMutation } from '../project-settings/settings-mutations';
 import { runCoordinatedMutation } from './mutation-coordinator';
+
+/** The folders and file that make up a project, apart from its trash. */
+const PROJECT_FILE_ROOTS = ['sections', 'images', 'assets'] as const;
+const SETTINGS_FILE = 'settings.json';
 
 export function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
@@ -264,6 +269,48 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
     });
     if (result) this.forgetVersions(normalized);
     return result;
+  }
+
+  async listProjectFiles(): Promise<string[]> {
+    const files = [SETTINGS_FILE];
+    for (const root of PROJECT_FILE_ROOTS) {
+      const directory = await this.projectDir.getDirectoryHandle(root, { create: true });
+      for (const entry of await listEntries(directory, root)) {
+        if (!entry.isDir) files.push(entry.path);
+      }
+    }
+    return files.sort();
+  }
+
+  async readProjectFile(path: string): Promise<Uint8Array> {
+    if (path === SETTINGS_FILE) return new TextEncoder().encode(JSON.stringify(await this.getSettings(), null, 2));
+    const handle = this.isProjectFilePath(path) ? await getFile(this.projectDir, path, false) : null;
+    if (!handle) throw new Error(`File not found: ${path}`);
+    return new Uint8Array(await (await handle.getFile()).arrayBuffer());
+  }
+
+  async writeProjectFile(path: string, data: Uint8Array): Promise<void> {
+    if (path === SETTINGS_FILE) {
+      const parsed: unknown = JSON.parse(new TextDecoder().decode(data));
+      await this.writeSettingsSnapshot(normalizeProjectSettings(parsed as ProjectSettingsData).settings);
+      return;
+    }
+    if (!this.isProjectFilePath(path)) throw new Error(`Not a project file path: ${path}`);
+    this.sectionCache.delete(path);
+    this.knownVersions.delete(path);
+    await this.serializedWrite(path, async () => {
+      const handle = await getFile(this.projectDir, path, true);
+      if (!handle) throw new Error(`Could not create ${path}.`);
+      await writeFile(handle, data as Uint8Array<ArrayBuffer>);
+    });
+  }
+
+  /** A path inside sections, images or assets, with no segment that could leave them. */
+  private isProjectFilePath(path: string): boolean {
+    const segments = path.split('/');
+    return segments.length >= 2
+      && (PROJECT_FILE_ROOTS as readonly string[]).includes(segments[0]!)
+      && segments.every(segment => segment !== '' && segment !== '.' && segment !== '..' && !segment.includes('\0'));
   }
 
   async listTrash(): Promise<TrashItem[]> {

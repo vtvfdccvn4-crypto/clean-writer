@@ -2,6 +2,7 @@ import type { Platform, WorkspaceRef } from '../platform/types';
 import type { WelcomeControllerDependencies } from './WelcomeController';
 import { showNewProjectModal, showOpenProjectModal } from './project-flow-modal';
 import { openProjectWithRecovery } from './project-opening';
+import { importProjectBackup } from './project-backup-actions';
 
 type WelcomeProjectActions = Pick<
   WelcomeControllerDependencies,
@@ -33,6 +34,8 @@ export function createWelcomeProjectActions(platform: Platform): WelcomeProjectA
         ref = await platform.workspaceRepository.selectDirectory({ kind: 'directory' });
       } else if (choice.action === 'open-ref') {
         ref = choice.ref;
+      } else if (choice.action === 'import-backup') {
+        ref = await importProjectBackup(platform, choice.file);
       }
       if (ref) await openProjectWithRecovery(platform, ref);
     },

@@ -5,8 +5,14 @@ import { ProjectService } from '../../services/ProjectService';
 import { showNewProjectModal, showOpenProjectModal } from '../project-flow-modal';
 import { openProjectWithRecovery } from '../project-opening';
 import { showTrashDialog } from '../trash-dialog';
+import { downloadProjectBackup, importProjectBackup } from '../project-backup-actions';
 
-export function initTaskPanelActions(platform: Platform): void {
+export interface TaskPanelActionHooks {
+  /** Saves the document being edited, so a backup holds the text on screen. */
+  readonly flushCurrentDocument?: () => Promise<void>;
+}
+
+export function initTaskPanelActions(platform: Platform, hooks: TaskPanelActionHooks = {}): void {
   const btnNew = document.getElementById('btn-task-new-project');
   const btnOpen = document.getElementById('btn-task-open-project');
   const btnClose = document.getElementById('btn-task-close-project');
@@ -36,9 +42,15 @@ export function initTaskPanelActions(platform: Platform): void {
       ref = await platform.workspaceRepository.selectDirectory({ kind: 'directory' });
     } else if (choice.action === 'open-ref') {
       ref = choice.ref;
+    } else if (choice.action === 'import-backup') {
+      ref = await importProjectBackup(platform, choice.file);
     }
     if (!ref) return;
     await openProjectWithRecovery(platform, ref);
+  });
+
+  document.getElementById('btn-project-backup')?.addEventListener('click', () => {
+    void downloadProjectBackup(hooks.flushCurrentDocument ?? (async () => undefined));
   });
 
   document.getElementById('btn-task-trash')?.addEventListener('click', () => {

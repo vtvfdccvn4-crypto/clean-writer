@@ -285,7 +285,7 @@ export class DocumentRenderCoordinator {
       onDirty: (snapshot: EditorSnapshot) => {
         latestVersion = snapshot.version;
         if (this.documentSession.currentFilePath === filename && state.current.activeFile === filename) {
-          this.draftWriter.schedule({ projectId: projectRef.id, path: filename }, snapshot, baseHash);
+          this.draftWriter.schedule({ projectId: projectRef.id, path: filename }, snapshot, baseHash, snapshot.doc.length);
           this.opts.updateSaveStatus('dirty');
           if (!this.opts.getIsFinalPrintPreview()) this.liveFreshness.typing();
           // Preview work is keyed to the edit, not to the autosave.
@@ -335,7 +335,7 @@ export class DocumentRenderCoordinator {
 
           // The write succeeded, so a draft holding this text is stale even when the
           // save was a flush on the way to another document or a closed project.
-          await this.draftWriter.discardWhenSaved({ projectId: projectRef.id, path: filename }, newDoc);
+          await this.draftWriter.discardWhenSaved({ projectId: projectRef.id, path: filename }, newDoc, stillOpen);
           dispatchSectionSaved(filename);
           if (stillOpen) this.opts.updateSaveStatus('saved');
         } catch (error) {
