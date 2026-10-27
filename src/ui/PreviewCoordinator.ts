@@ -257,6 +257,11 @@ export class PreviewCoordinator {
     return this.controller.getPdfArtifact(artifactKey);
   }
 
+  /** Whether the reader has scrolled the preview since its latest render committed. */
+  readerHasScrolledSinceCommit(): boolean {
+    return this.controller.readerHasScrolledSinceCommit();
+  }
+
   scrollToTop(): void {
     this.controller.scrollToTop();
   }

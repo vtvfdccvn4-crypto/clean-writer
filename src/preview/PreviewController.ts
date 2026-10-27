@@ -53,6 +53,8 @@ export class PreviewController {
   private readonly pageIndicator: HTMLOutputElement | null;
   private readonly previewScrollParent: HTMLElement | null;
   private pageIndicatorFrame: number | null = null;
+  /** Where the preview was scrolled when the latest render committed its pages. */
+  private scrollTopAtCommit = 0;
   private pageIndicatorGeometry: number[] = [];
   private pageIndicatorGeometryDirty = true;
   private disposed = false;
@@ -398,6 +400,18 @@ export class PreviewController {
     this.viewport.scrollToTop();
   }
 
+  /**
+   * Whether the reader has scrolled the preview since the latest render committed its pages. Scrolling that
+   * the app does on its own after a render, such as following the cursor, should yield to a reader who has moved.
+   */
+  public readerHasScrolledSinceCommit(): boolean {
+    return Math.abs((this.container.parentElement?.scrollTop ?? 0) - this.scrollTopAtCommit) > 1;
+  }
+
+  private markCommitted(): void {
+    this.scrollTopAtCommit = this.container.parentElement?.scrollTop ?? 0;
+  }
+
   public setViewportResizeSuspended(suspended: boolean): void {
     this.viewport.setResponsiveZoomSuspended(suspended);
   }
@@ -451,6 +465,7 @@ export class PreviewController {
       () => generation === this.liveRenderGeneration
     );
     if (!document) return { status: 'stale', pageCount: 0 };
+    this.markCommitted();
     return { status: 'rendered', pageCount: document.blocks.length };
   }
 
@@ -545,6 +560,12 @@ export class PreviewController {
     const restoreStartedAt = performance.now();
     restoreScroll();
     onPhase?.('restore-scroll', Math.round(performance.now() - restoreStartedAt));
-    window.requestAnimationFrame(restoreScroll);
+    this.markCommitted();
+    window.requestAnimationFrame(() => {
+      // The restore on the next frame is for the layout settling after the commit. A reader who has scrolled
+      // in the meantime keeps their position: writing the old one back would throw them out of it.
+      if (this.readerHasScrolledSinceCommit()) scrollParent.style.overflowAnchor = previousOverflowAnchor;
+      else restoreScroll();
+    });
   }
 }

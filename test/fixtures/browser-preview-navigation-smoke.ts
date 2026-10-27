@@ -62,21 +62,6 @@ async function run() {
   // The document's render ends by restoring its saved view position, which can move the scroll
   // after the pages appear. The status reads "Saved" only once that is done.
   await waitFor('document render finished', () => document.getElementById('editor-status')?.textContent === 'Saved' ? true : null, 30_000);
-  // A load can start a second, paginated render, and that render scrolls the preview to the top when it finishes.
-  // Wait until the preview has been still for two seconds, so every move starts from a settled view.
-  const previewPosition = () => `${scroller()?.scrollTop ?? 0}:${document.querySelectorAll('.pagedjs_page').length}`;
-  let lastPosition = previewPosition();
-  let quietSince = Date.now();
-  const settleDeadline = Date.now() + 30_000;
-  while (Date.now() - quietSince < 2_000) {
-    if (Date.now() > settleDeadline) throw new Error('The preview did not settle after the document loaded.');
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const position = previewPosition();
-    if (position !== lastPosition) {
-      lastPosition = position;
-      quietSince = Date.now();
-    }
-  }
   const pageCount = document.querySelectorAll('.pagedjs_page').length;
 
   // Page jump: a valid page moves the view and is announced.

@@ -150,7 +150,8 @@ export class PaginatedPreviewRenderer {
     } else {
       await this.preview.forceRender(compiled.html, compiled.manifest, revision);
     }
-    this.preview.scrollToTop();
+    // Not scrolled to the top here: clearVisiblePreview reset the view when this render began, and a reader
+    // who has scrolled since the pages appeared must stay where they are.
     if (!this._isActive) {
       if (visiblePaginatedGuides.length > 0) this.preview.setCanonicalPageBreakGuides(visiblePaginatedGuides);
       this.scheduleGuides();

@@ -69,6 +69,8 @@ export class DocumentRenderCoordinator {
   private readonly drafts: DraftStore = createBrowserDraftStore();
   private readonly draftWriter = new DraftWriter(this.drafts);
   private readonly previewScheduler: PreviewScheduler<PreviewEdit>;
+  /** True while a newly opened document sets its saved cursor, which follows to the preview unless the reader has moved. */
+  private restoringViewState = false;
   /** Tells the reader when the live preview is behind the editor. */
   private readonly liveFreshness = new LivePreviewFreshness(updateLivePreviewStatus);
   /** The full document's compiled preview, kept so its print preview can be built on request. */
@@ -347,6 +349,9 @@ export class DocumentRenderCoordinator {
       },
       onSelectionChange: (line: number) => {
         if (this.opts.getIsSupressingPreviewNavigation()) return;
+        // Opening a document sets its saved cursor, and the preview follows it. A reader who has scrolled
+        // the preview since the pages appeared is not pulled back by that automatic move.
+        if (this.restoringViewState && this.preview.readerHasScrolledSinceCommit()) return;
         this.preview.navigateToSourceLine(line);
       },
       onCaretStatusChange: (status: EditorCaretStatus) => this.opts.updateCaretStatus(status),
@@ -411,9 +416,15 @@ export class DocumentRenderCoordinator {
     }
     if (!this.preview.isCurrent(initialRevision) || !isLatest()) return;
 
-    this.preview.scrollToTop();
+    // The preview was reset to the top when this render began (clearVisiblePreview). It is not reset again
+    // here: its pages are visible a moment before this point, and a reader who has scrolled must stay put.
     if (!focusedPendingLine) {
-      await this.documentSession.restoreViewState(projectRef, filename);
+      this.restoringViewState = true;
+      try {
+        await this.documentSession.restoreViewState(projectRef, filename);
+      } finally {
+        this.restoringViewState = false;
+      }
     }
     this.opts.updateSaveStatus('saved');
   }

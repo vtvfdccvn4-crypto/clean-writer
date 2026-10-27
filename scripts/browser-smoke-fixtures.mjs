@@ -5,6 +5,17 @@
 
 export const fixtures = [
   {
+    // A document's pages are visible a moment before its render finishes. A reader who scrolls in that
+    // moment must stay where they are when the render finishes.
+    name: 'browser-preview-scroll-preserved-smoke',
+    path: '/test/fixtures/browser-preview-scroll-preserved-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Preview scroll preserved smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.scrolledTo > 0, 'The reader could not scroll while the render was finishing, so the test proved nothing.');
+      expect(Math.abs(result.scrollAtEnd - result.scrolledTo) <= 2, `Finishing the render moved the reader from ${result.scrolledTo} to ${result.scrollAtEnd}.`);
+    }
+  },
+  {
     // Delete a section, find it in the trash, restore it, delete it for good, and empty the trash, all through the UI.
     name: 'browser-trash-smoke',
     path: '/test/fixtures/browser-trash-smoke.html',
