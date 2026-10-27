@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { createServer } from 'vite';
@@ -55,14 +57,15 @@ const launchOptions = browserName === 'chromium'
   ? { executablePath: await detectBrowserExecutable(), args: ['--no-sandbox'] }
   : {};
 const results = [];
-let browser;
 try {
   await viteServer.listen();
-  browser = await browserType.launch(launchOptions);
   for (const name of selected) {
     const started = Date.now();
-    const context = await browser.newContext();
-    const page = await context.newPage();
+    // A persistent profile per fixture, not an ephemeral context: WebKit's ephemeral contexts fail OPFS
+    // with "UnknownError", and the application stores projects in OPFS.
+    const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-playwright-smoke-'));
+    const context = await browserType.launchPersistentContext(userDataDir, { ...launchOptions, headless: true });
+    const page = context.pages()[0] ?? await context.newPage();
     const pageErrors = [];
     const consoleMessages = [];
     page.on('pageerror', error => pageErrors.push(error.message || String(error) || '(error without a message)'));
@@ -83,9 +86,9 @@ try {
     results.push({ name, ok, elapsedMs: Date.now() - started, failure, pageErrors, consoleMessages: ok ? undefined : consoleMessages.slice(-20), result: ok ? undefined : result });
     process.stdout.write(`${ok ? 'PASS' : 'FAIL'} ${name} (${Date.now() - started} ms)\n`);
     await context.close().catch(() => undefined);
+    await fs.rm(userDataDir, { recursive: true, force: true });
   }
 } finally {
-  await browser?.close().catch(() => undefined);
   await viteServer.close();
 }
 
