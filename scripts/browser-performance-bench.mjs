@@ -22,7 +22,7 @@ const browserName = process.env.CLEAR_WRITER_SMOKE_BROWSER?.trim() || 'chromium'
 const playwright = createRequire(import.meta.url)('playwright');
 const browserType = playwright[browserName];
 if (!browserType) throw new Error(`Unknown CLEAR_WRITER_SMOKE_BROWSER "${browserName}". Use chromium or webkit.`);
-const processPattern = browserName === 'webkit' ? /WebKit|MiniBrowser/ : /chrom|headless/i;
+const processPattern = browserName === 'webkit' ? /WebKit|WPE|MiniBrowser|WebProcess|NetworkProcess|GPUProcess/i : /chrom|headless/i;
 const sizes = (process.env.CLEAR_WRITER_BENCH_SIZES ?? '200,316').split(',').map(Number);
 const launchOptions = browserName === 'chromium'
   ? { executablePath: await detectBrowserExecutable(), args: ['--no-sandbox'] }
