@@ -185,7 +185,9 @@ export class IsolatedPaginationHost {
         if (error instanceof DOMException && error.name === 'AbortError') {
           // Discard the frame before the queue slot is released, so the next
           // job can never overlap a layout pass that is still running.
-          if (requestPosted) this.invalidateFrame();
+          // Always invalidate — even if the request was not yet posted, the
+          // frame's state is untrustworthy once an abort fires.
+          this.invalidateFrame();
           return complete({ status: 'cancelled', diagnostics: diagnostics() });
         }
         if (error instanceof PaginationTimeoutError) {
