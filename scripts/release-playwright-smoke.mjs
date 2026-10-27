@@ -5,14 +5,15 @@ import path from 'node:path';
 import { createServer } from 'vite';
 import { plainCharacterReferenceEsbuildPlugin, workerDomFreeResolution } from '../vite.shared.ts';
 import { detectBrowserExecutable, reservePort } from './lib/browser.mjs';
+import { fixtures as allFixtures } from './browser-smoke-fixtures.mjs';
 
-// Browser coverage through Playwright's own API, so it runs in WebKit as well as Chromium. The Chromium
-// smoke runner (release-browser-smoke.mjs) drives Chromium over the DevTools protocol, which WebKit does
-// not offer. Each fixture publishes `window.__HARNESS_RESULT__` with `ok`, and this runner requires ok to
-// be true and no page error. Select the browser with CLEAR_WRITER_SMOKE_BROWSER=chromium|webkit.
+// The full browser smoke suite through Playwright's own API, so it runs in WebKit as well as Chromium.
+// release-browser-smoke.mjs drives Chromium over the DevTools protocol, which WebKit does not offer. Both
+// runners use the same fixture list (browser-smoke-fixtures.mjs), apply each fixture's viewport and query,
+// and run its validate function on the result.
 //
-// The list covers the behaviour the release depends on that does not need a local directory project
-// (the File System Access API is Chromium-only) or DevTools input. Add a fixture here once it passes in both.
+// Select the browser with CLEAR_WRITER_SMOKE_BROWSER=chromium|webkit. Select fixtures with
+// CLEAR_WRITER_SMOKE_FIXTURES=name,name (default: all). CLEAR_WRITER_SMOKE_QUERY applies to every fixture.
 
 const root = path.resolve(import.meta.dirname, '..');
 const browserName = process.env.CLEAR_WRITER_SMOKE_BROWSER?.trim() || 'chromium';
@@ -20,25 +21,18 @@ const playwright = createRequire(import.meta.url)('playwright');
 const browserType = playwright[browserName];
 if (!browserType) throw new Error(`Unknown CLEAR_WRITER_SMOKE_BROWSER "${browserName}". Use chromium or webkit.`);
 
-const fixtures = [
-  'browser-draft-store-smoke',
-  'browser-recovery-smoke',
-  'browser-storage-status-smoke',
-  'browser-outline-view-smoke',
-  'browser-table-helper-smoke',
-  'browser-custom-quote-cursor-smoke',
-  'browser-preview-freshness-smoke',
-  'browser-pdf-job-status-smoke',
-  'browser-sidebar-interactions-smoke',
-  'browser-opfs-persistence-smoke',
-  'browser-large-document-smoke',
-  'pagination-lifecycle-smoke',
-  'pagination-watchdog-smoke'
-];
-const selected = process.env.CLEAR_WRITER_SMOKE_FIXTURES?.trim()
+const requestedNames = process.env.CLEAR_WRITER_SMOKE_FIXTURES?.trim()
   ? process.env.CLEAR_WRITER_SMOKE_FIXTURES.split(',').map(name => name.trim()).filter(Boolean)
-  : fixtures;
-const timeoutMs = Number(process.env.CLEAR_WRITER_SMOKE_TIMEOUT_MS ?? 180_000);
+  : null;
+const selected = requestedNames
+  ? allFixtures.filter(fixture => requestedNames.includes(fixture.name))
+  : allFixtures;
+if (requestedNames && selected.length !== requestedNames.length) {
+  const known = new Set(allFixtures.map(fixture => fixture.name));
+  throw new Error(`Unknown fixture in CLEAR_WRITER_SMOKE_FIXTURES: ${requestedNames.filter(name => !known.has(name)).join(', ')}`);
+}
+const timeoutMs = Number(process.env.CLEAR_WRITER_SMOKE_TIMEOUT_MS ?? 120_000);
+const defaultViewport = { width: 1280, height: 800 };
 
 const serverPort = await reservePort();
 const viteServer = await createServer({
@@ -56,37 +50,71 @@ const viteServer = await createServer({
 const launchOptions = browserName === 'chromium'
   ? { executablePath: await detectBrowserExecutable(), args: ['--no-sandbox'] }
   : {};
+
+/** The fixture's URL, with the same query rules as release-browser-smoke.mjs. */
+function fixtureUrl(fixture) {
+  const url = new URL(`http://127.0.0.1:${serverPort}${fixture.path}`);
+  if (fixture.name === 'browser-authoring-performance-smoke' && process.env.CLEAR_WRITER_PREVIEW_SECTIONS) {
+    url.searchParams.set('sections', process.env.CLEAR_WRITER_PREVIEW_SECTIONS);
+  }
+  if (process.env.CLEAR_WRITER_SMOKE_QUERY) {
+    for (const [key, value] of new URLSearchParams(process.env.CLEAR_WRITER_SMOKE_QUERY)) url.searchParams.set(key, value);
+  }
+  return url.toString();
+}
+
+async function runFixture(fixture) {
+  const started = Date.now();
+  // A persistent profile per fixture, not an ephemeral context: WebKit's ephemeral contexts fail OPFS with
+  // "UnknownError", and the application stores projects in OPFS.
+  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-playwright-smoke-'));
+  const context = await browserType.launchPersistentContext(userDataDir, {
+    ...launchOptions,
+    headless: true,
+    viewport: fixture.viewport ? { width: fixture.viewport.width, height: fixture.viewport.height } : defaultViewport,
+    deviceScaleFactor: fixture.viewport?.deviceScaleFactor ?? 1
+  });
+  const page = context.pages()[0] ?? await context.newPage();
+  const pageErrors = [];
+  const consoleMessages = [];
+  page.on('pageerror', error => pageErrors.push(error.message || String(error) || '(error without a message)'));
+  page.on('console', message => {
+    if (message.type() === 'error' || message.type() === 'warning') consoleMessages.push(`${message.type()}: ${message.text()}`.slice(0, 300));
+  });
+  page.on('crash', () => pageErrors.push('the page crashed'));
+  let failure = null;
+  let result;
+  try {
+    await page.goto(fixtureUrl(fixture), { waitUntil: 'load', timeout: timeoutMs });
+    await page.waitForFunction(() => window.__HARNESS_RESULT__ !== undefined, null, { timeout: timeoutMs });
+    result = await page.evaluate(() => window.__HARNESS_RESULT__);
+    if (result?.ok !== true) throw new Error(`returned failure: ${JSON.stringify(result).slice(0, 1000)}`);
+    if (pageErrors.length > 0) throw new Error(`page errors: ${pageErrors.join(' | ')}`);
+    fixture.validate(result);
+  } catch (error) {
+    failure = error instanceof Error ? error.message.split('\n')[0] : String(error);
+  } finally {
+    await context.close().catch(() => undefined);
+    await fs.rm(userDataDir, { recursive: true, force: true });
+  }
+  return {
+    name: fixture.name,
+    ok: failure === null,
+    elapsedMs: Date.now() - started,
+    failure,
+    pageErrors,
+    consoleMessages: failure === null ? undefined : consoleMessages.slice(-20),
+    result: failure === null ? undefined : result
+  };
+}
+
 const results = [];
 try {
   await viteServer.listen();
-  for (const name of selected) {
-    const started = Date.now();
-    // A persistent profile per fixture, not an ephemeral context: WebKit's ephemeral contexts fail OPFS
-    // with "UnknownError", and the application stores projects in OPFS.
-    const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'clear-writer-playwright-smoke-'));
-    const context = await browserType.launchPersistentContext(userDataDir, { ...launchOptions, headless: true });
-    const page = context.pages()[0] ?? await context.newPage();
-    const pageErrors = [];
-    const consoleMessages = [];
-    page.on('pageerror', error => pageErrors.push(error.message || String(error) || '(error without a message)'));
-    page.on('console', message => {
-      if (message.type() === 'error' || message.type() === 'warning') consoleMessages.push(`${message.type()}: ${message.text()}`.slice(0, 300));
-    });
-    page.on('crash', () => pageErrors.push('the page crashed'));
-    let result;
-    let failure = null;
-    try {
-      await page.goto(`http://127.0.0.1:${serverPort}/test/fixtures/${name}.html`, { waitUntil: 'load', timeout: timeoutMs });
-      await page.waitForFunction(() => window.__HARNESS_RESULT__ !== undefined, null, { timeout: timeoutMs });
-      result = await page.evaluate(() => window.__HARNESS_RESULT__);
-    } catch (error) {
-      failure = error instanceof Error ? error.message.split('\n')[0] : String(error);
-    }
-    const ok = failure === null && result?.ok === true && pageErrors.length === 0;
-    results.push({ name, ok, elapsedMs: Date.now() - started, failure, pageErrors, consoleMessages: ok ? undefined : consoleMessages.slice(-20), result: ok ? undefined : result });
-    process.stdout.write(`${ok ? 'PASS' : 'FAIL'} ${name} (${Date.now() - started} ms)\n`);
-    await context.close().catch(() => undefined);
-    await fs.rm(userDataDir, { recursive: true, force: true });
+  for (const fixture of selected) {
+    const outcome = await runFixture(fixture);
+    results.push(outcome);
+    process.stdout.write(`${outcome.ok ? 'PASS' : 'FAIL'} ${fixture.name} (${outcome.elapsedMs} ms)${outcome.ok ? '' : `: ${outcome.failure}`}\n`);
   }
 } finally {
   await viteServer.close();
