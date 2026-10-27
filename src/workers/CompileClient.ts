@@ -1,5 +1,5 @@
 import type { CompiledPreview } from '../compiler';
-import { COMPILE_PROTOCOL_VERSION, type CompileJob, type CompilePhaseTimings, type CompileWorkerRequest, type CompileWorkerResponse } from './compile-protocol';
+import { COMPILE_PROTOCOL_VERSION, wallClockMs, type CompileJob, type CompilePhaseTimings, type CompileWorkerRequest, type CompileWorkerResponse, type CompileWorkerTiming } from './compile-protocol';
 
 /**
  * Main-thread side of the compile worker. It keeps at most one job per lane
@@ -30,6 +30,14 @@ export interface CompileOutcome {
   readonly compiled: CompiledPreview;
   readonly cacheHit: boolean;
   readonly phases: CompilePhaseTimings;
+  /** Worker-side and page-side times for a job the worker compiled. Absent for a page-side compile. */
+  readonly timing?: CompileOutcomeTiming;
+}
+
+/** The page sends at `sentAt` and receives at `receivedAt`; the worker's own times are in between. */
+export interface CompileOutcomeTiming extends CompileWorkerTiming {
+  readonly sentAt: number;
+  readonly receivedAt: number;
 }
 
 export interface CompileRequest {
@@ -45,6 +53,7 @@ interface PendingJob {
   readonly lane: string;
   readonly job: CompileJob;
   readonly startedAt: number;
+  sentAt: number;
   readonly resolve: (outcome: CompileOutcome | null) => void;
   readonly reject: (error: unknown) => void;
 }
@@ -104,7 +113,7 @@ export class CompileClient {
     if (this.fallback) return this.runLocal(request.lane, job);
 
     return new Promise<CompileOutcome>((resolve, reject) => {
-      this.pending.set(jobId, { lane: request.lane, job, startedAt: performance.now(), resolve: outcome => (outcome ? resolve(outcome) : reject(new SupersededCompileError())), reject });
+      this.pending.set(jobId, { lane: request.lane, job, startedAt: performance.now(), sentAt: wallClockMs(), resolve: outcome => (outcome ? resolve(outcome) : reject(new SupersededCompileError())), reject });
       this.post({ type: 'compile', protocol: COMPILE_PROTOCOL_VERSION, job }, jobId);
     });
   }
@@ -137,8 +146,17 @@ export class CompileClient {
   }
 
   private post(message: CompileWorkerRequest, jobId: string | undefined): void {
+    let worker: WorkerLike;
     try {
-      this.ensureWorker().postMessage(message);
+      worker = this.ensureWorker();
+    } catch {
+      // The browser cannot create a compile worker (for example, it has no module worker
+      // support). Compile on the page instead, as for a crashed worker.
+      this.abandonWorker();
+      return;
+    }
+    try {
+      worker.postMessage(message);
     } catch (error) {
       // Messages that cannot be cloned are the caller's fault, not the worker's.
       if (jobId !== undefined) {
@@ -174,7 +192,8 @@ export class CompileClient {
     if (!job) return;
     this.pending.delete(message.jobId);
     if (message.type === 'result') {
-      job.resolve({ compiled: message.compiled, cacheHit: message.cacheHit, phases: message.phases });
+      const timing: CompileOutcomeTiming = { ...message.timing, sentAt: job.sentAt, receivedAt: wallClockMs() };
+      job.resolve({ compiled: message.compiled, cacheHit: message.cacheHit, phases: message.phases, timing });
     } else {
       job.reject(new Error(message.message));
     }

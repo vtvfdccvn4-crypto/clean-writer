@@ -371,7 +371,7 @@ export class PreviewController {
     const pages = this.container.querySelectorAll<HTMLElement>('.pagedjs_page');
     const page = pages[pageNumber - 1];
     if (!page) return false;
-    this.viewport.scrollElementToTop(page);
+    this.viewport.scrollElementToTop(page, { instant: true });
     // Name the page asked for now. The indicator follows the scroll position as it settles.
     this.showPageIndicator(pageNumber - 1, pages.length);
     return true;
@@ -387,7 +387,7 @@ export class PreviewController {
     const index = adjacentHeadingIndex(tops, NAVIGATION_TOP_INSET, direction);
     if (index === null) return null;
     const heading = headings[index]!;
-    this.viewport.scrollElementToTop(heading);
+    this.viewport.scrollElementToTop(heading, { instant: true });
     const pages = Array.from(this.container.querySelectorAll<HTMLElement>('.pagedjs_page'));
     const pageIndex = pages.findIndex(page => page.contains(heading));
     if (pageIndex >= 0) this.showPageIndicator(pageIndex, pages.length);

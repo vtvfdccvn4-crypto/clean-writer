@@ -3,7 +3,55 @@ import { DEFAULT_APP_STATE } from '../../src/config/defaults';
 import { createSnapshotAssetResolver } from '../../src/workers/compile-core';
 import { CompileClient, isAbortError, type CompileRequest } from '../../src/workers/CompileClient';
 import { createCompileWorkerClient } from '../../src/workers/compile-client-factory';
-import type { WorkerLike } from '../../src/workers/CompileClient';
+import type { WorkerLike, CompileOutcome } from '../../src/workers/CompileClient';
+
+/** The 50-section corpus for the transfer and warm-up measurements: 50 chapters of 20 pages each. */
+function fiftySectionDocument(): string {
+  const page = (index: number) => [
+    `## Section ${index}`,
+    '',
+    'Lorem ipsum dolor sit amet, **consectetur** adipiscing elit, sed do _eiusmod_ tempor incididunt ut labore. '.repeat(12),
+    '',
+    '- first item with `code`',
+    '- second item {{tagged}}',
+    '',
+    'Second paragraph with a [link](https://example.com) and more prose to fill the page. '.repeat(10),
+    ...(index % 10 === 0 ? ['', '![pic](images/b.png)', '', '| a | b | c |', '|---|---|---|', '| 1 | 2 | 3 |'] : []),
+    ''
+  ].join('\n');
+  return Array.from({ length: 50 }, (_, chapter) => [
+    `# Chapter ${chapter + 1}`,
+    '',
+    ...Array.from({ length: 20 }, (_, index) => page(chapter * 20 + index + 1))
+  ].join('\n')).join('\n');
+}
+
+const round = (value: number) => Math.round(value * 10) / 10;
+
+/** A fresh client with its own worker, so each measurement starts from a cold worker. */
+function freshClient(): CompileClient {
+  return new CompileClient({
+    createWorker: () => new Worker(new URL('../../src/workers/compile.worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike,
+    compileLocal: async job => ({ compiled: await compilePreviewDocument(job.markdown, createSnapshotAssetResolver(job.assets), job.settings, {}), cacheHit: false, phases: {} })
+  });
+}
+
+/** One compile, timed on the page, with the worker's own times split out of the round trip. */
+async function timedCompile(client: CompileClient, markdown: string, lane: string) {
+  const started = performance.now();
+  const outcome: CompileOutcome = await client.compile(request(markdown, lane));
+  const elapsedMs = round(performance.now() - started);
+  const timing = outcome.timing;
+  if (!timing) throw new Error('The worker did not report its timing.');
+  return {
+    elapsedMs,
+    cacheHit: outcome.cacheHit,
+    requestTransferMs: round(timing.workerReceivedAt - timing.sentAt),
+    workerCompileMs: round(timing.workerCompiledAt - timing.workerReceivedAt),
+    resultTransferMs: round(timing.receivedAt - timing.workerPostedAt),
+    htmlCharacters: outcome.compiled.html.length
+  };
+}
 
 declare global {
   interface Window { __HARNESS_RESULT__?: Record<string, unknown>; }
@@ -162,6 +210,41 @@ async function run(): Promise<void> {
 
   client.dispose();
 
+  // 8. Transfer, cold and warm compile times, and the cache, for the 50-section document.
+  const fifty = fiftySectionDocument();
+  const fiftyChars = fifty.length;
+  const coldRuns: Array<Awaited<ReturnType<typeof timedCompile>>> = [];
+  const warmRuns: Array<Awaited<ReturnType<typeof timedCompile>>> = [];
+  const repeatRuns: Array<Awaited<ReturnType<typeof timedCompile>>> = [];
+  const prewarmedRuns = [];
+  for (let run = 0; run < 3; run += 1) {
+    const cold = freshClient();
+    coldRuns.push(await timedCompile(cold, fifty, `cold-${run}`));
+    const warmText = await timedCompile(cold, fifty + `\n\nWarm run ${run}.\n`, `warm-${run}`);
+    const repeat = await timedCompile(cold, fifty + `\n\nWarm run ${run}.\n`, `repeat-${run}`);
+    warmRuns.push(warmText);
+    repeatRuns.push(repeat);
+    cold.dispose();
+    // The same first compile, after a worker has compiled a small document.
+    const prewarmed = freshClient();
+    await timedCompile(prewarmed, MIXED, `prewarm-${run}`);
+    prewarmedRuns.push(await timedCompile(prewarmed, fifty, `after-prewarm-${run}`));
+    prewarmed.dispose();
+  }
+  // Parity for the 50-section document: the worker's output equals the page's.
+  const fiftyOnPage = await onPage(fifty);
+  const fiftyWorker = await freshClient().compile(request(fifty, 'fifty-parity'));
+  const fiftyParity = fiftyWorker.compiled.html === fiftyOnPage.html
+    && JSON.stringify(fiftyWorker.compiled.manifest) === JSON.stringify(fiftyOnPage.manifest);
+  const timing = {
+    documentCharacters: fiftyChars,
+    fiftyParity,
+    cold: coldRuns,
+    coldAfterPrewarm: prewarmedRuns,
+    warmNewText: warmRuns,
+    repeatCacheHit: repeatRuns
+  };
+
   window.__HARNESS_RESULT__ = {
     ok: parity.mixedHtml && parity.mixedManifest && parity.largeHtml && parity.largeManifest
       && parity.mixedHasStyledSpan && parity.mixedHasImageSource && parity.mixedScriptRemoved
@@ -179,7 +262,8 @@ async function run(): Promise<void> {
     workerUsed: client.usesFallback === false,
     pageCompile: onPageTiming,
     workerCompile: workerTiming,
-    workerCompileCacheHit: largeWorker.cacheHit
+    workerCompileCacheHit: largeWorker.cacheHit,
+    timing
   };
 }
 

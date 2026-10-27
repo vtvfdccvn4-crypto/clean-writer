@@ -397,6 +397,14 @@ const fixtures = [
     }
   },
   {
+    // Measurement, not a gate: run on demand with CLEAR_WRITER_SMOKE_FIXTURE=live-large-section-bench.
+    name: 'live-large-section-bench',
+    path: '/test/fixtures/live-large-section-bench.html',
+    validate(result) {
+      expect(result.ok === true, `Live large-section benchmark failed: ${JSON.stringify(result)}`);
+    }
+  },
+  {
     name: 'browser-large-document-smoke',
     path: '/test/fixtures/browser-large-document-smoke.html',
     validate(result) {

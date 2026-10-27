@@ -59,6 +59,9 @@ async function run() {
     const form = document.getElementById('preview-page-jump') as HTMLFormElement | null;
     return form && !form.hidden ? true : null;
   }, 30_000);
+  // The document's render ends by restoring its saved view position, which can move the scroll
+  // after the pages appear. The status reads "Saved" only once that is done.
+  await waitFor('document render finished', () => document.getElementById('editor-status')?.textContent === 'Saved' ? true : null, 30_000);
   const pageCount = document.querySelectorAll('.pagedjs_page').length;
 
   // Page jump: a valid page moves the view and is announced.
@@ -90,7 +93,10 @@ async function run() {
         const tick = () => { count += 1; if (performance.now() - started < 500) requestAnimationFrame(tick); else resolve(count); };
         requestAnimationFrame(tick);
       });
-      throw new Error(`${(error as Error).message} framesIn500ms=${frames} from=${from} scrollTop=${area?.scrollTop} scrollHeight=${area?.scrollHeight} clientHeight=${area?.clientHeight} hidden=${document.hidden} visibility=${document.visibilityState} status=${JSON.stringify(status())} headingTops=${JSON.stringify(headingTops)}`);
+      const stages = Array.from(document.querySelectorAll<HTMLElement>('#paged-stage'));
+      const firstHeading = document.querySelector<HTMLElement>('#paged-stage h2, #paged-stage h1');
+      const diagnosis = `stages=${stages.length} areaConnected=${area?.isConnected} headingInArea=${firstHeading ? area?.contains(firstHeading) : 'none'} pages=${document.querySelectorAll('.pagedjs_page').length}`;
+      throw new Error(`${(error as Error).message} ${diagnosis} framesIn500ms=${frames} from=${from} scrollTop=${area?.scrollTop} scrollHeight=${area?.scrollHeight} clientHeight=${area?.clientHeight} hidden=${document.hidden} visibility=${document.visibilityState} status=${JSON.stringify(status())} headingTops=${JSON.stringify(headingTops)}`);
     }
     let last = -1;
     let current = scroller()?.scrollTop ?? 0;
