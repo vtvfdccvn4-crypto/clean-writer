@@ -42,3 +42,8 @@ jobs:
 
       - name: Draft hard-kill durability in WebKit
         run: node scripts/webkit-draft-kill-test.mjs
+
+      - name: Application fixtures in WebKit
+        run: node scripts/release-playwright-smoke.mjs
+        env:
+          CLEAR_WRITER_SMOKE_BROWSER: webkit
