@@ -29,22 +29,22 @@ const launchOptions = browserName === 'chromium'
   : {};
 const round = value => Math.round(value * 10) / 10;
 
-/** The summed PSS, in KB, of every process of this browser, read from /proc. */
-async function browserPssKb() {
+/** The PSS, in KB, of each process of this browser, read from /proc, and the sum. */
+async function browserProcesses() {
   const { stdout } = await execFileAsync('ps', ['-eo', 'pid,args']);
-  let totalKb = 0;
+  const processes = [];
   for (const line of stdout.split('\n')) {
     const match = line.trim().match(/^(\d+)\s+(.*)$/);
     if (!match || Number(match[1]) === process.pid || !processPattern.test(match[2])) continue;
     try {
       const rollup = await fs.readFile(`/proc/${match[1]}/smaps_rollup`, 'utf8');
       const pss = rollup.match(/^Pss:\s+(\d+) kB/m);
-      if (pss) totalKb += Number(pss[1]);
+      if (pss) processes.push({ name: match[2].slice(0, 80), pssKb: Number(pss[1]) });
     } catch {
       // The process exited between the listing and the read.
     }
   }
-  return totalKb;
+  return { totalKb: processes.reduce((sum, item) => sum + item.pssKb, 0), processes };
 }
 
 /** Loads the bench page with a query, and returns its result with the peak memory during the load. */
@@ -55,10 +55,11 @@ async function loadBench(serverPort, query) {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   let running = true;
-  let peakKb = 0;
+  let peak = { totalKb: 0, processes: [] };
   const sampler = (async () => {
     while (running) {
-      peakKb = Math.max(peakKb, await browserPssKb());
+      const sample = await browserProcesses();
+      if (sample.totalKb > peak.totalKb) peak = sample;
       await new Promise(resolve => setTimeout(resolve, 300));
     }
   })();
@@ -67,7 +68,7 @@ async function loadBench(serverPort, query) {
     await page.goto(`http://127.0.0.1:${serverPort}/test/fixtures/live-large-section-bench.html?${query}`, { waitUntil: 'load' });
     await page.waitForFunction(() => window.__HARNESS_RESULT__ !== undefined, null, { timeout: 1_200_000 });
     const result = await page.evaluate(() => window.__HARNESS_RESULT__);
-    return { result, peakPssMb: round(peakKb / 1024), wallMs: Date.now() - started, pageErrors };
+    return { result, peakPssMb: round(peak.totalKb / 1024), peakProcesses: peak.processes.map(item => ({ name: item.name, pssMb: round(item.pssKb / 1024) })), wallMs: Date.now() - started, pageErrors };
   } finally {
     running = false;
     await sampler;
@@ -93,7 +94,7 @@ const runs = [];
 try {
   await viteServer.listen();
   const idle = await loadBench(serverPort, 'pages=2&mode=worker-only');
-  runs.push({ label: 'idle baseline', pages: 2, peakPssMb: idle.peakPssMb, pageErrors: idle.pageErrors, ok: idle.result?.ok === true });
+  runs.push({ label: 'idle baseline', pages: 2, peakPssMb: idle.peakPssMb, peakProcesses: idle.peakProcesses, pageErrors: idle.pageErrors, ok: idle.result?.ok === true });
   for (const pages of sizes) {
     const cold = await loadBench(serverPort, `pages=${pages}&mode=worker-only`);
     const r = cold.result;
@@ -103,6 +104,7 @@ try {
       sourceCharacters: r?.sourceCharacters,
       ok: r?.ok === true,
       peakPssMb: cold.peakPssMb,
+      peakProcesses: cold.peakProcesses,
       coldCompileMs: r?.workerFirstCompile?.elapsedMs,
       warmCompileMs: r?.workerWarmCompile?.elapsedMs,
       renderFirstMs: r?.renderFirst?.elapsedMs,
@@ -119,6 +121,7 @@ try {
         sourceCharacters: scheduled.result?.sourceCharacters,
         ok: scheduled.result?.ok === true,
         peakPssMb: scheduled.peakPssMb,
+        peakProcesses: scheduled.peakProcesses,
         fires: s?.fires,
         rendered: s?.rendered,
         superseded: s?.superseded,
