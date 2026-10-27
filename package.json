@@ -30,7 +30,9 @@
     "test:pwa-offline": "node scripts/release-pwa-smoke.mjs",
     "test:compile-worker": "node scripts/release-compile-worker-smoke.mjs",
     "test:draft-kill": "node scripts/draft-hard-kill-test.mjs",
-    "test:acceptance": "node scripts/mvp-acceptance.mjs"
+    "test:acceptance": "node scripts/mvp-acceptance.mjs",
+    "bench:b1": "node scripts/bench-b1.mjs",
+    "bench:b1:save-baseline": "node scripts/bench-b1.mjs --save-baseline"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

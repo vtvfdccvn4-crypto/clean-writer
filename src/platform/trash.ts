@@ -19,15 +19,30 @@ export interface TrashRecord {
   readonly kind: 'file' | 'folder';
   readonly deletedAt: number;
   readonly settings: PathSettingsSnapshot;
+  readonly sizeBytes?: number;
 }
 
 /** A record with the path of the trashed data inside the project. */
 export interface TrashEntry extends TrashRecord {
   readonly storedPath: string;
+  readonly sizeBytes?: number;
 }
 
 /** Ids are `<milliseconds>-<hex>`; anything else cannot name a batch, so a path cannot be smuggled in. */
 const isTrashId = (id: string): boolean => /^[0-9]+-[0-9a-f]+$/.test(id);
+
+/** Returns the total byte size of a file or directory handle, recursively. */
+async function entryBytes(handle: FileSystemHandle): Promise<number> {
+  if (handle.kind === 'file') {
+    const file = await (handle as FileSystemFileHandle).getFile();
+    return file.size;
+  }
+  let total = 0;
+  for await (const [, child] of handle as FileSystemDirectoryHandle) {
+    total += await entryBytes(child as FileSystemHandle);
+  }
+  return total;
+}
 
 /**
  * Moves a file or folder into the project's trash and returns its trash path, or null when nothing was moved.
@@ -46,6 +61,7 @@ export async function trashEntry(
   if (!source) return null;
 
   const id = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const sizeBytes = await entryBytes(source).catch(() => undefined);
   const trash = await parent.getDirectoryHandle(TRASH_DIRECTORY, { create: true });
   const batchDir = await trash.getDirectoryHandle(id, { create: true });
   try {
@@ -57,7 +73,8 @@ export async function trashEntry(
       originalPath: normalized,
       kind: source.kind === 'directory' ? 'folder' : 'file',
       deletedAt: Date.now(),
-      settings
+      settings,
+      ...(sizeBytes !== undefined ? { sizeBytes } : {}),
     };
     await writeJson(await batchDir.getFileHandle(METADATA_FILE, { create: true }), record);
     if (!await deleteEntry(parent, normalized)) throw new Error('The original could not be removed.');
@@ -78,7 +95,8 @@ async function readRecord(batchDir: FileSystemDirectoryHandle, id: string): Prom
       kind: metadata.kind === 'folder' ? 'folder' : 'file',
       deletedAt: typeof metadata.deletedAt === 'number' ? metadata.deletedAt : 0,
       settings: metadata.settings ?? EMPTY_PATH_SETTINGS,
-      storedPath: `${TRASH_DIRECTORY}/${id}/${DATA_DIRECTORY}/${metadata.name}`
+      storedPath: `${TRASH_DIRECTORY}/${id}/${DATA_DIRECTORY}/${metadata.name}`,
+      ...(typeof metadata.sizeBytes === 'number' ? { sizeBytes: metadata.sizeBytes } : {}),
     };
   }
   // An entry from before the metadata: the lone item in the batch.

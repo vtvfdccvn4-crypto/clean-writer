@@ -1,24 +1,9 @@
 import { createEditor } from '../../src/editor';
+import { CORPUS_DOCUMENT } from './corpus';
 
 declare global {
   interface Window { __HARNESS_RESULT__?: Record<string, unknown>; }
 }
-
-// Corpus shaped like the plan's 1,000-page document: headings, paragraphs, a
-// list, and a Markdown table every tenth page, in one section.
-const PAGES = 1_000;
-const page = (index: number) => [
-  `## Section ${index}`,
-  '',
-  'Lorem ipsum dolor sit amet, **consectetur** adipiscing elit, sed do _eiusmod_ tempor incididunt ut labore. '.repeat(12),
-  '',
-  '- first item with `code`',
-  '- second item',
-  '',
-  'Second paragraph with a [link](https://example.com) and more prose to fill the page. '.repeat(10),
-  ...(index % 10 === 0 ? ['', '| a | b | c |', '|---|---|---|', '| 1 | 2 | 3 |', '| 4 | 5 | 6 |'] : []),
-  ''
-].join('\n');
 
 const KEYSTROKES = 200;
 
@@ -30,7 +15,7 @@ function percentile(values: number[], fraction: number): number {
 const nextFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 
 async function run(): Promise<void> {
-  const document1000 = Array.from({ length: PAGES }, (_, index) => page(index + 1)).join('\n');
+  const document1000 = CORPUS_DOCUMENT;
   const parent = document.getElementById('editor');
   if (!parent) throw new Error('Editor root missing.');
   const editor = createEditor(parent, document1000, { onChange: () => undefined, onDirty: () => undefined });
