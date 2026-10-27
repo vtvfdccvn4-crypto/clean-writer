@@ -8,6 +8,12 @@ import type { CompiledPreview, DocumentCompileSettings, PreviewCompilationPhase,
 
 export const COMPILE_PROTOCOL_VERSION = 1 as const;
 
+/**
+ * How the worker keeps a result. `current` keeps only the latest completed revision, which is what the
+ * live preview needs. `history` keeps a small bounded set, for repeated full-document and export work.
+ */
+export type CompileRetention = 'current' | 'history';
+
 export interface CompileJob {
   readonly jobId: string;
   readonly markdown: string;
@@ -16,6 +22,8 @@ export interface CompileJob {
   readonly assets: Readonly<Record<string, string>>;
   readonly sourceLineOffset: number;
   readonly sourceSegments?: readonly PreviewSourceSegment[];
+  /** Absent means `history`, so a job that does not say keeps the bounded history. */
+  readonly retention?: CompileRetention;
 }
 
 export type CompileWorkerRequest =

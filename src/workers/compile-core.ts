@@ -29,13 +29,27 @@ export function createSnapshotAssetResolver(assets: Readonly<Record<string, stri
   };
 }
 
-const MAX_CACHE_ENTRIES = 48;
-const MAX_CACHE_CHARACTERS = 64 * 1024 * 1024 / 2;
+export interface CompileResultCacheLimits {
+  readonly maxEntries: number;
+  /** Total HTML characters kept. Each result is an entire rendered document, so this is the memory bound. */
+  readonly maxCharacters: number;
+}
 
-/** Compiled results keyed by content and settings, evicted least recently used first. */
+/** The live preview keeps only its latest completed revision: an edit replaces the last result. */
+export const CURRENT_RESULT_LIMITS: CompileResultCacheLimits = { maxEntries: 1, maxCharacters: Infinity };
+
+/** Full-document and export work repeats recent compiles, so it keeps a few results within a fixed budget. */
+export const HISTORY_RESULT_LIMITS: CompileResultCacheLimits = { maxEntries: 4, maxCharacters: 16 * 1024 * 1024 };
+
+/** Compiled results keyed by content and settings, evicted least recently used first, within its limits. */
 export class CompileResultCache {
   private readonly entries = new Map<string, CompiledPreview>();
+  private readonly limits: CompileResultCacheLimits;
   private characters = 0;
+
+  constructor(limits: CompileResultCacheLimits = HISTORY_RESULT_LIMITS) {
+    this.limits = limits;
+  }
 
   get(key: string): CompiledPreview | undefined {
     const value = this.entries.get(key);
@@ -53,7 +67,7 @@ export class CompileResultCache {
     this.entries.delete(key);
     this.entries.set(key, value);
     this.characters += value.html.length;
-    while (this.entries.size > MAX_CACHE_ENTRIES || this.characters > MAX_CACHE_CHARACTERS) {
+    while (this.entries.size > this.limits.maxEntries || this.characters > this.limits.maxCharacters) {
       const oldest = this.entries.keys().next().value as string | undefined;
       if (oldest === undefined) break;
       this.characters -= this.entries.get(oldest)?.html.length ?? 0;
@@ -63,6 +77,11 @@ export class CompileResultCache {
 
   get size(): number {
     return this.entries.size;
+  }
+
+  /** The HTML characters currently retained, so tests can check that memory stays bounded. */
+  get retainedCharacters(): number {
+    return this.characters;
   }
 }
 

@@ -15,6 +15,7 @@ import { detectBrowserExecutable, reservePort } from './lib/browser.mjs';
 //
 // CLEAR_WRITER_SMOKE_BROWSER=chromium|webkit selects the browser. CLEAR_WRITER_BENCH_OUTPUT=<file> also writes the JSON.
 // CLEAR_WRITER_BENCH_SIZES=200,316 overrides the page counts (about 442,000 and 699,000 characters).
+// CLEAR_WRITER_BENCH_EDITS=30 sets the edits per scheduler run.
 
 const execFileAsync = promisify(execFile);
 const root = path.resolve(import.meta.dirname, '..');
@@ -24,6 +25,7 @@ const browserType = playwright[browserName];
 if (!browserType) throw new Error(`Unknown CLEAR_WRITER_SMOKE_BROWSER "${browserName}". Use chromium or webkit.`);
 const processPattern = browserName === 'webkit' ? /WebKit|WPE|MiniBrowser|WebProcess|NetworkProcess|GPUProcess/i : /chrom|headless/i;
 const sizes = (process.env.CLEAR_WRITER_BENCH_SIZES ?? '200,316').split(',').map(Number);
+const edits = Number(process.env.CLEAR_WRITER_BENCH_EDITS ?? 30);
 const launchOptions = browserName === 'chromium'
   ? { executablePath: await detectBrowserExecutable(), args: ['--no-sandbox'] }
   : {};
@@ -56,19 +58,21 @@ async function loadBench(serverPort, query) {
   page.on('pageerror', error => pageErrors.push(error.message));
   let running = true;
   let peak = { totalKb: 0, processes: [] };
+  const timeline = [];
+  const started = Date.now();
   const sampler = (async () => {
     while (running) {
       const sample = await browserProcesses();
       if (sample.totalKb > peak.totalKb) peak = sample;
+      timeline.push([Date.now() - started, round(sample.totalKb / 1024)]);
       await new Promise(resolve => setTimeout(resolve, 300));
     }
   })();
-  const started = Date.now();
   try {
     await page.goto(`http://127.0.0.1:${serverPort}/test/fixtures/live-large-section-bench.html?${query}`, { waitUntil: 'load' });
     await page.waitForFunction(() => window.__HARNESS_RESULT__ !== undefined, null, { timeout: 1_200_000 });
     const result = await page.evaluate(() => window.__HARNESS_RESULT__);
-    return { result, peakPssMb: round(peak.totalKb / 1024), peakProcesses: peak.processes.map(item => ({ name: item.name, pssMb: round(item.pssKb / 1024) })), wallMs: Date.now() - started, pageErrors };
+    return { result, peakPssMb: round(peak.totalKb / 1024), peakProcesses: peak.processes.map(item => ({ name: item.name, pssMb: round(item.pssKb / 1024) })), timeline, wallMs: Date.now() - started, pageErrors };
   } finally {
     running = false;
     await sampler;
@@ -113,7 +117,7 @@ try {
       error: r?.error
     });
     for (const gap of [1500, 300]) {
-      const scheduled = await loadBench(serverPort, `pages=${pages}&mode=scheduler&edits=30&gap=${gap}`);
+      const scheduled = await loadBench(serverPort, `pages=${pages}&mode=scheduler&edits=${edits}&gap=${gap}`);
       const s = scheduled.result?.scheduledSequence;
       runs.push({
         label: `real scheduler, edit every ${gap} ms`,
@@ -128,6 +132,8 @@ try {
         renderP50Ms: s?.render?.p50,
         renderP95Ms: s?.render?.p95,
         fireToRenderedP95Ms: s?.fireToRendered?.p95,
+        // [milliseconds since the load began, browser PSS in MB]: shows whether memory levels off across the edits.
+        memoryTimeline: scheduled.timeline,
         pageErrors: scheduled.pageErrors,
         error: scheduled.result?.error
       });

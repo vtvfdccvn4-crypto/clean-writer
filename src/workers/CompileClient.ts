@@ -68,6 +68,9 @@ interface PendingJob {
   watchdog?: ReturnType<typeof setTimeout>;
 }
 
+/** The lane the live preview compiles in: its results are kept only until the next edit replaces them. */
+export const LIVE_LANE = 'live';
+
 export class SupersededCompileError extends Error {
   constructor() {
     super('The preview compile was superseded by a newer edit.');
@@ -113,6 +116,8 @@ export class CompileClient {
       settings: request.settings,
       assets: request.assets,
       sourceLineOffset: request.sourceLineOffset,
+      // Only the live lane replaces its result on every edit; other lanes keep a bounded history.
+      retention: request.lane === LIVE_LANE ? 'current' : 'history',
       ...(request.sourceSegments ? { sourceSegments: request.sourceSegments } : {})
     };
 
