@@ -8,5 +8,13 @@ export function isFlagEnabled(name: string, search: string = typeof window === '
   return new URLSearchParams(search).get(name) === 'true';
 }
 
-/** Compiles the full document in a worker instead of on the page's main thread. */
-export const isCompileWorkerEnabled = (search?: string): boolean => isFlagEnabled('compile-worker', search);
+/**
+ * The `compile-worker` query value. `true` forces the worker and `false` forces the page; the policy in
+ * workers/compile-thread-policy.ts applies when it is absent.
+ */
+export type CompileWorkerFlagValue = 'true' | 'false' | null;
+
+export function compileWorkerFlag(search: string = typeof window === 'undefined' ? '' : window.location.search): CompileWorkerFlagValue {
+  const value = new URLSearchParams(search).get('compile-worker');
+  return value === 'true' || value === 'false' ? value : null;
+}

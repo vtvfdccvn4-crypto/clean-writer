@@ -5,6 +5,23 @@
 
 export const fixtures = [
   {
+    // No flag is set. Safari compiles 400,000 to 700,000 characters in the worker by default, and keeps smaller and
+    // larger documents on the page. Chromium keeps every compile on the page until its own gate passes.
+    name: 'browser-compile-worker-default-smoke',
+    path: '/test/fixtures/browser-compile-worker-default-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Compile worker default smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.jobsAfterSmall === 0, 'A 1,000-character document must compile on the page.');
+      const safari = result.userAgent.includes('Safari') && !result.userAgent.includes('Chrome');
+      if (safari) {
+        expect(result.jobsAt550k >= 1, 'Safari must compile a 550,000-character document in the worker by default.');
+        expect(result.jobsAt750k === result.jobsAt550k, 'Safari must keep a document above 700,000 characters on the page.');
+      } else {
+        expect(result.jobsAt550k === 0 && result.jobsAt750k === 0, 'Without the flag, a browser other than Safari must compile on the page.');
+      }
+    }
+  },
+  {
     // No stubs: the browser's own API surface decides the dialog. Safari must get browser storage only.
     name: 'browser-capability-detection-smoke',
     path: '/test/fixtures/browser-capability-detection-smoke.html',

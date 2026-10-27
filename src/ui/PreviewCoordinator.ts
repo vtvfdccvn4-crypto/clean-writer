@@ -5,7 +5,9 @@ import { PreviewController } from '../preview';
 import { CompileClient, isAbortError, type CompileOutcome } from '../workers/CompileClient';
 import { createCompileWorkerClient } from '../workers/compile-client-factory';
 import { buildCompileAssets } from '../workers/compile-assets';
-import { isCompileWorkerEnabled } from '../config/feature-flags';
+import { compileWorkerFlag, type CompileWorkerFlagValue } from '../config/feature-flags';
+import { compileOnWorker, compileWorkerMayBeUsed } from '../workers/compile-thread-policy';
+import { isSafari } from '../platform/safari';
 import type { CompileJob, CompilePhaseTimings } from '../workers/compile-protocol';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { AssetResolver } from '../platform/types';
@@ -36,8 +38,10 @@ export class PreviewCoordinator {
   private liveCompileRunning = false;
   private paginatedRefreshFrame: number | null = null;
   private readonly getCompileSettings: () => DocumentCompileSettings;
-  /** Set only when the compile-worker flag is on; the live path stays on the page. */
+  /** Set when the worker may be used: by the `compile-worker` flag, or by default in Safari. */
   private readonly compileClient: CompileClient | null;
+  private readonly compileWorkerFlag: CompileWorkerFlagValue;
+  private readonly safari: boolean;
 
   constructor(
     stage: HTMLElement,
@@ -50,7 +54,9 @@ export class PreviewCoordinator {
   ) {
     this.assetResolver = assetResolver;
     this.getCompileSettings = getCompileSettings;
-    this.compileClient = isCompileWorkerEnabled()
+    this.compileWorkerFlag = compileWorkerFlag();
+    this.safari = isSafari();
+    this.compileClient = compileWorkerMayBeUsed({ flag: this.compileWorkerFlag, safari: this.safari })
       ? createCompileWorkerClient(job => this.compileOnPage(job))
       : null;
     this.controller = new PreviewController(stage, {
@@ -161,7 +167,12 @@ export class PreviewCoordinator {
       readonly onCacheHit?: (cacheHit: boolean) => void;
     }
   ): Promise<CompiledPreview> {
-    if (!this.compileClient) {
+    const onWorker = this.compileClient !== null && compileOnWorker({
+      flag: this.compileWorkerFlag,
+      safari: this.safari,
+      sourceCharacters: markdown.length
+    });
+    if (!this.compileClient || !onWorker) {
       return compilePreviewDocument(markdown, this.assetResolver, settings, {
         sourceLineOffset: options.sourceLineOffset,
         sourceSegments: options.sourceSegments,

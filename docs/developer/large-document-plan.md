@@ -609,3 +609,58 @@ after a one-section edit costs at most 20% of a full run.
     It passes when run alone and passed the most recent full run. The cause is not
     identified. The diagnostics now report the scroll state and the frame count.
 
+
+- 2026-10-27: Default-on decision, per browser.
+  - **Safari (WebKit) only.** The compile worker runs by default for documents of
+    400,000 to 700,000 characters. `?compile-worker=true` uses the worker for any
+    document in any browser. `?compile-worker=false` keeps every compile on the
+    page. Documents above 700,000 characters stay on the page unless the flag is
+    `true`. Chromium and other browsers stay opt-in until the Chromium
+    release-hardware benchmark passes. The rule is in
+    `src/workers/compile-thread-policy.ts`, and Safari detection is in
+    `src/platform/safari.ts`.
+  - **Evidence and its limits.** The WebKit results come from Playwright's WebKit
+    in GitHub CI (Linux, WPE build). They are not measurements on physical Safari
+    hardware. Three CI repetitions, each with 60 scheduler edits:
+    - Cold worker compile: 0.93 to 1.38 s at about 442,000 characters, and 1.19 to
+      2.02 s at about 699,000.
+    - Real preview scheduler, 1,500 ms between edits, render p95: 31 to 52 ms at
+      442,000, and 43 to 77 ms at 699,000. Fire-to-render p95: 0.6 to 1.0 s and 1.0 to
+      1.5 s.
+    - Real preview scheduler, 300 ms between edits: one render per 60 edits, and the
+      rest superseded. There is no backlog.
+    - Memory, browser PSS: the sequence levels off. About 680 to 800 MB at 442,000
+      characters, and 910 to 960 MB at 699,000, across the 60 edits. Superseded
+      compiles give short transient peaks, and no run grows across the sequence.
+      No memory budget is set from these numbers.
+    - Functional, durability and capability checks pass in WebKit CI. The Safari
+      new-project dialog offers browser storage only, because Safari has no File System
+      Access API. Local-folder projects remain unsupported in Safari.
+  - **Interim render target.** For the 400,000 to 700,000 character range, the
+    deferred preview render after the scheduler fires is held to 100 ms or less at
+    the 95th percentile. This is a temporary exception to the 50 ms target, which
+    block-level rendering (B13) will restore. Typing is not covered by this
+    allowance.
+  - **Freshness state (B14).** While edits outpace the preview, the status line reads
+    "Preview paused while typing; showing last completed revision." It reads
+    "Preview updating" once the newest text is compiling. It clears when the newest
+    revision has rendered. It appears only after 400 ms.
+  - **Cache.** The worker keeps only the latest completed live revision. Full-document
+    and export work keeps a bounded history of four results within 16 million
+    characters.
+  - **Chromium.** Opt-in until its release-hardware benchmark passes. At about 699,000
+    characters, the real-scheduler render p95 measured 71 to 107 ms across three runs
+    on this machine, so the release-hardware result must decide that rollout.
+  - **Gate status.** G1 (Chromium evidence) is substantially complete, and the
+    global gate stays open until the Chromium release-hardware run. G2 is passed for
+    compile performance on Chromium, and it is enabled for Safari in the range above.
+    G3 is not met and isolation is not shipped. G4 is not started, and B21 stays
+    closed.
+  - **Test fix.** `browser-preview-navigation-smoke` failed intermittently. The cause
+    was a second, paginated render that started after the load and scrolled the preview
+    to the top. The fixture now waits for the preview to be still for two seconds. In
+    12 isolated runs after the fix, it passed each time. Whether a late load render
+    should move a scroll position the user has already set is open.
+  - **CI.** The WebKit dependency install timed out in some runs, and those runs are
+    counted as infrastructure failures, not product failures. The apt packages and the
+    WebKit browser are now cached.

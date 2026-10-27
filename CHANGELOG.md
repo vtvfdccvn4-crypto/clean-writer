@@ -100,6 +100,33 @@
 
 ### Changed
 
+- Safari compiles a document of 400,000 to 700,000 characters in a background
+  worker by default. A compile at that size used to hold the page's main thread
+  for 1.5 to 2.8 s, which froze the editor while the preview compiled. Now the
+  editor stays responsive during the compile. Smaller documents, and documents
+  above 700,000 characters, compile on the page as before. `?compile-worker=false` keeps every compile on the page, and
+  `?compile-worker=true` uses the worker for any document in any browser.
+  Chromium and other browsers are unchanged until their own evidence passes.
+  This evidence comes from Playwright's WebKit in CI, on Linux, not from
+  physical Safari hardware.
+- Live preview freshness. While edits arrive faster than the preview can
+  compile, the preview's status line reads "Preview paused while typing; showing
+  last completed revision." When the pause ends and the newest text is
+  compiling, it reads "Preview updating". The line clears when the newest
+  revision has rendered. A line is shown only after 400 ms, so a refresh that
+  finishes quickly does not flash it.
+- Interim render target for the 400,000 to 700,000 character range: the deferred
+  preview render, after the pause, is measured at 100 ms or less at the 95th
+  percentile. This is a temporary exception to the original 50 ms target, which
+  block-level rendering (plan item B13) will restore for large documents. Typing
+  is not part of this allowance. The keystroke path is measured separately.
+- Safari's new-project dialog offers browser storage, and does not offer a local
+  folder, because Safari has no File System Access API. Local-folder projects
+  remain unsupported in Safari.
+- The compile worker keeps only the latest completed live revision, so editing
+  does not accumulate rendered documents in memory. Full-document and export
+  work keeps a bounded set of four recent results within 16 million characters.
+
 - A large document (more than 400,000 characters, about 85 printed pages) opens
   in the live preview. Its print preview is built when you ask for it, with the
   Build print preview button, and an edit marks it out of date instead of
