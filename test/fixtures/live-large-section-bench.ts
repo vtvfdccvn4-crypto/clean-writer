@@ -5,6 +5,8 @@ import { LivePreviewRenderer } from '../../src/preview/live/LivePreviewRenderer'
 import { applyLiveDocumentStyle } from '../../src/preview/PreviewStyleManager';
 import { renderDocumentSection } from '../../src/preview/document-rendering';
 import { createCompileWorkerClient } from '../../src/workers/compile-client-factory';
+import { isAbortError } from '../../src/workers/CompileClient';
+import { PreviewScheduler } from '../../src/ui/PreviewScheduler';
 import { createSnapshotAssetResolver } from '../../src/workers/compile-core';
 
 declare global {
@@ -129,8 +131,60 @@ async function run(): Promise<void> {
     editSequence = { edits: count, render: summarize(renderMs), compile: summarize(compileMs), renderMs: renderMs.map(round) };
   }
 
+  // mode=scheduler: the same edits, but each one goes through the app's PreviewScheduler (250 ms pause)
+  // and its compile is superseded by the next one, as in DocumentRenderCoordinator. gap=ms sets the
+  // time between edits: a gap under the pause coalesces edits, a gap over it renders every edit.
+  let scheduledSequence: Record<string, unknown> | null = null;
+  if (params.get('mode') === 'scheduler') {
+    const count = Number(params.get('edits') ?? 50);
+    const gapMs = Number(params.get('gap') ?? 300);
+    const renderMs: number[] = [];
+    const fireToRenderedMs: number[] = [];
+    let fires = 0;
+    let rendered = 0;
+    let superseded = 0;
+    const refresh = (text: string) => {
+      const fired = performance.now();
+      compileInWorker(text)
+        .then(async compiled => {
+          const renderStarted = performance.now();
+          await renderer.render(compiled.html, compiled.manifest, DEFAULT_PAGE_SETUP, () => true);
+          renderMs.push(performance.now() - renderStarted);
+          fireToRenderedMs.push(performance.now() - fired);
+          rendered += 1;
+        })
+        .catch(error => {
+          if (!isAbortError(error)) throw error;
+          superseded += 1;
+        });
+    };
+    const scheduler = new PreviewScheduler<string>(text => {
+      fires += 1;
+      refresh(text);
+    }, () => 250);
+    let text = body;
+    for (let index = 0; index < count; index += 1) {
+      text += `\nEdit ${index + 1} at the end of the section.\n`;
+      scheduler.schedule(text);
+      await new Promise(resolve => setTimeout(resolve, gapMs));
+    }
+    // Let the last pause fire and its render finish.
+    await new Promise(resolve => setTimeout(resolve, 250));
+    while (rendered + superseded < fires) await new Promise(resolve => setTimeout(resolve, 50));
+    scheduledSequence = {
+      edits: count,
+      gapMs,
+      fires,
+      rendered,
+      superseded,
+      render: summarize(renderMs),
+      fireToRendered: summarize(fireToRenderedMs)
+    };
+  }
+
   window.__HARNESS_RESULT__ = {
     ok: true,
+    scheduledSequence,
     editSequence,
     mode: workerOnly ? 'worker-only' : 'full',
     workerEqualsPage: workerParity,

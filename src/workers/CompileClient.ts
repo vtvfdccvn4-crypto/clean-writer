@@ -32,7 +32,6 @@ export interface CompileClientOptions {
   readonly compileLocal: (job: CompileJob) => Promise<CompileOutcome>;
   /** Crashes and hangs tolerated before the session stops using the worker. */
   readonly maxCrashes?: number;
-  readonly recycleAfterMs?: number;
   readonly hungAfterMs?: number;
 }
 
@@ -62,7 +61,6 @@ export interface CompileRequest {
 interface PendingJob {
   readonly lane: string;
   readonly job: CompileJob;
-  readonly startedAt: number;
   sentAt: number;
   readonly resolve: (outcome: CompileOutcome | null) => void;
   readonly reject: (error: unknown) => void;
@@ -85,7 +83,6 @@ export function isAbortError(error: unknown): boolean {
 export class CompileClient {
   private readonly options: CompileClientOptions;
   private readonly maxCrashes: number;
-  private readonly recycleAfterMs: number;
   private readonly hungAfterMs: number;
   private worker: WorkerLike | null = null;
   private crashes = 0;
@@ -96,7 +93,6 @@ export class CompileClient {
   constructor(options: CompileClientOptions) {
     this.options = options;
     this.maxCrashes = options.maxCrashes ?? 2;
-    this.recycleAfterMs = options.recycleAfterMs ?? 500;
     this.hungAfterMs = options.hungAfterMs ?? DEFAULT_HUNG_AFTER_MS;
   }
 
@@ -127,7 +123,7 @@ export class CompileClient {
     if (this.fallback) return this.runLocal(request.lane, job);
 
     return new Promise<CompileOutcome>((resolve, reject) => {
-      this.pending.set(jobId, { lane: request.lane, job, startedAt: performance.now(), sentAt: wallClockMs(), resolve: outcome => (outcome ? resolve(outcome) : reject(new SupersededCompileError())), reject });
+      this.pending.set(jobId, { lane: request.lane, job, sentAt: wallClockMs(), resolve: outcome => (outcome ? resolve(outcome) : reject(new SupersededCompileError())), reject });
       this.post({ type: 'compile', protocol: COMPILE_PROTOCOL_VERSION, job }, jobId);
       this.armWatchdog(jobId);
     });
@@ -147,13 +143,12 @@ export class CompileClient {
     const job = this.take(jobId);
     if (!job) return;
     job.resolve(null);
-    // A job that has run for a while would hold the worker for the whole new compile.
-    const runningFor = performance.now() - job.startedAt;
-    if (runningFor > this.recycleAfterMs && this.pending.size === 0) {
-      this.terminateWorker();
-    } else {
-      this.post({ type: 'cancel', jobId }, undefined);
-    }
+    // A compile cannot be interrupted inside the worker, so a superseded job that has not answered
+    // keeps the worker busy, and the newer job would wait behind it. When nothing else is pending,
+    // the worker is replaced instead, and the newer job starts on the new worker. A cancel still goes
+    // out when another lane's job is pending on this worker.
+    if (this.pending.size === 0) this.terminateWorker();
+    else this.post({ type: 'cancel', jobId }, undefined);
   }
 
   private async runLocal(lane: string, job: CompileJob): Promise<CompileOutcome> {

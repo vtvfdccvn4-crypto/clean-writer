@@ -151,27 +151,31 @@ test('jobs on different lanes do not supersede each other', async () => {
   client.dispose();
 });
 
-test('superseding a job sends a cancel for it, so the worker does not finish it for nobody', async () => {
-  const worker = createFakeWorker({ silent: true });
-  const client = new CompileClient({ createWorker: () => worker, compileLocal: async () => assert.fail('no local run') });
-  const older = client.compile(request('# A'));
-  client.compile(request('# B')).catch(() => undefined);
-  await assert.rejects(older, error => isAbortError(error));
-  assert.ok(worker.received.some(message => message.type === 'cancel'));
-  client.dispose();
-});
-
-test('a long superseded job is abandoned by replacing the worker', async () => {
+test('superseding an unanswered job replaces the worker, so the newer job does not wait behind it', async () => {
   const workers = [];
   const client = new CompileClient({
     createWorker: () => { const worker = createFakeWorker({ silent: true }); workers.push(worker); return worker; },
-    compileLocal: async () => assert.fail('no local run'),
-    recycleAfterMs: 0
+    compileLocal: async () => assert.fail('no local run')
   });
   const older = client.compile(request('# Slow'));
-  client.compile(request('# Fast')).catch(() => undefined);
+  const newer = client.compile(request('# Fast'));
   await assert.rejects(older, error => isAbortError(error));
-  assert.equal(workers[0].terminated, true, 'the slow worker must be terminated');
+  assert.equal(workers[0].terminated, true, 'the worker still busy with the superseded job must be terminated');
+  assert.equal(workers.length, 2, 'the newer job must start on a new worker');
+  assert.ok(workers[1].received.some(message => message.type === 'compile' && message.job.markdown === '# Fast'));
+  client.dispose();
+  newer.catch(() => undefined);
+});
+
+test('superseding a job while another lane has work pending sends a cancel instead of replacing the worker', async () => {
+  const worker = createFakeWorker({ silent: true });
+  const client = new CompileClient({ createWorker: () => worker, compileLocal: async () => assert.fail('no local run') });
+  const older = client.compile({ ...request('# A'), lane: 'live' });
+  client.compile({ ...request('# Other'), lane: 'other' }).catch(() => undefined);
+  client.compile({ ...request('# Newer'), lane: 'live' }).catch(() => undefined);
+  await assert.rejects(older, error => isAbortError(error));
+  assert.ok(worker.received.some(message => message.type === 'cancel'));
+  assert.equal(worker.terminated, false, 'the worker must stay for the other lane');
   client.dispose();
 });
 
