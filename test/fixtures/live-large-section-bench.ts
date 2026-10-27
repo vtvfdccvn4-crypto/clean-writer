@@ -52,7 +52,11 @@ const RESOLVER = { async preloadImages() {}, resolveSync: (path: string) => path
 
 async function run(): Promise<void> {
   // About 450,000 characters: the size where live preview is slow on the page today.
-  const pages = Number(new URLSearchParams(window.location.search).get('pages') ?? 200);
+  const params = new URLSearchParams(window.location.search);
+  const pages = Number(params.get('pages') ?? 200);
+  // mode=worker-only runs just the proposed default path (worker compile and live render). It skips the
+  // page-side compile and the parity check, so its memory peak is not inflated by a second compile.
+  const workerOnly = params.get('mode') === 'worker-only';
   const body = Array.from({ length: pages }, (_, index) => page(index + 1)).join('\n');
   const sourceCharacters = body.length;
   const heapAtStart = jsHeapMb();
@@ -71,7 +75,7 @@ async function run(): Promise<void> {
   // The first compile also starts the worker, so it is measured separately.
   const first = await onMainThread(() => compileInWorker(body));
   const warm = await onMainThread(() => compileInWorker(body + '\n'));
-  const pageCompile = await onMainThread(() => compilePreviewDocument(markdownFor(body + '\n\n'), RESOLVER, SETTINGS, { sourceLineOffset: 2 }));
+  const pageCompile = workerOnly ? null : await onMainThread(() => compilePreviewDocument(markdownFor(body + '\n\n'), RESOLVER, SETTINGS, { sourceLineOffset: 2 }));
 
   const scroll = document.createElement('div');
   scroll.className = 'preview-scroll-container is-live-preview-scroll';
@@ -90,19 +94,22 @@ async function run(): Promise<void> {
   const editRender = await onMainThread(async () => renderer.render(editCompile.html, editCompile.manifest, DEFAULT_PAGE_SETUP, () => true));
 
   // Parity: the worker's output for this section equals the page's, byte for byte.
-  const pageSameText = await compilePreviewDocument(markdownFor(body), RESOLVER, SETTINGS, { sourceLineOffset: 2 });
+  const pageSameText = workerOnly ? null : await compilePreviewDocument(markdownFor(body), RESOLVER, SETTINGS, { sourceLineOffset: 2 });
   const heapAfterCompiles = jsHeapMb();
-  const workerParity = pageSameText.html === first.value.html && JSON.stringify(pageSameText.manifest) === JSON.stringify(first.value.manifest);
+  const workerParity = pageSameText === null
+    ? null
+    : pageSameText.html === first.value.html && JSON.stringify(pageSameText.manifest) === JSON.stringify(first.value.manifest);
 
   window.__HARNESS_RESULT__ = {
     ok: true,
+    mode: workerOnly ? 'worker-only' : 'full',
     workerEqualsPage: workerParity,
     sourceCharacters,
     jsHeapMb: { atStart: heapAtStart, afterCompiles: heapAfterCompiles, afterEdit: jsHeapMb() },
     htmlCharacters: first.value.html.length,
     workerFirstCompile: { elapsedMs: first.elapsedMs, mainThreadLongTaskMs: first.longTaskMs, longestMainThreadTaskMs: first.longestTaskMs },
     workerWarmCompile: { elapsedMs: warm.elapsedMs, mainThreadLongTaskMs: warm.longTaskMs, longestMainThreadTaskMs: warm.longestTaskMs },
-    pageCompile: { elapsedMs: pageCompile.elapsedMs, mainThreadLongTaskMs: pageCompile.longTaskMs, longestMainThreadTaskMs: pageCompile.longestTaskMs },
+    pageCompile: pageCompile && { elapsedMs: pageCompile.elapsedMs, mainThreadLongTaskMs: pageCompile.longTaskMs, longestMainThreadTaskMs: pageCompile.longestTaskMs },
     renderFirst: { elapsedMs: firstRender.elapsedMs, longestMainThreadTaskMs: firstRender.longestTaskMs },
     renderAfterEdit: { elapsedMs: editRender.elapsedMs, longTaskMs: editRender.longTaskMs, longestMainThreadTaskMs: editRender.longestTaskMs }
   };
