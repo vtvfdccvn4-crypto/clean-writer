@@ -154,11 +154,9 @@
 }
 
 .trash-item-detail {
-  overflow: hidden;
   color: var(--ui-text-muted);
   font-size: 9pt;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .trash-status {

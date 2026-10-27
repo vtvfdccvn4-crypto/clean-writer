@@ -4,6 +4,26 @@
 
 ### Fixed
 
+- Deleted sections can now be restored or deleted for good. A Trash button in the
+  explorer toolbar opens a list of deleted sections and folders, with where each
+  one was and when it was deleted. Restore puts a section back in its place in the
+  project order with its page-break, header, footer, numbering and table-of-contents
+  settings. If its name has been taken, it comes back as "name (restored)" and
+  nothing is overwritten. Delete forever and Empty trash ask for confirmation.
+  The explorer's delete confirmation now says the section moves to the trash.
+- A restored recovery draft is now saved. Before, the status said "Saved" while the
+  restored text was only in the editor, and the same draft was offered again after a
+  reload until the text was edited. The restored draft is applied as an edit, so
+  autosave writes it, and the status says "Unsaved changes" until it has. A notice
+  confirms the restore.
+- The preview no longer jumps back to the top after a render if the reader has
+  scrolled. The render's final scroll to the top, the scroll restore on the next
+  frame, and the cursor sync that follows opening a document all yield to a reader
+  who has moved the preview.
+- The save and storage messages no longer point to local folders or reconnecting a
+  folder, which the MVP does not offer. A full browser store is named as the reason
+  a save failed, and the message says the text is still open.
+
 - The preview footer has previous and next heading buttons, and a page field in
   the paginated preview. Typing a page number moves to that page. A number outside
   the document is refused and announced. Each move is announced once through a
@@ -11,8 +31,8 @@
 - Animations and transitions finish at once for people who have asked for reduced
   motion, across the app. Before, only preview scrolling respected the setting.
 - Deleting a section or folder moves it to the project's `.trash` folder instead
-  of removing it, so the deletion can be undone by hand. The trash is not shown in
-  the explorer. Trash is not emptied automatically yet.
+  of removing it, so the deletion can be undone from the Trash dialog. The trash
+  is not shown in the explorer, and it is not emptied automatically.
 - Saving checks whether the section's file changed outside Clear Writer since the
   app last read or wrote it. If it did, the save is skipped, the file is left as
   it is, and a notice says the edit is kept in recovery. Before, the file was
@@ -100,6 +120,12 @@
 
 ### Changed
 
+- Local-folder projects are hidden in the new-project and open-project dialogs.
+  Browser-managed projects are the supported storage. `?local-folders=true` shows
+  the folder options for development. See `docs/developer/mvp-scope.md`.
+- Dependencies: Vite is upgraded to 8.2.4, which clears the three high-severity
+  `npm audit` findings (in Vite, nanoid and source-map-js). They were in
+  development and build tooling, not in the production bundle.
 - Safari compiles a document of 400,000 to 700,000 characters in a background
   worker by default. A compile at that size used to hold the page's main thread
   for 1.5 to 2.8 s, which froze the editor while the preview compiled. Now the

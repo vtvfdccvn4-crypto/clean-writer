@@ -35,7 +35,7 @@ async function onProjectOpened(): Promise<void> {
     persistenceRequested = true;
     const protectedStorage = await requestPersistentStorage(storageManager());
     if (!protectedStorage && (await readStorageStatus(storageManager())).supported) {
-      showNotice('This browser may clear Clear Writer\'s storage when disk space is low. Keep a copy of important work in a local folder.', 'info');
+      showNotice('This browser may clear Clear Writer\'s storage when disk space is low. Export a PDF of important work to keep a copy.', 'info');
     }
   }
   await checkStorageQuota();
@@ -61,7 +61,7 @@ export async function checkStorageQuota(): Promise<StorageLevel> {
   if (rank > warnedRank && status.ratio !== null && status.usageBytes !== null && status.quotaBytes !== null) {
     warnedRank = rank;
     const percent = Math.round(status.ratio * 100);
-    const message = `Browser storage is ${percent}% full (${formatStorageBytes(status.usageBytes)} of ${formatStorageBytes(status.quotaBytes)}). Free space or keep a copy in a local folder.`;
+    const message = `Browser storage is ${percent}% full (${formatStorageBytes(status.usageBytes)} of ${formatStorageBytes(status.quotaBytes)}). Delete unused images or sections to free space, and export a PDF of important work to keep a copy.`;
     showNotice(message, level === 'critical' ? 'error' : 'info');
   }
   return level;

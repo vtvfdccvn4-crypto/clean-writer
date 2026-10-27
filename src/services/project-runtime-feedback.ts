@@ -40,6 +40,14 @@ export function describeWorkspaceError(error: unknown, action: WorkspaceAction):
     return 'The current section could not be saved because access to the current folder was lost. Reconnect the folder and try again.';
   }
 
+  // Browser storage is limited, and running out of it is the most likely reason a browser-managed project cannot save.
+  if (normalized.includes('quota') || normalized.includes('no space') || normalized.includes('disk full')) {
+    if (action === 'open') {
+      return 'The project could not be opened because browser storage is full. Free space in this browser and try again.';
+    }
+    return 'Browser storage is full, so the change could not be saved. Your text is still open. Delete unused images or sections to free space, then keep editing to save again.';
+  }
+
   if (normalized.includes('no stored handle')) {
     return 'This local folder is no longer available from the recent-project list. Use Open to choose it again.';
   }
@@ -52,20 +60,20 @@ export function describeWorkspaceError(error: unknown, action: WorkspaceAction):
     if (action === 'open') {
       return 'The selected project is missing one or more required files. Check the folder contents and try again.';
     }
-    return 'A required project file is missing. Check the folder contents and try again.';
+    return 'A required project file is missing. Close the project and open it again.';
   }
 
   if (action === 'settings') {
-    return 'Settings could not be saved. The last saved values are still in place. Check the project location and try again.';
+    return 'Settings could not be saved. The last saved values are still in place. Try again.';
   }
   if (action === 'close') {
-    return 'Clear Writer could not save the current section before closing, so the window will remain open. Retry Save or choose another project location.';
+    return 'Clear Writer could not save the current section before closing, so the project stays open. Try again.';
   }
   if (action === 'save') {
-    return 'The current section could not be saved. Keep this window open, check the project location, and try again.';
+    return 'The current section could not be saved. Your text is still open: keep this tab open and keep editing to try again. If it keeps failing, copy your text somewhere safe.';
   }
   if (action === 'project') {
-    return 'The project could not be updated. Check the project location and try again.';
+    return 'The project could not be updated. Try again.';
   }
-  return 'The project could not be opened. Check the folder connection and try again.';
+  return 'The project could not be opened. Try again.';
 }

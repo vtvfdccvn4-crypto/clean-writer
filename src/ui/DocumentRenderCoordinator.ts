@@ -102,7 +102,7 @@ export class DocumentRenderCoordinator {
   private reportDraftHealth(health: DraftHealth): void {
     if (health === 'ok') return;
     showNotice(health === 'unavailable'
-      ? 'Recovery drafts cannot be saved in this browser. Save your work to a local folder or export it.'
+      ? 'Recovery drafts cannot be saved in this browser, so unsaved edits could be lost if the page closes. Your edits are still saved to the project as you type.'
       : 'A recovery draft could not be saved. It will be retried.', 'error');
   }
 
@@ -237,7 +237,8 @@ export class DocumentRenderCoordinator {
     if (!projectRef) throw new Error('No project is open.');
 
     const session = await this.platform.workspaceRepository.open(projectRef);
-    let content = await session.readSection(filename);
+    const diskContent = await session.readSection(filename);
+    let content = diskContent;
     if (!isLatest()) return;
 
     // The base hash identifies the file version on disk, so later saves can
@@ -262,6 +263,8 @@ export class DocumentRenderCoordinator {
         });
         if (!isLatest()) return;
         if (shouldRestore) {
+          // The draft is not on disk. The editor opens on the file and the draft is applied as an edit below, so
+          // autosave writes it and the status says it is unsaved until then.
           content = lookup.record.content;
         } else {
           await this.drafts.discard(target);
@@ -370,7 +373,13 @@ export class DocumentRenderCoordinator {
       }
     };
 
-    this.documentSession.activate(projectRef, filename, createEditor(this.editorContainer, content, callbacks));
+    const editor = createEditor(this.editorContainer, diskContent, callbacks);
+    this.documentSession.activate(projectRef, filename, editor);
+    const restoredDraft = content !== diskContent;
+    if (restoredDraft) {
+      editor.setValue(content, true);
+      showNotice(`Restored your unsaved draft of ${filename.split('/').pop() ?? filename}. It is being saved to the project.`, 'info');
+    }
     const focusedPendingLine = this.documentSession.applyPendingFocus(filename);
 
     const { sections } = state.current;
@@ -426,7 +435,9 @@ export class DocumentRenderCoordinator {
         this.restoringViewState = false;
       }
     }
-    this.opts.updateSaveStatus('saved');
+    // Saved only if nothing is waiting to be written: a restored draft, or an edit made while the document
+    // was still rendering, is saved by the autosave that follows.
+    this.opts.updateSaveStatus(this.documentSession.currentEditor?.hasUnsavedChanges() ? 'dirty' : 'saved');
   }
 
   /** Recompiles and republishes the preview for an edit to the open document. */

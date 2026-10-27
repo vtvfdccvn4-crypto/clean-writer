@@ -93,7 +93,7 @@ export class EditorManager {
       getEditor: () => this.currentEditorView,
       updateStatus: status => this.updateSaveStatus(status),
       reportError: error => console.error('[EditorManager] Save failed.', error),
-      reportNavigationBlocked: () => showNotice('The current section could not be saved. Your changes remain open. Reconnect the project and try again before continuing.', 'error')
+      reportNavigationBlocked: () => showNotice('The current section could not be saved, so it stays open. Your changes are still here. Try again before moving on.', 'error')
     });
     this.setPreviewVisible(projectSession.isProjectPresent());
     // The project lifecycle is the only authority on which screen shows.
@@ -204,7 +204,7 @@ export class EditorManager {
   private reportWorkflowError(message: string, error: unknown) {
     console.error(`[EditorManager] ${message}`, error);
     this.updateSaveStatus('error');
-    showNotice(`${describeWorkspaceError(error, 'save')}\n\nYour current document has been kept open. Reconnect the project and try again before continuing.`, 'error');
+    showNotice(`${describeWorkspaceError(error, 'save')}\n\nYour current document has been kept open.`, 'error');
   }
 
 
