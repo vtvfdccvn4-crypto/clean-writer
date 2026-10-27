@@ -47,8 +47,11 @@ async function run(): Promise<void> {
   const cancelController = new AbortController();
   const cancelJob = createIsolatedJob(longDocument('CANCELLED_MARKER'), { css: SMALL_PAGE });
   let progressSeen = false;
+  // Cancel on the first 'load-pagination-frame' progress event, which fires synchronously
+  // before the frame is awaited. This is reliable regardless of how fast the paginator runs,
+  // unlike waiting for 'pagesCompleted > 0' which requires a 500 ms timer tick in the frame.
   const cancelOutcome = host.requestPrintArtifact(cancelJob, event => {
-    if (event.phase === 'paginate' && (event.pagesCompleted ?? 0) > 0) {
+    if (event.phase === 'load-pagination-frame' && !progressSeen) {
       progressSeen = true;
       cancelController.abort();
     }
