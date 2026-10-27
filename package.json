@@ -28,7 +28,8 @@
     "postinstall": "patch-package",
     "test:pagedjs-patch": "node scripts/verify-pagedjs-patch.mjs",
     "test:pwa-offline": "node scripts/release-pwa-smoke.mjs",
-    "test:compile-worker": "node scripts/release-compile-worker-smoke.mjs"
+    "test:compile-worker": "node scripts/release-compile-worker-smoke.mjs",
+    "test:draft-kill": "node scripts/draft-hard-kill-test.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
