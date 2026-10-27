@@ -6,8 +6,9 @@ import { COMPILE_PROTOCOL_VERSION, wallClockMs, type CompileJob, type CompilePha
  * current: a newer job supersedes the older one, whose result is dropped. A
  * superseded job that has been running for a while is abandoned by replacing the
  * worker, since a compile cannot be interrupted inside the worker. If the worker
- * crashes, its pending jobs run on the main thread, and repeated crashes switch
- * the client to the main thread for the rest of the session.
+ * crashes, or does not answer a job within `hungAfterMs`, its pending jobs run on
+ * the main thread and the worker is replaced on the next edit. Repeated failures
+ * switch the client to the main thread for the rest of the session.
  */
 
 export interface WorkerLike {
@@ -18,12 +19,21 @@ export interface WorkerLike {
   onmessageerror: ((event: MessageEvent) => void) | null;
 }
 
+/**
+ * How long a job may wait for the worker before the worker is treated as hung. It must be
+ * well above the slowest measured compile (about 4.4 s cold at 2.2 M characters on the
+ * tested machine) so that a slow but healthy compile is not replaced.
+ */
+export const DEFAULT_HUNG_AFTER_MS = 15_000;
+
 export interface CompileClientOptions {
   readonly createWorker: () => WorkerLike;
   /** Runs a job on the main thread, with the page's real asset resolver. */
   readonly compileLocal: (job: CompileJob) => Promise<CompileOutcome>;
+  /** Crashes and hangs tolerated before the session stops using the worker. */
   readonly maxCrashes?: number;
   readonly recycleAfterMs?: number;
+  readonly hungAfterMs?: number;
 }
 
 export interface CompileOutcome {
@@ -56,6 +66,8 @@ interface PendingJob {
   sentAt: number;
   readonly resolve: (outcome: CompileOutcome | null) => void;
   readonly reject: (error: unknown) => void;
+  /** Fires if the worker has not answered this job in time. */
+  watchdog?: ReturnType<typeof setTimeout>;
 }
 
 export class SupersededCompileError extends Error {
@@ -74,6 +86,7 @@ export class CompileClient {
   private readonly options: CompileClientOptions;
   private readonly maxCrashes: number;
   private readonly recycleAfterMs: number;
+  private readonly hungAfterMs: number;
   private worker: WorkerLike | null = null;
   private crashes = 0;
   private fallback = false;
@@ -84,6 +97,7 @@ export class CompileClient {
     this.options = options;
     this.maxCrashes = options.maxCrashes ?? 2;
     this.recycleAfterMs = options.recycleAfterMs ?? 500;
+    this.hungAfterMs = options.hungAfterMs ?? DEFAULT_HUNG_AFTER_MS;
   }
 
   /** True once the worker has been abandoned for the rest of the session. */
@@ -115,20 +129,23 @@ export class CompileClient {
     return new Promise<CompileOutcome>((resolve, reject) => {
       this.pending.set(jobId, { lane: request.lane, job, startedAt: performance.now(), sentAt: wallClockMs(), resolve: outcome => (outcome ? resolve(outcome) : reject(new SupersededCompileError())), reject });
       this.post({ type: 'compile', protocol: COMPILE_PROTOCOL_VERSION, job }, jobId);
+      this.armWatchdog(jobId);
     });
   }
 
   dispose(): void {
-    for (const job of this.pending.values()) job.resolve(null);
+    for (const job of this.pending.values()) {
+      clearTimeout(job.watchdog);
+      job.resolve(null);
+    }
     this.pending.clear();
     this.currentByLane.clear();
     this.terminateWorker();
   }
 
   private supersede(jobId: string): void {
-    const job = this.pending.get(jobId);
+    const job = this.take(jobId);
     if (!job) return;
-    this.pending.delete(jobId);
     job.resolve(null);
     // A job that has run for a while would hold the worker for the whole new compile.
     const runningFor = performance.now() - job.startedAt;
@@ -160,8 +177,7 @@ export class CompileClient {
     } catch (error) {
       // Messages that cannot be cloned are the caller's fault, not the worker's.
       if (jobId !== undefined) {
-        const job = this.pending.get(jobId);
-        this.pending.delete(jobId);
+        const job = this.take(jobId);
         job?.reject(new Error(`The preview could not be sent to the compile worker: ${error instanceof Error ? error.message : String(error)}`));
       }
     }
@@ -171,8 +187,8 @@ export class CompileClient {
     if (this.worker) return this.worker;
     const worker = this.options.createWorker();
     worker.onmessage = event => this.receive(event.data);
-    worker.onerror = () => this.crash();
-    worker.onmessageerror = () => this.crash();
+    worker.onerror = () => this.recover();
+    worker.onmessageerror = () => this.recover();
     this.worker = worker;
     return worker;
   }
@@ -187,10 +203,9 @@ export class CompileClient {
       this.abandonWorker();
       return;
     }
-    const job = this.pending.get(message.jobId);
     // A result for a superseded or cancelled job has no pending entry.
+    const job = this.take(message.jobId);
     if (!job) return;
-    this.pending.delete(message.jobId);
     if (message.type === 'result') {
       const timing: CompileOutcomeTiming = { ...message.timing, sentAt: job.sentAt, receivedAt: wallClockMs() };
       job.resolve({ compiled: message.compiled, cacheHit: message.cacheHit, phases: message.phases, timing });
@@ -199,8 +214,27 @@ export class CompileClient {
     }
   }
 
-  /** The worker died. Its pending jobs run on the main thread so the preview still updates. */
-  private crash(): void {
+  private armWatchdog(jobId: string): void {
+    const job = this.pending.get(jobId);
+    if (!job) return;
+    job.watchdog = setTimeout(() => this.recover(), this.hungAfterMs);
+  }
+
+  /** Removes a job from the pending set and stops its watchdog. */
+  private take(jobId: string): PendingJob | undefined {
+    const job = this.pending.get(jobId);
+    if (!job) return undefined;
+    this.pending.delete(jobId);
+    clearTimeout(job.watchdog);
+    return job;
+  }
+
+  /**
+   * The worker died or stopped answering. It is replaced on the next edit, and its pending
+   * jobs run on the main thread so the preview still updates. Each recovery counts as a
+   * crash, so a worker that keeps failing is dropped for the rest of the session.
+   */
+  private recover(): void {
     this.terminateWorker();
     this.crashes += 1;
     if (this.crashes > this.maxCrashes) this.fallback = true;
@@ -219,6 +253,7 @@ export class CompileClient {
     const stranded = [...this.pending.entries()];
     this.pending.clear();
     for (const [jobId, job] of stranded) {
+      clearTimeout(job.watchdog);
       if (this.currentByLane.get(job.lane) !== jobId) {
         job.resolve(null);
         continue;

@@ -32,6 +32,12 @@ async function onMainThread<T>(work: () => Promise<T>): Promise<{ value: T; elap
 
 const round = (value: number) => Math.round(value * 10) / 10;
 
+/** The page's JS heap in MB. Chromium only; the worker's heap is not included (see the RSS sampler). */
+const jsHeapMb = (): number | null => {
+  const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+  return memory ? round(memory.usedJSHeapSize / 1048576) : null;
+};
+
 const page = (index: number) => [
   `## Section ${index}`, '',
   'Lorem ipsum dolor sit amet, **consectetur** adipiscing elit, sed do _eiusmod_ tempor incididunt ut labore. '.repeat(12), '',
@@ -49,6 +55,7 @@ async function run(): Promise<void> {
   const pages = Number(new URLSearchParams(window.location.search).get('pages') ?? 200);
   const body = Array.from({ length: pages }, (_, index) => page(index + 1)).join('\n');
   const sourceCharacters = body.length;
+  const heapAtStart = jsHeapMb();
   const markdownFor = (text: string) => renderDocumentSection({ path: 'sections/large.md', markdown: text }, SECTIONS, 0);
 
   const worker = createCompileWorkerClient(async job => ({
@@ -84,12 +91,14 @@ async function run(): Promise<void> {
 
   // Parity: the worker's output for this section equals the page's, byte for byte.
   const pageSameText = await compilePreviewDocument(markdownFor(body), RESOLVER, SETTINGS, { sourceLineOffset: 2 });
+  const heapAfterCompiles = jsHeapMb();
   const workerParity = pageSameText.html === first.value.html && JSON.stringify(pageSameText.manifest) === JSON.stringify(first.value.manifest);
 
   window.__HARNESS_RESULT__ = {
     ok: true,
     workerEqualsPage: workerParity,
     sourceCharacters,
+    jsHeapMb: { atStart: heapAtStart, afterCompiles: heapAfterCompiles, afterEdit: jsHeapMb() },
     htmlCharacters: first.value.html.length,
     workerFirstCompile: { elapsedMs: first.elapsedMs, mainThreadLongTaskMs: first.longTaskMs, longestMainThreadTaskMs: first.longestTaskMs },
     workerWarmCompile: { elapsedMs: warm.elapsedMs, mainThreadLongTaskMs: warm.longTaskMs, longestMainThreadTaskMs: warm.longestTaskMs },
