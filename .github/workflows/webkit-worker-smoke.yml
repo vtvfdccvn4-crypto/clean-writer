@@ -15,6 +15,7 @@ permissions:
 jobs:
   webkit:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v5
@@ -25,7 +26,14 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npx playwright install --with-deps webkit
+      # Split so a stall shows in the log: the apt packages first, then the WebKit download.
+      - name: Install WebKit system dependencies
+        run: npx playwright install-deps webkit
+        timeout-minutes: 10
+
+      - name: Install WebKit
+        run: npx playwright install webkit
+        timeout-minutes: 10
 
       - run: node scripts/release-compile-worker-smoke.mjs
         env:
