@@ -11,12 +11,16 @@ let backupFileName;
 let BackupError;
 let createZip;
 let BACKUP_MANIFEST_PATH;
+let describeBackupFailure;
+let checkBackupFileSize;
+let checkStorageFor;
+let BACKUP_LIMITS_BYTES;
 
 before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24727 } } });
   ({ InMemoryWorkspaceSession } = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts'));
-  ({ createProjectBackup, parseProjectBackup, restoreProjectBackup, backupFileName, BackupError, BACKUP_MANIFEST_PATH } = await server.ssrLoadModule('/src/backup/project-backup.ts'));
-  ({ createZip } = await server.ssrLoadModule('/src/backup/zip.ts'));
+  ({ createProjectBackup, parseProjectBackup, restoreProjectBackup, backupFileName, BackupError, BACKUP_MANIFEST_PATH, describeBackupFailure, checkBackupFileSize, checkStorageFor } = await server.ssrLoadModule('/src/backup/project-backup.ts'));
+  ({ createZip, BACKUP_LIMITS_BYTES } = await server.ssrLoadModule('/src/backup/zip.ts'));
 });
 
 after(async () => server?.close());
@@ -145,4 +149,52 @@ test('a session refuses to write a file outside the project, and a settings file
   const settings = await session.readSettings();
   assert.deepEqual(settings.order, ['sections/a.md']);
   assert.ok(settings.pageSetup, 'missing settings are filled in with defaults');
+});
+
+test('an archive over the size limit is refused by its size alone, with the limit in the message', async () => {
+  assert.doesNotThrow(() => checkBackupFileSize(BACKUP_LIMITS_BYTES.archive));
+  assert.throws(() => checkBackupFileSize(BACKUP_LIMITS_BYTES.archive + 1), error => error instanceof BackupError && /larger than the 200 MB a backup can be/.test(error.message));
+  await assert.rejects(() => parseProjectBackup({ length: BACKUP_LIMITS_BYTES.archive + 1 }), /200 MB/);
+});
+
+test('a project over the size limit is refused before the archive is built, naming the limit', async () => {
+  const huge = { length: BACKUP_LIMITS_BYTES.project + 1 };
+  const source = { displayName: 'big', listProjectFiles: async () => ['assets/a.bin'], readProjectFile: async () => huge };
+  await assert.rejects(() => createProjectBackup(source), error => error instanceof BackupError && /larger than a backup can hold.*300 MB.*Nothing was downloaded/.test(error.message));
+});
+
+test('a ZIP64 archive is named as unsupported, not reported as damaged', async () => {
+  const zip = createZip([{ path: 'a.md', data: bytes('x') }]);
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  view.setUint16(zip.length - 22 + 10, 0xffff, true);
+  await assert.rejects(() => parseProjectBackup(zip), error => error instanceof BackupError && /ZIP64.*cannot read/.test(error.message));
+});
+
+test('files that are not backups give a plain message', async () => {
+  await assert.rejects(() => parseProjectBackup(bytes('just some text, not a zip file at all')), /not a ZIP file/);
+  await assert.rejects(() => parseProjectBackup(createZip([{ path: 'a.md', data: bytes('x') }])), /not a Clear Writer backup/);
+});
+
+test('running out of memory or storage is named, not reported as a general failure', () => {
+  const memory = describeBackupFailure(new RangeError('Array buffer allocation failed'), 'read');
+  assert.match(memory.message, /ran out of memory while reading/);
+  assert.match(describeBackupFailure(new RangeError('Invalid array length'), 'make').message, /ran out of memory while making/);
+  const quota = new Error('The quota has been exceeded.');
+  quota.name = 'QuotaExceededError';
+  assert.match(describeBackupFailure(quota, 'read').message, /ran out of space while importing.*no project was created/);
+  assert.equal(describeBackupFailure(new TypeError('something else'), 'read'), null);
+});
+
+test('an import that cannot fit in free browser storage is refused before a project is created', async () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const setEstimate = estimate => Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { storage: { estimate: async () => estimate } } });
+  try {
+    setEstimate({ quota: 100 * 1024 * 1024, usage: 95 * 1024 * 1024 });
+    await assert.rejects(() => checkStorageFor(20 * 1024 * 1024), error => error instanceof BackupError && /not enough browser storage.*Nothing was imported/.test(error.message));
+    await checkStorageFor(1024);
+    setEstimate({});
+    await checkStorageFor(10 ** 12);
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'navigator', original); else delete globalThis.navigator;
+  }
 });

@@ -4,6 +4,8 @@
  * archives, unsafe paths, and entries or totals above the limits, so a malicious file cannot exhaust memory.
  */
 
+import { describeBytes } from './format';
+
 export interface ZipEntry {
   readonly path: string;
   readonly data: Uint8Array;
@@ -23,10 +25,19 @@ export interface ReadZipLimits {
   readonly maxTotalBytes: number;
 }
 
+/** The size limits for a backup. A backup is built and read in memory, so they are set well below what a browser tab can hold. */
+export const BACKUP_LIMITS_BYTES = {
+  /** The ZIP file a person chooses to import. */
+  archive: 200 * 1024 * 1024,
+  /** All files of a project, uncompressed. */
+  project: 300 * 1024 * 1024,
+  largestFile: 150 * 1024 * 1024
+} as const;
+
 export const DEFAULT_ZIP_LIMITS: ReadZipLimits = {
   maxEntries: 50_000,
-  maxEntryBytes: 512 * 1024 * 1024,
-  maxTotalBytes: 1024 * 1024 * 1024
+  maxEntryBytes: BACKUP_LIMITS_BYTES.largestFile,
+  maxTotalBytes: BACKUP_LIMITS_BYTES.project
 };
 
 const LOCAL_HEADER = 0x04034b50;
@@ -36,6 +47,7 @@ const UTF8_FLAG = 0x0800;
 const ENCRYPTED_FLAG = 0x0001;
 const STORED = 0;
 const DEFLATED = 8;
+const ZIP64_MESSAGE = 'This ZIP uses the ZIP64 format (used for archives over 4 GB or with more than 65,535 files), which Clear Writer cannot read. A Clear Writer backup never needs it, so this file was probably not made by Clear Writer.';
 const MAX_UINT32 = 0xffffffff;
 const MAX_UINT16 = 0xffff;
 
@@ -180,8 +192,8 @@ export async function readZip(bytes: Uint8Array, limits: ReadZipLimits = DEFAULT
   const count = view.getUint16(end + 10, true);
   const centralSize = view.getUint32(end + 12, true);
   const centralOffset = view.getUint32(end + 16, true);
-  if (count === MAX_UINT16 || centralSize === MAX_UINT32 || centralOffset === MAX_UINT32) throw new ZipError('ZIP64 archives are not supported.');
-  if (count > limits.maxEntries) throw new ZipError(`The archive holds ${count} files, more than the ${limits.maxEntries} allowed.`);
+  if (count === MAX_UINT16 || centralSize === MAX_UINT32 || centralOffset === MAX_UINT32) throw new ZipError(ZIP64_MESSAGE);
+  if (count > limits.maxEntries) throw new ZipError(`The archive holds ${count} files, more than the ${limits.maxEntries} a backup can have.`);
   if (centralOffset + centralSize > end) throw new ZipError('The ZIP directory is damaged.');
 
   const decoder = new TextDecoder('utf-8');
@@ -208,11 +220,12 @@ export async function readZip(bytes: Uint8Array, limits: ReadZipLimits = DEFAULT
     if (!path) throw new ZipError(`The archive holds an unsafe path: "${rawName}".`);
     if (seen.has(path)) throw new ZipError(`The archive holds "${path}" more than once.`);
     seen.add(path);
+    if (compressedSize === MAX_UINT32 || size === MAX_UINT32 || localOffset === MAX_UINT32) throw new ZipError(ZIP64_MESSAGE);
     if (flags & ENCRYPTED_FLAG) throw new ZipError('Encrypted ZIP archives are not supported.');
     if (method !== STORED && method !== DEFLATED) throw new ZipError(`"${path}" uses a compression method that is not supported.`);
-    if (size > limits.maxEntryBytes) throw new ZipError(`"${path}" is larger than the ${limits.maxEntryBytes} bytes allowed for one file.`);
+    if (size > limits.maxEntryBytes) throw new ZipError(`"${path}" is ${describeBytes(size)}, larger than the ${describeBytes(limits.maxEntryBytes)} one file in a backup may be.`);
     total += size;
-    if (total > limits.maxTotalBytes) throw new ZipError('The archive is larger than the total size allowed.');
+    if (total > limits.maxTotalBytes) throw new ZipError(`The files in the archive add up to more than the ${describeBytes(limits.maxTotalBytes)} a backup may hold.`);
 
     if (localOffset + 30 > bytes.length || view.getUint32(localOffset, true) !== LOCAL_HEADER) throw new ZipError(`"${path}" is damaged: its header is missing.`);
     const dataStart = localOffset + 30 + view.getUint16(localOffset + 26, true) + view.getUint16(localOffset + 28, true);

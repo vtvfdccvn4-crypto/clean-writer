@@ -127,9 +127,9 @@ test('encrypted and ZIP64 archives are refused', async () => {
 
 test('limits stop an archive with too many files or too much data', async () => {
   const archive = createZip([{ path: 'a.md', data: bytes('x') }, { path: 'b.md', data: bytes('y') }], FIXED);
-  await assert.rejects(() => readZip(archive, { maxEntries: 1, maxEntryBytes: 100, maxTotalBytes: 100 }), /more than the 1 allowed/);
-  await assert.rejects(() => readZip(createZip([{ path: 'big.md', data: new Uint8Array(50) }], FIXED), { maxEntries: 10, maxEntryBytes: 10, maxTotalBytes: 100 }), /larger than the 10 bytes/);
-  await assert.rejects(() => readZip(createZip([{ path: 'a.md', data: new Uint8Array(40) }, { path: 'b.md', data: new Uint8Array(40) }], FIXED), { maxEntries: 10, maxEntryBytes: 100, maxTotalBytes: 60 }), /total size/);
+  await assert.rejects(() => readZip(archive, { maxEntries: 1, maxEntryBytes: 100, maxTotalBytes: 100 }), /more than the 1 a backup can have/);
+  await assert.rejects(() => readZip(createZip([{ path: 'big.md', data: new Uint8Array(50) }], FIXED), { maxEntries: 10, maxEntryBytes: 10, maxTotalBytes: 100 }), /larger than the 10 bytes one file/);
+  await assert.rejects(() => readZip(createZip([{ path: 'a.md', data: new Uint8Array(40) }, { path: 'b.md', data: new Uint8Array(40) }], FIXED), { maxEntries: 10, maxEntryBytes: 100, maxTotalBytes: 60 }), /add up to more than the 60 bytes/);
 });
 
 test('a compressed entry that expands past its declared size is stopped, not inflated into memory', async () => {

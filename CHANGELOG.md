@@ -10,12 +10,17 @@
   project, Import a backup restores a ZIP as a new project in browser storage
   (named "... (imported)" if the name is taken). The ZIP is checked in full
   before anything is created, and a failed import leaves no project behind.
-  Neither needs local-folder access. The trash is not included.
+  Neither needs local-folder access. The trash is not included. Limits are stated
+  in the app: a project over 300 MB cannot be backed up and a ZIP over 200 MB is not
+  imported. ZIP64 archives, files that are not backups, a full browser store and
+  running out of memory each get their own message, and a failed import leaves no
+  project behind. An import checks free browser storage before creating anything.
 
 ### Changed
 
 - A recovery draft is now written at least every second while typing (before:
-  every 5 s). Documents above 200,000 characters wait longer, up to 5 s.
+  every 5 s). Sections above 200,000 characters wait longer, up to 5 s; the app
+  says so once when such a section is edited, and the Download backup tooltip states both windows.
 - Local-folder projects are recorded as future development, not planned now.
 
 ### Fixed (drafts)

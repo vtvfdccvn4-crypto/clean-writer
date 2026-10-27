@@ -68,6 +68,9 @@ async function run() {
     return typeof text === 'string' && text.length > 0 ? text : null;
   });
 
+  // Wait for the activation to settle, so the next delete does not land in the middle of opening the section.
+  await (window as any).__CLEAR_WRITER_EDITOR_MANAGER__.whenDocumentReady('sections/Gone.md');
+
   // Delete it again and delete it for good from the trash, after a confirmation.
   await deleteFromExplorer('Gone.md');
   await waitFor('Gone.md deleted again', () => !hasSection('sections/Gone.md') ? true : null);

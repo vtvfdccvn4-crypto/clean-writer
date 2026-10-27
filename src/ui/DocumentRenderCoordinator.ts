@@ -1,7 +1,7 @@
 import { state } from '../state';
 import { createEditor, type EditorSnapshot } from '../editor';
 import { createBrowserDraftStore, decideDraftRestore, hashDraftText, type DraftHealth, type DraftStore } from '../editor/DraftStore';
-import { DraftWriter } from '../editor/DraftWriter';
+import { DraftWriter, LARGE_DRAFT_DOCUMENT_CHARACTERS, LARGE_DRAFT_NOTICE } from '../editor/DraftWriter';
 import type { EditorCaretStatus } from '../editor/createEditor';
 import { compileExportSnapshot as compileSnapshot } from '../services/ExportSnapshotService';
 import { renderDocumentSection } from '../preview/document-rendering';
@@ -68,6 +68,7 @@ export class DocumentRenderCoordinator {
   private statsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly drafts: DraftStore = createBrowserDraftStore();
   private readonly draftWriter = new DraftWriter(this.drafts);
+  private readonly largeDraftNoticeShownFor = new Set<string>();
   private readonly previewScheduler: PreviewScheduler<PreviewEdit>;
   /** True while a newly opened document sets its saved cursor, which follows to the preview unless the reader has moved. */
   private restoringViewState = false;
@@ -286,6 +287,10 @@ export class DocumentRenderCoordinator {
         latestVersion = snapshot.version;
         if (this.documentSession.currentFilePath === filename && state.current.activeFile === filename) {
           this.draftWriter.schedule({ projectId: projectRef.id, path: filename }, snapshot, baseHash, snapshot.doc.length);
+          if (snapshot.doc.length > LARGE_DRAFT_DOCUMENT_CHARACTERS && !this.largeDraftNoticeShownFor.has(filename)) {
+            this.largeDraftNoticeShownFor.add(filename);
+            showNotice(LARGE_DRAFT_NOTICE, 'info');
+          }
           this.opts.updateSaveStatus('dirty');
           if (!this.opts.getIsFinalPrintPreview()) this.liveFreshness.typing();
           // Preview work is keyed to the edit, not to the autosave.

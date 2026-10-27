@@ -7,6 +7,8 @@ let DraftStore;
 let MemoryDraftBackend;
 let DraftWriter;
 let draftMaxWaitMs;
+let LARGE_DRAFT_NOTICE;
+let LARGE_DRAFT_DOCUMENT_CHARACTERS;
 let FaultyBackend;
 let decideDraftRestore;
 let hashDraftText;
@@ -42,7 +44,7 @@ before(async () => {
   server = await createTestServer({ server: { hmr: { port: 24691 } } });
   ({ DraftStore, MemoryDraftBackend, decideDraftRestore, hashDraftText, DRAFT_MAX_AGE_MS, DRAFT_ORPHAN_MAX_AGE_MS } =
     await server.ssrLoadModule('/src/editor/DraftStore.ts'));
-  ({ DraftWriter, draftMaxWaitMs } = await server.ssrLoadModule('/src/editor/DraftWriter.ts'));
+  ({ DraftWriter, draftMaxWaitMs, LARGE_DRAFT_NOTICE, LARGE_DRAFT_DOCUMENT_CHARACTERS } = await server.ssrLoadModule('/src/editor/DraftWriter.ts'));
   FaultyBackend = defineFaultyBackend();
 });
 
@@ -327,4 +329,11 @@ test('a draft is written within a second of continuous typing by default', async
   const stored = await new DraftStore(backend).read(target);
   assert.ok(stored, 'a draft must exist after 1.6 s of continuous typing');
   assert.match(stored.record.content, /^text \d+$/);
+});
+
+test('the notice for a large section states the real threshold and the longest loss window', () => {
+  assert.equal(LARGE_DRAFT_DOCUMENT_CHARACTERS, 200_000);
+  assert.match(LARGE_DRAFT_NOTICE, /over 200,000 characters/);
+  assert.match(LARGE_DRAFT_NOTICE, /up to 5 seconds/);
+  assert.equal(draftMaxWaitMs(10_000_000), 5_000, 'the notice must stay true: no section waits longer than five seconds');
 });

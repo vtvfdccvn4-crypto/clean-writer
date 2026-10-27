@@ -1,14 +1,9 @@
 import type { Platform, WorkspaceRef } from '../platform/types';
 import { projectSession } from '../services/ProjectSessionStore';
 import { describeWorkspaceError } from '../services/project-runtime-feedback';
-import { BackupError, createProjectBackup, parseProjectBackup, restoreProjectBackup } from '../backup/project-backup';
+import { describeBytes } from '../backup/format';
+import { BackupError, backupProjectBytes, checkBackupFileSize, checkStorageFor, createProjectBackup, describeBackupFailure, parseProjectBackup, restoreProjectBackup } from '../backup/project-backup';
 import { showNotice } from './components/Notice';
-
-function describeSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} bytes`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 /** Hands a file to the browser's download, which saves it to the user's downloads folder. */
 export function saveBlobAs(blob: Blob, fileName: string): void {
@@ -38,10 +33,11 @@ export async function downloadProjectBackup(flushCurrentDocument: () => Promise<
     await flushCurrentDocument();
     const backup = await createProjectBackup(session);
     saveBlobAs(new Blob([backup.bytes as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), backup.fileName);
-    showNotice(`Backup downloaded: ${backup.fileName} (${backup.manifest.files.length} files, ${describeSize(backup.bytes.length)}). Keep it somewhere safe.`, 'info');
+    showNotice(`Backup downloaded: ${backup.fileName} (${backup.manifest.files.length} files, ${describeBytes(backup.bytes.length)}). Keep it somewhere safe.`, 'info');
   } catch (error) {
     console.error('[ProjectBackup] The backup could not be made.', error);
-    showNotice(error instanceof BackupError ? error.message : `The backup could not be made. ${describeWorkspaceError(error, 'project')}`, 'error');
+    const known = describeBackupFailure(error, 'make');
+    showNotice(known ? known.message : `The backup could not be made. ${describeWorkspaceError(error, 'project')}`, 'error');
   }
 }
 
@@ -67,7 +63,11 @@ async function freeProjectName(platform: Platform, wanted: string): Promise<stri
 export async function importProjectBackup(platform: Platform, file: File): Promise<WorkspaceRef | null> {
   let created: WorkspaceRef | null = null;
   try {
-    const parsed = await parseProjectBackup(new Uint8Array(await file.arrayBuffer()));
+    checkBackupFileSize(file.size);
+    let buffer: ArrayBuffer;
+    try { buffer = await file.arrayBuffer(); } catch (error) { throw describeBackupFailure(error, 'read') ?? new BackupError('This file could not be read. It may have been moved or deleted; choose it again.'); }
+    const parsed = await parseProjectBackup(new Uint8Array(buffer));
+    await checkStorageFor(backupProjectBytes(parsed));
     const name = await freeProjectName(platform, parsed.manifest.projectName);
     created = await platform.workspaceRepository.selectDirectory({ kind: 'opfs', name });
     if (!created) throw new Error('The new project could not be created.');
@@ -79,7 +79,8 @@ export async function importProjectBackup(platform: Platform, file: File): Promi
   } catch (error) {
     console.error('[ProjectBackup] The backup could not be imported.', error);
     if (created) await platform.workspaceRepository.discardWorkspace?.(created).catch(() => undefined);
-    showNotice(error instanceof BackupError ? error.message : `The backup could not be imported, and no project was created. ${describeWorkspaceError(error, 'project')}`, 'error');
+    const known = describeBackupFailure(error, 'read');
+    showNotice(known ? known.message : `The backup could not be imported, and no project was created. ${describeWorkspaceError(error, 'project')}`, 'error');
     return null;
   }
 }

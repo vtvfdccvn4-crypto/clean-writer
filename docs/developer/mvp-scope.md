@@ -37,13 +37,21 @@ writing in one setup, and the large-document work continues alongside it.
   `?compile-worker=true`.
 - **Backups are manual.** Nothing backs up by itself. A browser can clear its
   storage when disk space is low, so download a backup after each writing
-  session that matters. A backup holds the project's files, not its trash. It is
-  built in memory, so a very large project (hundreds of megabytes of images) may
-  not fit; ZIP64 archives are not read.
+  session that matters. A backup holds the project's files, not its trash.
+- **Backup size limits.** A backup is built and read in memory. A project whose
+  files add up to more than 300 MB cannot be downloaded as a backup (the app
+  says so and downloads nothing), a ZIP over 200 MB is not imported, and no one
+  file in a backup may be over 150 MB. ZIP64 archives (over 4 GB or 65,535
+  files) are not read. An import checks the free browser storage first and
+  refuses, creating nothing, if the project would not fit. If the browser runs
+  out of memory or storage part-way, the app names that as the reason, and a
+  failed import leaves no project behind.
 - **Crash recovery is best-effort.** Typing is saved after a pause of about
   0.75 s. During continuous typing a recovery draft is written at least every
-  second (up to every 5 s for documents above 200,000 characters). A crash can
-  lose that much typing.
+  second, so a crash can lose up to about 1 s of typing. In a section over
+  200,000 characters the wait grows, to at most 5 s, so a crash can lose up to 5
+  s of continuous typing. The app says so once when such a section is edited,
+  and the Download backup button's tooltip states both windows.
 - **Trash.** Deleted sections go to the project's trash and stay until they are
   deleted for good from the Trash dialog. Nothing empties the trash by itself.
 

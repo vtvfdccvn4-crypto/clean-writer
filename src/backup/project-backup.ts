@@ -1,5 +1,6 @@
 import type { WorkspaceSession } from '../platform/types';
-import { createZip, readZip, safeArchivePath, ZipError, type ZipEntry } from './zip';
+import { describeBytes } from './format';
+import { BACKUP_LIMITS_BYTES, createZip, readZip, safeArchivePath, ZipError, type ZipEntry } from './zip';
 
 /**
  * Project backup and restore. A backup is a ZIP archive of the project's files as stored: `settings.json`
@@ -30,6 +31,45 @@ export class BackupError extends Error {
   }
 }
 
+const OUT_OF_MEMORY = /allocation|out of memory|invalid array length|array buffer|buffer size|memory/i;
+
+/**
+ * Turns a failure while making or reading a backup into a message a person can act on. A backup is built in
+ * memory, so running out of it is named as that, not reported as a general failure.
+ */
+export function describeBackupFailure(error: unknown, doing: 'make' | 'read'): BackupError | null {
+  if (error instanceof BackupError) return error;
+  const name = error instanceof Error ? error.name : '';
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  if (name === 'QuotaExceededError' || /quota|no space|disk full/i.test(message)) {
+    return new BackupError('Browser storage ran out of space while importing the backup, so no project was created. Free space in this browser (delete projects you no longer need, or clear other site data) and try again.');
+  }
+  if ((error instanceof RangeError && OUT_OF_MEMORY.test(message)) || OUT_OF_MEMORY.test(message) || name === 'NotReadableError') {
+    return new BackupError(doing === 'make'
+      ? `This browser ran out of memory while making the backup (a backup is built in memory, up to ${describeBytes(BACKUP_LIMITS_BYTES.project)} of project files). Close other tabs and try again, or delete large images you no longer need.`
+      : `This browser ran out of memory while reading the backup, or could not read the file. Close other tabs and try again. A backup can hold up to ${describeBytes(BACKUP_LIMITS_BYTES.project)} of project files.`);
+  }
+  return null;
+}
+
+/** Refuses a file that is too large to read in memory, before any of it is read. */
+export function checkBackupFileSize(bytes: number): void {
+  if (bytes > BACKUP_LIMITS_BYTES.archive) {
+    throw new BackupError(`This file is ${describeBytes(bytes)}, larger than the ${describeBytes(BACKUP_LIMITS_BYTES.archive)} a backup can be. It cannot be imported here. If it is a Clear Writer backup, the project is too large for a browser-based restore.`);
+  }
+}
+
+/** Refuses an import that would not fit in the free browser storage, before a project is created. Skipped when the browser cannot say. */
+export async function checkStorageFor(projectBytes: number): Promise<void> {
+  const estimate = typeof navigator !== 'undefined' ? await navigator.storage?.estimate?.().catch(() => undefined) : undefined;
+  if (!estimate || typeof estimate.quota !== 'number' || typeof estimate.usage !== 'number') return;
+  const free = estimate.quota - estimate.usage;
+  const needed = Math.ceil(projectBytes * 1.1) + 1024 * 1024;
+  if (free < needed) {
+    throw new BackupError(`There is not enough browser storage to import this backup: it needs about ${describeBytes(needed)} and this browser has about ${describeBytes(Math.max(0, free))} free. Free space (delete projects you no longer need) and try again. Nothing was imported.`);
+  }
+}
+
 export type BackupSource = Pick<WorkspaceSession, 'displayName' | 'listProjectFiles' | 'readProjectFile'>;
 export type BackupTarget = Pick<WorkspaceSession, 'writeProjectFile'>;
 
@@ -49,7 +89,19 @@ export function backupFileName(projectName: string, now: Date): string {
 export async function createProjectBackup(source: BackupSource, now: Date = new Date()): Promise<CreatedBackup> {
   const paths = (await source.listProjectFiles()).sort();
   const files: ZipEntry[] = [];
-  for (const path of paths) files.push({ path, data: await source.readProjectFile(path), modified: now });
+  let total = 0;
+  try {
+    for (const path of paths) {
+      const data = await source.readProjectFile(path);
+      total += data.length;
+      if (total > BACKUP_LIMITS_BYTES.project) {
+        throw new BackupError(`This project is larger than a backup can hold: its files add up to more than ${describeBytes(BACKUP_LIMITS_BYTES.project)}, and a backup is built in memory. Nothing was downloaded. Delete large images or assets you no longer need, then try again.`);
+      }
+      files.push({ path, data, modified: now });
+    }
+  } catch (error) {
+    throw describeBackupFailure(error, 'make') ?? error;
+  }
   const manifest: BackupManifest = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -62,7 +114,7 @@ export async function createProjectBackup(source: BackupSource, now: Date = new 
     return { bytes: createZip([manifestEntry, ...files], now), fileName: backupFileName(source.displayName, now), manifest };
   } catch (error) {
     if (error instanceof ZipError) throw new BackupError(`The backup could not be made: ${error.message}`);
-    throw error;
+    throw describeBackupFailure(error, 'make') ?? error;
   }
 }
 
@@ -80,12 +132,13 @@ const isProjectPath = (path: string): boolean => path === SETTINGS_PATH || FILE_
  * understands, and hold every file the manifest lists at its listed size, including `settings.json`.
  */
 export async function parseProjectBackup(bytes: Uint8Array): Promise<ParsedBackup> {
+  checkBackupFileSize(bytes.length);
   let entries: ZipEntry[];
   try {
     entries = await readZip(bytes);
   } catch (error) {
     if (error instanceof ZipError) throw new BackupError(`This file cannot be used as a backup: ${error.message}`);
-    throw error;
+    throw describeBackupFailure(error, 'read') ?? error;
   }
   const byPath = new Map(entries.map(entry => [entry.path, entry]));
   const manifestEntry = byPath.get(BACKUP_MANIFEST_PATH);
@@ -132,5 +185,11 @@ export async function parseProjectBackup(bytes: Uint8Array): Promise<ParsedBacku
  */
 export async function restoreProjectBackup(target: BackupTarget, backup: ParsedBackup): Promise<void> {
   const ordered = [...backup.files].sort((a, b) => Number(a.path === SETTINGS_PATH) - Number(b.path === SETTINGS_PATH) || a.path.localeCompare(b.path));
-  for (const file of ordered) await target.writeProjectFile(file.path, file.data);
+  try {
+    for (const file of ordered) await target.writeProjectFile(file.path, file.data);
+  } catch (error) {
+    throw describeBackupFailure(error, 'read') ?? error;
+  }
 }
+
+export const backupProjectBytes = (backup: ParsedBackup): number => backup.files.reduce((sum, file) => sum + file.data.length, 0);

@@ -49,6 +49,9 @@ Start: `npm run dev`, open the printed address.
 - [ ] Compare it with the original: same section text, order, page breaks,
       numbering, images, page setup. Export its PDF; it matches the first.
 - [ ] The original project is unchanged.
+- [ ] Turn on a page break for a section that starts with plain text (no
+      heading) in the original, print the merged preview, and check the imported
+      project prints the same pages.
 - [ ] Try importing a file that is not a backup (rename a text file to .zip).
       An error is shown and no project is added to the list.
 

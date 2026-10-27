@@ -302,6 +302,58 @@ try {
     return announced;
   });
 
+  const SECOND = 'Chapter Two';
+  const pageBreakButton = name => session.page.locator(`.task-explorer-item[aria-label="Section ${name}.md"] .task-explorer-item-action`).filter({ has: session.page.locator('svg') }).locator('xpath=self::*[contains(@title, "page break")]');
+  let lastPrintedHeadings = '';
+  /** Opens the app's print window for the whole project, counts the pages it prepared, and closes it. */
+  async function printedPageCount() {
+    // The merged preview prints the whole project; the section view prints only the open section.
+    await session.page.locator('#btn-full-doc').click();
+    await session.page.waitForFunction(() => document.querySelector('.pagedjs_page') !== null, null, { timeout: 60_000 });
+    await session.page.waitForTimeout(1500);
+    const popupPromise = session.context.waitForEvent('page', { timeout: 60_000 });
+    await session.page.locator('#btn-pdf-preview').click();
+    const popup = await popupPromise;
+    await popup.locator('#clear-writer-pdf-preview-document').waitFor({ timeout: 60_000 });
+    await popup.waitForFunction(() => (window.__clearWriterPrintCalls ?? 0) > 0, null, { timeout: 60_000 });
+    const pages = await popup.locator('.pagedjs_page').count();
+    const breaks = await popup.locator('#clear-writer-pdf-preview-document [data-print-break-before]').count();
+    lastPrintedHeadings = (await popup.locator('#clear-writer-pdf-preview-document h1').allInnerTexts()).join(' | ');
+    await popup.close().catch(() => undefined);
+    return { pages, breaks };
+  }
+
+  let printedBefore = { pages: 0, breaks: 0 };
+  let printedAfter = { pages: 0, breaks: 0 };
+  await step('8b. Add a second section and turn on its page break from the explorer', async () => {
+    await session.page.locator('#btn-task-new-section').click();
+    const field = session.page.locator('#project-flow-modal input');
+    await field.waitFor();
+    await field.fill(SECOND);
+    await field.press('Enter');
+    const item = session.page.locator(`.task-explorer-item[aria-label="Section ${SECOND}.md"]`);
+    await item.waitFor({ timeout: 15_000 });
+    await item.click();
+    await session.page.locator('.cm-content').click();
+    await session.page.keyboard.press('Control+A');
+    await session.page.keyboard.type('The second chapter begins on a new page, because its page break is on.', { delay: 8 });
+    await waitForStatus('Saved');
+    printedBefore = await printedPageCount();
+    await item.hover();
+    const toggle = pageBreakButton(SECOND);
+    if (await toggle.getAttribute('title') !== 'Add page break') throw new Error('The page break was already on.');
+    await toggle.click();
+    await session.page.waitForFunction(name => document.querySelector(`.task-explorer-item[aria-label="Section ${name}.md"] [title="Remove page break"]`) !== null, SECOND, { timeout: 15_000 });
+    // The merged document is rebuilt after a setting changes: print again until it reflects the change, within a limit.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      printedAfter = await printedPageCount();
+      if (printedAfter.breaks > printedBefore.breaks) break;
+    }
+    if (printedAfter.breaks !== printedBefore.breaks + 1 || printedAfter.pages !== printedBefore.pages + 1) throw new Error(`The printed document has ${printedBefore.breaks} page break(s) on ${printedBefore.pages} page(s) before, and ${printedAfter.breaks} on ${printedAfter.pages} after turning the page break on. Printed headings: ${lastPrintedHeadings}.`);
+    await shot('13a-page-break-on');
+    return `the explorer shows the page break on, and the printed document went from ${printedBefore.breaks} to ${printedAfter.breaks} page break (${printedBefore.pages} to ${printedAfter.pages} pages)`;
+  });
+
   let backupFile = '';
   await step('9. Download a backup of the project', async () => {
     const downloadPromise = session.page.waitForEvent('download', { timeout: 30_000 });
@@ -315,7 +367,7 @@ try {
     if (bytes.subarray(0, 2).toString('latin1') !== 'PK') throw new Error('The download is not a ZIP file.');
     const { execFileSync } = await import('node:child_process');
     const listing = execFileSync('python3', ['-I', '-c', 'import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; print("\\n".join(z.namelist()))', backupFile]).toString();
-    for (const needed of ['clear-writer-backup.json', 'settings.json', `sections/${SECTION}.md`]) {
+    for (const needed of ['clear-writer-backup.json', 'settings.json', `sections/${SECTION}.md`, `sections/${SECOND}.md`]) {
       if (!listing.split('\n').includes(needed)) throw new Error(`The backup does not contain ${needed}. It holds: ${listing.replace(/\n/g, ', ')}`);
     }
     await shot('13-backup-downloaded');
@@ -331,6 +383,18 @@ try {
     await openSection();
     const text = await editorText();
     if (!text.includes('UNSAVED-MARKER') || !normalize(text).startsWith(normalize(CHAPTER_TEXT).slice(0, 60))) throw new Error('The imported section does not hold the original text.');
+    // The page break set through the explorer before the backup is still on in the imported project.
+    const secondItem = session.page.locator(`.task-explorer-item[aria-label="Section ${SECOND}.md"]`);
+    await secondItem.waitFor({ timeout: 15_000 });
+    await secondItem.hover();
+    const breakTitle = await pageBreakButton(SECOND).getAttribute('title');
+    if (breakTitle !== 'Remove page break') throw new Error(`The imported project's page break for ${SECOND} reads "${breakTitle}", not "Remove page break".`);
+    if ((await pageBreakButton(SECTION).count()) > 0) {
+      await session.page.locator(`.task-explorer-item[aria-label="Section ${SECTION}.md"]`).hover();
+      if (await pageBreakButton(SECTION).getAttribute('title') !== 'Add page break') throw new Error(`The page break leaked onto ${SECTION}.`);
+    }
+    const importedPrint = await printedPageCount();
+    if (importedPrint.breaks !== printedAfter.breaks || importedPrint.pages !== printedAfter.pages) throw new Error(`The imported project prints ${importedPrint.pages} pages with ${importedPrint.breaks} page break(s); the original printed ${printedAfter.pages} with ${printedAfter.breaks}.`);
     await shot('15-imported');
     // The original project must still be there and untouched.
     await session.page.locator('#btn-task-open-project').click();
@@ -338,7 +402,7 @@ try {
     const recent = await session.page.locator('.recent-item-name').allInnerTexts();
     await session.page.locator('#btn-modal-cancel').click();
     if (!recent.includes(PROJECT) || !recent.includes(`${PROJECT} (imported)`)) throw new Error(`The recent list is: ${recent.join(', ')}`);
-    return `"${PROJECT} (imported)" opened with the original text; both projects are listed`;
+    return `"${PROJECT} (imported)" opened with the original text and the page break on ${SECOND} (${importedPrint.breaks} page break and ${importedPrint.pages} printed pages, as in the original); both projects are listed`;
   });
 
   if (problems.length > 0) {
