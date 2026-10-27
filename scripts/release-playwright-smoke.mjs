@@ -64,7 +64,12 @@ try {
     const context = await browser.newContext();
     const page = await context.newPage();
     const pageErrors = [];
-    page.on('pageerror', error => pageErrors.push(error.message));
+    const consoleMessages = [];
+    page.on('pageerror', error => pageErrors.push(error.message || String(error) || '(error without a message)'));
+    page.on('console', message => {
+      if (message.type() === 'error' || message.type() === 'warning') consoleMessages.push(`${message.type()}: ${message.text()}`.slice(0, 300));
+    });
+    page.on('crash', () => pageErrors.push('the page crashed'));
     let result;
     let failure = null;
     try {
@@ -75,7 +80,7 @@ try {
       failure = error instanceof Error ? error.message.split('\n')[0] : String(error);
     }
     const ok = failure === null && result?.ok === true && pageErrors.length === 0;
-    results.push({ name, ok, elapsedMs: Date.now() - started, failure, pageErrors, result: ok ? undefined : result });
+    results.push({ name, ok, elapsedMs: Date.now() - started, failure, pageErrors, consoleMessages: ok ? undefined : consoleMessages.slice(-20), result: ok ? undefined : result });
     process.stdout.write(`${ok ? 'PASS' : 'FAIL'} ${name} (${Date.now() - started} ms)\n`);
     await context.close().catch(() => undefined);
   }
