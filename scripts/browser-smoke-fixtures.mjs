@@ -5,6 +5,21 @@
 
 export const fixtures = [
   {
+    // No stubs: the browser's own API surface decides the dialog. Safari must get browser storage only.
+    name: 'browser-capability-detection-smoke',
+    path: '/test/fixtures/browser-capability-detection-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Capability detection smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.localFolderShown === result.hasDirectoryPicker, 'The local-folder option must appear exactly when the browser has the File System Access API.');
+      const safari = result.userAgent.includes('Safari') && !result.userAgent.includes('Chrome');
+      if (safari) {
+        expect(result.hasDirectoryPicker === false && result.localFolderShown === false, 'Safari must not offer a local-folder project.');
+        expect(result.browserStorageShown === true && result.projectKind === 'opfs', 'Safari must get the browser-storage fallback.');
+      }
+    }
+  },
+
+  {
     name: 'browser-custom-quote-cursor-smoke',
     path: '/test/fixtures/browser-custom-quote-cursor-smoke.html',
     viewport: { width: 900, height: 700, deviceScaleFactor: 1 },

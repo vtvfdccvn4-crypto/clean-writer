@@ -47,3 +47,17 @@ jobs:
         run: node scripts/release-playwright-smoke.mjs
         env:
           CLEAR_WRITER_SMOKE_BROWSER: webkit
+
+      - name: Performance in WebKit for the proposed range
+        run: node scripts/browser-performance-bench.mjs
+        env:
+          CLEAR_WRITER_SMOKE_BROWSER: webkit
+          CLEAR_WRITER_BENCH_OUTPUT: ${{ runner.temp }}/webkit-performance.json
+
+      - name: Upload WebKit performance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-performance
+          path: ${{ runner.temp }}/webkit-performance.json
+          if-no-files-found: ignore

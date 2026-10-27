@@ -14,22 +14,31 @@ declare global {
 }
 
 /** Main-thread time: the sum of long tasks in a window, the longest, and the frame gap. */
-async function onMainThread<T>(work: () => Promise<T>): Promise<{ value: T; elapsedMs: number; longTaskMs: number; longestTaskMs: number }> {
+// WebKit has no longtask entries, so long-task times are null there; elapsed times are always measured.
+const observesLongTasks = typeof PerformanceObserver !== 'undefined'
+  && PerformanceObserver.supportedEntryTypes?.includes('longtask') === true;
+
+async function onMainThread<T>(work: () => Promise<T>): Promise<{ value: T; elapsedMs: number; longTaskMs: number | null; longestTaskMs: number | null }> {
   let longTaskMs = 0;
   let longestTaskMs = 0;
-  const observer = new PerformanceObserver(list => {
+  const observer = observesLongTasks ? new PerformanceObserver(list => {
     for (const entry of list.getEntries()) {
       longTaskMs += entry.duration;
       longestTaskMs = Math.max(longestTaskMs, entry.duration);
     }
-  });
-  observer.observe({ type: 'longtask', buffered: false });
+  }) : null;
+  observer?.observe({ type: 'longtask', buffered: false });
   const started = performance.now();
   const value = await work();
   const elapsedMs = performance.now() - started;
   await new Promise(resolve => setTimeout(resolve, 60));
-  observer.disconnect();
-  return { value, elapsedMs: round(elapsedMs), longTaskMs: round(longTaskMs), longestTaskMs: round(longestTaskMs) };
+  observer?.disconnect();
+  return {
+    value,
+    elapsedMs: round(elapsedMs),
+    longTaskMs: observer ? round(longTaskMs) : null,
+    longestTaskMs: observer ? round(longestTaskMs) : null
+  };
 }
 
 const round = (value: number) => Math.round(value * 10) / 10;
