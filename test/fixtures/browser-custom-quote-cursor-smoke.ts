@@ -159,6 +159,6 @@ async function run() {
 run().catch(error => {
   window.__HARNESS_RESULT__ = {
     ok: false,
-    error: error instanceof Error ? error.stack : String(error)
+    error: error instanceof Error ? (error.stack || `${error.name}: ${error.message}`) : String(error)
   };
 });

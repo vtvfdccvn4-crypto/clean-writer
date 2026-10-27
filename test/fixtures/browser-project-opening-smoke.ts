@@ -37,4 +37,4 @@ async function run(): Promise<void> {
   };
 }
 
-run().catch(error => { window.__HARNESS_RESULT__ = { ok: false, error: error instanceof Error ? error.stack : String(error) }; });
+run().catch(error => { window.__HARNESS_RESULT__ = { ok: false, error: error instanceof Error ? (error.stack || `${error.name}: ${error.message}`) : String(error) }; });
