@@ -35,6 +35,10 @@ jobs:
         run: npx playwright install webkit
         timeout-minutes: 10
 
-      - run: node scripts/release-compile-worker-smoke.mjs
+      - name: Compile worker in WebKit
+        run: node scripts/release-compile-worker-smoke.mjs
         env:
           CLEAR_WRITER_SMOKE_BROWSER: webkit
+
+      - name: Draft hard-kill durability in WebKit
+        run: node scripts/webkit-draft-kill-test.mjs
