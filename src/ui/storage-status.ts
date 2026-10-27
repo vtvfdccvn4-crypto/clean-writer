@@ -61,7 +61,7 @@ export async function checkStorageQuota(): Promise<StorageLevel> {
   if (rank > warnedRank && status.ratio !== null && status.usageBytes !== null && status.quotaBytes !== null) {
     warnedRank = rank;
     const percent = Math.round(status.ratio * 100);
-    const message = `Browser storage is ${percent}% full (${formatStorageBytes(status.usageBytes)} of ${formatStorageBytes(status.quotaBytes)}). Delete unused images or sections to free space, and export a PDF of important work to keep a copy.`;
+    const message = `Browser storage is ${percent}% full (${formatStorageBytes(status.usageBytes)} of ${formatStorageBytes(status.quotaBytes)}). Download a backup from the project toolbar to keep a copy of your work, then delete unused images or sections to free space.`;
     showNotice(message, level === 'critical' ? 'error' : 'info');
   }
   return level;

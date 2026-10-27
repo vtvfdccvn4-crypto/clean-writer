@@ -315,7 +315,10 @@ export abstract class AbstractWorkspaceSession implements WorkspaceSession {
 
   async listTrash(): Promise<TrashItem[]> {
     const entries = await listTrash(this.projectDir);
-    return entries.map(({ id, name, originalPath, kind, deletedAt }) => ({ id, name, originalPath, kind, deletedAt }));
+    return entries.map(({ id, name, originalPath, kind, deletedAt, sizeBytes }) => ({
+      id, name, originalPath, kind, deletedAt,
+      ...(sizeBytes !== undefined ? { sizeBytes } : {}),
+    }));
   }
 
   async restoreFromTrash(id: string): Promise<TrashRestoreResult> {

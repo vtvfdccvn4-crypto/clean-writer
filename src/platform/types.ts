@@ -20,6 +20,8 @@ export interface TrashItem {
   /** Where it was before it was deleted. */
   readonly originalPath: ProjectPath;
   readonly kind: 'file' | 'folder';
+  /** Total bytes of the trashed content, recorded when the item was deleted. Absent for entries trashed before this field was added. */
+  readonly sizeBytes?: number;
   /** Milliseconds since the Unix epoch. */
   readonly deletedAt: number;
 }

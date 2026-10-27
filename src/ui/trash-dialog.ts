@@ -1,5 +1,14 @@
 import type { TrashItem, TrashRestoreResult } from '../platform/types';
+import { describeBytes } from '../backup/format';
 import { showConfirmDialog } from './confirm-dialog';
+
+function describeTrashSummary(items: TrashItem[]): string {
+  const count = items.length;
+  const known = items.filter(i => i.sizeBytes !== undefined);
+  const totalBytes = known.reduce((sum, i) => sum + (i.sizeBytes ?? 0), 0);
+  const sizePart = known.length === count && count > 0 ? ` (${describeBytes(totalBytes)})` : '';
+  return `${count} item${count === 1 ? '' : 's'}${sizePart}`;
+}
 
 /** What the trash dialog needs from the open project. */
 export interface TrashDialogActions {
@@ -50,7 +59,7 @@ export async function showTrashDialog(actions: TrashDialogActions): Promise<void
       const intro = document.createElement('p');
       intro.textContent = items.length === 0
         ? 'The trash is empty.'
-        : 'Deleted sections stay here until you delete them for good. Restore puts a section back where it was.';
+        : `${describeTrashSummary(items)} — deleted sections stay here until you delete them for good. Restore puts a section back where it was.`;
       const status = document.createElement('p');
       status.id = 'trash-dialog-status';
       status.className = 'trash-status';

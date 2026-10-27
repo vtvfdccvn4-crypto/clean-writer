@@ -5,6 +5,7 @@ import { initializeSymbolPicker } from '../ui/symbolPicker';
 import { projectSession } from '../services/ProjectSessionStore';
 import { registerServiceWorker } from '../sw-registration';
 import { initStorageStatus } from '../ui/storage-status';
+import { showBrowserSupportNotice } from '../ui/browser-support-notice';
 import { previewMetrics } from '../perf/preview-metrics';
 import type { Platform } from '../platform/types';
 import { showNotice } from '../ui/components/Notice';
@@ -217,5 +218,6 @@ export async function bootApp(platform: Platform) {
 
   (window as StartupWindow).__CLEAR_WRITER_READY__ = true;
   initStorageStatus();
+  showBrowserSupportNotice();
   registerServiceWorker(() => editorManager.flushCurrentDocument());
 }

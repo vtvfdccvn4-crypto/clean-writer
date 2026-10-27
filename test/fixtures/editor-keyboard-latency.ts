@@ -1,22 +1,9 @@
 import { createEditor } from '../../src/editor';
-
-// The same 1,000-page corpus as editor-typing-bench: headings, paragraphs, a list,
-// and a table every tenth page, in one section. The driver sends real key events
-// through the browser's input pipeline, so this page only has to measure what the
-// editor does with them.
-const PAGES = 1_000;
-const page = (index: number) => [
-  `## Section ${index}`,
-  '',
-  'Lorem ipsum dolor sit amet, **consectetur** adipiscing elit, sed do _eiusmod_ tempor incididunt ut labore. '.repeat(12),
-  '',
-  '- first item with `code`',
-  '- second item',
-  '',
-  'Second paragraph with a [link](https://example.com) and more prose to fill the page. '.repeat(10),
-  ...(index % 10 === 0 ? ['', '| a | b | c |', '|---|---|---|', '| 1 | 2 | 3 |', '| 4 | 5 | 6 |'] : []),
-  ''
-].join('\n');
+import {
+  CORPUS_DOCUMENT,
+  CORPUS_LONG_TASK_BUDGET_MS,
+  CORPUS_P95_LATENCY_BUDGET_MS,
+} from './corpus';
 
 declare global {
   interface Window {
@@ -31,7 +18,7 @@ declare global {
   }
 }
 
-const document1000 = Array.from({ length: PAGES }, (_, index) => page(index + 1)).join('\n');
+const document1000 = CORPUS_DOCUMENT;
 const parent = document.getElementById('editor');
 if (!parent) throw new Error('Editor root missing.');
 const editor = createEditor(parent, document1000, { onChange: () => undefined, onDirty: () => undefined });

@@ -483,6 +483,20 @@ export const fixtures = [
     }
   },
   {
+    name: 'browser-backup-import-error-smoke',
+    path: '/test/fixtures/browser-backup-import-error-smoke.html',
+    validate(result) {
+      expect(result.ok === true, `Backup import error smoke reported failure: ${JSON.stringify(result)}`);
+      expect(result.oversizedError === true, 'An archive over the size limit did not throw a BackupError.');
+      expect(result.oversizedMentionsSize === true, 'The oversized-archive error message did not mention the size.');
+      expect(result.notZipError === true, 'Importing random bytes did not throw a BackupError.');
+      expect(result.notBackupError === true, 'Importing a non-backup ZIP did not throw a BackupError.');
+      expect(result.quotaMessageClear === true, 'A QuotaExceededError did not produce a clear user message.');
+      expect(result.oomMessageClear === true, 'An out-of-memory RangeError did not produce a clear user message.');
+      expect(result.storageFullError === true, 'A nearly-full storage preflight did not throw a BackupError.');
+    }
+  },
+  {
     name: 'browser-pdf-job-status-smoke',
     path: '/test/fixtures/browser-pdf-job-status-smoke.html',
     validate(result) {
