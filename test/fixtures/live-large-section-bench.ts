@@ -32,6 +32,14 @@ async function onMainThread<T>(work: () => Promise<T>): Promise<{ value: T; elap
 
 const round = (value: number) => Math.round(value * 10) / 10;
 
+/** The value at the given fraction of the sorted samples (nearest rank). */
+const percentile = (samples: number[], fraction: number): number => {
+  const sorted = [...samples].sort((a, b) => a - b);
+  return round(sorted[Math.max(0, Math.ceil(fraction * sorted.length) - 1)] ?? 0);
+};
+
+const summarize = (samples: number[]) => ({ p50: percentile(samples, 0.5), p95: percentile(samples, 0.95), max: round(Math.max(...samples)) });
+
 /** The page's JS heap in MB. Chromium only; the worker's heap is not included (see the RSS sampler). */
 const jsHeapMb = (): number | null => {
   const memory = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
@@ -100,8 +108,30 @@ async function run(): Promise<void> {
     ? null
     : pageSameText.html === first.value.html && JSON.stringify(pageSameText.manifest) === JSON.stringify(first.value.manifest);
 
+  // mode=edit-sequence: a run of edits, each compiled in the worker and rendered after a zero-delay timer
+  // (standing in for the scheduler). The render budget is judged on the p95 of these render times.
+  let editSequence: Record<string, unknown> | null = null;
+  if (params.get('mode') === 'edit-sequence') {
+    const count = Number(params.get('edits') ?? 50);
+    const renderMs: number[] = [];
+    const compileMs: number[] = [];
+    let text = body;
+    for (let index = 0; index < count; index += 1) {
+      text += `\nEdit ${index + 1} at the end of the section.\n`;
+      const compileStarted = performance.now();
+      const compiled = await compileInWorker(text);
+      compileMs.push(performance.now() - compileStarted);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const renderStarted = performance.now();
+      await renderer.render(compiled.html, compiled.manifest, DEFAULT_PAGE_SETUP, () => true);
+      renderMs.push(performance.now() - renderStarted);
+    }
+    editSequence = { edits: count, render: summarize(renderMs), compile: summarize(compileMs), renderMs: renderMs.map(round) };
+  }
+
   window.__HARNESS_RESULT__ = {
     ok: true,
+    editSequence,
     mode: workerOnly ? 'worker-only' : 'full',
     workerEqualsPage: workerParity,
     sourceCharacters,
