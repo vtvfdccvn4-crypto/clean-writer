@@ -27,12 +27,22 @@ export const fixtures = [
     path: '/test/fixtures/browser-capability-detection-smoke.html',
     validate(result) {
       expect(result.ok === true, `Capability detection smoke reported failure: ${JSON.stringify(result)}`);
-      expect(result.localFolderShown === result.hasDirectoryPicker, 'The local-folder option must appear exactly when the browser has the File System Access API.');
+      // The MVP hides local folders: the option is absent unless ?local-folders=true is set.
+      expect(result.localFolderShown === false, 'The MVP must not offer a local-folder project by default.');
       const safari = result.userAgent.includes('Safari') && !result.userAgent.includes('Chrome');
       if (safari) {
-        expect(result.hasDirectoryPicker === false && result.localFolderShown === false, 'Safari must not offer a local-folder project.');
+        expect(result.hasDirectoryPicker === false, 'Safari has no File System Access API.');
         expect(result.browserStorageShown === true && result.projectKind === 'opfs', 'Safari must get the browser-storage fallback.');
       }
+    }
+  },
+  {
+    // The same check with the local-folder gate on: the option appears exactly when the browser has the API.
+    name: 'browser-capability-detection-local-folders-smoke',
+    path: '/test/fixtures/browser-capability-detection-smoke.html?local-folders=true',
+    validate(result) {
+      expect(result.ok === true, `Capability detection (local folders on) reported failure: ${JSON.stringify(result)}`);
+      expect(result.localFolderShown === result.hasDirectoryPicker, 'With local folders on, the option must appear exactly when the browser has the File System Access API.');
     }
   },
 
@@ -288,7 +298,8 @@ export const fixtures = [
   },
   {
     name: 'browser-recovery-smoke',
-    path: '/test/fixtures/browser-recovery-smoke.html',
+    // Opts in to local-folder projects, which the MVP hides by default.
+    path: '/test/fixtures/browser-recovery-smoke.html?local-folders=true',
     validate(result) {
       expect(result.ok === true, 'Browser recovery smoke reported failure.');
       expect(result.projectKind === 'directory', `Expected directory project after recovery, got ${result.projectKind}.`);
@@ -311,7 +322,8 @@ export const fixtures = [
   },
   {
     name: 'browser-local-directory-reopen-smoke',
-    path: '/test/fixtures/browser-local-directory-reopen-smoke.html',
+    // Opts in to local-folder projects, which the MVP hides by default.
+    path: '/test/fixtures/browser-local-directory-reopen-smoke.html?local-folders=true',
     validate(result) {
       expect(result.ok === true, 'Browser local-directory reopen smoke reported failure.');
       expect(result.projectKind === 'directory', `Expected directory project kind, got ${result.projectKind}.`);

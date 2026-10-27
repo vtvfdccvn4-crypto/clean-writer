@@ -1,3 +1,4 @@
+import { localFolderProjectsEnabled } from '../config/mvp-scope';
 import type { WorkspaceRef } from '../platform';
 import { escapeHtml } from '../utils/escapeHtml';
 
@@ -10,7 +11,7 @@ export function showNewProjectModal(): Promise<
     const modalHost = document.getElementById('project-flow-modal');
     if (!modalHost) return resolve(null);
 
-    const hasDirectoryPicker = 'showDirectoryPicker' in window;
+    const hasDirectoryPicker = localFolderProjectsEnabled() && 'showDirectoryPicker' in window;
 
     modalHost.innerHTML = `
       <div class="modal-overlay project-flow-modal-overlay is-selection-step" role="dialog" aria-modal="true" aria-labelledby="project-flow-modal-title">
@@ -103,7 +104,7 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
     const modalHost = document.getElementById('project-flow-modal');
     if (!modalHost) return resolve(null);
 
-    const hasDirectoryPicker = 'showDirectoryPicker' in window;
+    const hasDirectoryPicker = localFolderProjectsEnabled() && 'showDirectoryPicker' in window;
 
     const renderRecentItem = (entry: { ref: WorkspaceRef, displayName: string, time: number }, index: number) => {
       const icon = entry.ref.kind === 'directory' ? '📁' : '☁️';

@@ -14,6 +14,8 @@ declare global {
 // must get browser storage only, and the local-folder option must be absent.
 async function run() {
   const hasDirectoryPicker = 'showDirectoryPicker' in window;
+  // Local-folder projects are gated by ?local-folders=true (config/mvp-scope.ts), so the expectation follows the query.
+  const localFolderEnabled = new URLSearchParams(location.search).get('local-folders') === 'true';
   await import('/src/main.ts');
   await waitFor('app ready flag or boot error', () => (
     window.__CLEAR_WRITER_READY__ === true || Boolean(window.__CLEAR_WRITER_BOOT_ERROR__)
@@ -36,7 +38,8 @@ async function run() {
   await waitFor('browser storage project', () => state.current.projectRef?.kind === 'opfs' ? state.current.projectRef : null);
 
   window.__HARNESS_RESULT__ = {
-    ok: localFolderShown === hasDirectoryPicker && browserStorageShown && state.current.projectRef?.kind === 'opfs',
+    ok: localFolderShown === (localFolderEnabled && hasDirectoryPicker) && browserStorageShown && state.current.projectRef?.kind === 'opfs',
+    localFolderEnabled,
     hasDirectoryPicker,
     localFolderShown,
     browserStorageShown,
