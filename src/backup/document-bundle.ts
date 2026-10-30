@@ -6,13 +6,16 @@
  */
 
 import { createZip, readZip, safeArchivePath, ZipError, type ZipEntry } from './zip';
+import { PROJECT_SETTINGS_SCHEMA_VERSION } from '../project-settings/project-settings';
 import {
   BACKUP_MANIFEST_PATH,
   BackupError,
   checkBackupFileSize,
   describeBackupFailure,
   parseProjectBackup,
-  type BackupManifest
+  type BackupManifest,
+  type BackupSource,
+  type BackupTarget
 } from './project-backup';
 
 export const DOCUMENT_EXTENSION = '.cwdoc';
@@ -166,4 +169,67 @@ export async function parseDocumentBundle(bytes: Uint8Array, options: ParseDocum
   }
 
   return { kind: 'document', manifest, files };
+}
+
+/** A `.cwdoc` file name for a document title, with characters that are not safe in file names replaced. */
+export function documentFileName(title: string): string {
+  const safe = title.replace(/[^\p{L}\p{N} _.-]+/gu, '-').replace(/\s+/g, ' ').trim().replace(/^[.-]+/, '').slice(0, 80).replace(/[-.\s]+$/, '');
+  return `${safe || 'Untitled'}${DOCUMENT_EXTENSION}`;
+}
+
+/** Editor preferences describe the device, not the document, so they are not saved in a `.cwdoc`. */
+function settingsWithoutEditorSetup(data: Uint8Array): { readonly bytes: Uint8Array<ArrayBuffer>; readonly schemaVersion: number } {
+  let settings: Record<string, unknown>;
+  try {
+    settings = JSON.parse(new TextDecoder().decode(data)) as Record<string, unknown>;
+  } catch {
+    throw new BackupError('The document cannot be saved: its project settings cannot be read.');
+  }
+  delete settings.editorSetup;
+  const schemaVersion = typeof settings.schemaVersion === 'number' ? settings.schemaVersion : PROJECT_SETTINGS_SCHEMA_VERSION;
+  return { bytes: new TextEncoder().encode(JSON.stringify(settings, null, 2)) as Uint8Array<ArrayBuffer>, schemaVersion };
+}
+
+export interface SavedDocument {
+  readonly bytes: Uint8Array;
+  readonly fileName: string;
+}
+
+/**
+ * Reads the open project into a `.cwdoc`. Only document files are read: anything outside `settings.json`,
+ * `sections/`, `images/` and `assets/` (such as the trash) stays out. Editor preferences are left out of the settings.
+ */
+export async function createDocumentFromSource(source: BackupSource, now: Date = new Date()): Promise<SavedDocument> {
+  const paths = (await source.listProjectFiles()).filter(path => isProjectPath(path)).sort();
+  const files: DocumentFileInput[] = [];
+  let settingsSchemaVersion = PROJECT_SETTINGS_SCHEMA_VERSION;
+  try {
+    for (const path of paths) {
+      const data = await source.readProjectFile(path);
+      if (path === SETTINGS_PATH) {
+        const settings = settingsWithoutEditorSetup(data);
+        settingsSchemaVersion = settings.schemaVersion;
+        files.push({ path, data: settings.bytes });
+      } else {
+        files.push({ path, data: data as Uint8Array<ArrayBuffer> });
+      }
+    }
+  } catch (error) {
+    throw describeBackupFailure(error, 'make') ?? error;
+  }
+  const bytes = await createDocumentBundle({ title: source.displayName, files, settingsSchemaVersion, now });
+  return { bytes, fileName: documentFileName(source.displayName) };
+}
+
+/**
+ * Writes the files of an opened document into an empty project: content first and settings last, so a restore
+ * that stops part-way never leaves settings that point at files that are not there.
+ */
+export async function writeDocumentFiles(target: BackupTarget, files: readonly ZipEntry[]): Promise<void> {
+  const ordered = [...files].sort((a, b) => Number(a.path === SETTINGS_PATH) - Number(b.path === SETTINGS_PATH) || a.path.localeCompare(b.path));
+  try {
+    for (const file of ordered) await target.writeProjectFile(file.path, file.data);
+  } catch (error) {
+    throw describeBackupFailure(error, 'read') ?? error;
+  }
 }

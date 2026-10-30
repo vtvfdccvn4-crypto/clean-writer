@@ -133,9 +133,9 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
 
             <div class="modal-divider"></div>
             <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-import-backup">
-              <span class="ui-button-icon">📦</span> Import a backup (.zip) as a new project...
+              <span class="ui-button-icon">📦</span> Open a document (.cwdoc) as a new project...
             </button>
-            <input type="file" id="input-import-backup" accept=".zip,application/zip" hidden>
+            <input type="file" id="input-import-backup" accept=".cwdoc,.zip,application/zip" hidden>
 
             ${hasDirectoryPicker ? `
               <div class="modal-divider"></div>

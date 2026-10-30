@@ -110,3 +110,43 @@ test('a legacy ZIP backup still opens, as a legacy backup', async () => {
   assert.equal(parsed.kind, 'legacy-backup');
   assert.equal(parsed.files.length, 2);
 });
+
+function projectSource(files, displayName = 'My Essay') {
+  const store = new Map(Object.entries(files).map(([path, value]) => [path, text(value)]));
+  return {
+    displayName,
+    listProjectFiles: async () => [...store.keys()],
+    readProjectFile: async path => store.get(path)
+  };
+}
+
+test('saving a project leaves editor preferences and trash out of the document', async () => {
+  const settings = JSON.stringify({ schemaVersion: 5, order: ['intro.md'], editorSetup: { lineWrapping: true } });
+  const source = projectSource({
+    'settings.json': settings,
+    'sections/intro.md': '# Intro\n',
+    '.trash/1/data/old.md': 'deleted'
+  });
+  const saved = await bundle.createDocumentFromSource(source, new Date(0));
+  assert.equal(saved.fileName, 'My Essay.cwdoc');
+  const parsed = await parse(saved.bytes);
+  assert.equal(parsed.manifest.title, 'My Essay');
+  assert.deepEqual(parsed.files.map(file => file.path).sort(), ['sections/intro.md', 'settings.json']);
+  const savedSettings = JSON.parse(new TextDecoder().decode(parsed.files.find(file => file.path === 'settings.json').data));
+  assert.equal('editorSetup' in savedSettings, false);
+  assert.deepEqual(savedSettings.order, ['intro.md']);
+});
+
+test('a document name that is not safe in a file name is cleaned up', () => {
+  assert.equal(bundle.documentFileName('a/b\\c:d*e?'), 'a-b-c-d-e.cwdoc');
+  assert.equal(bundle.documentFileName('   '), 'Untitled.cwdoc');
+});
+
+test('opening writes the document content first and the settings last', async () => {
+  const parsed = await parse(await make());
+  const order = [];
+  const target = { writeProjectFile: async path => order.push(path) };
+  await bundle.writeDocumentFiles(target, parsed.files);
+  assert.equal(order[order.length - 1], 'settings.json');
+  assert.equal(order.length, 3);
+});
