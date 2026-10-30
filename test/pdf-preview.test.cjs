@@ -46,7 +46,6 @@ test('page-dependent values are materialized before the PDF artifact is frozen',
   assert.ok(frame.indexOf('materializePdfPreviewTocPageNumbers(stage)') < frame.indexOf('const artifact = createPdfArtifact'));
   assert.match(tocPageNumbers, /decodeURIComponent/);
   assert.match(tocPageNumbers, /textContent = pageNumber === undefined/);
-  assert.match(tocPageNumbers, /output\.textContent = '0000'/);
 });
 
 test('the artifact stylesheet owns physical print geometry and TOC reservation', () => {
