@@ -9,8 +9,6 @@ export type MarkdownCommand =
   | 'unordered-list' | 'ordered-list' | 'quote'
   | 'inline-code' | 'code-block' | 'page-break' | 'table';
 
-type Range = { from: number; to: number };
-
 const inlineWrappers: Partial<Record<MarkdownCommand, { before: string; after: string }>> = {
   bold: { before: '**', after: '**' },
   italic: { before: '*', after: '*' },
@@ -27,13 +25,9 @@ const linePrefixes: Partial<Record<MarkdownCommand, string>> = {
   quote: '> '
 };
 
-function selectedRanges(view: EditorView): Range[] {
-  return view.state.selection.ranges.map(({ from, to }) => ({ from, to }));
-}
-
 function linePrefixCommand(view: EditorView, prefix: string) {
   const changes: Array<{ from: number; to: number; insert: string }> = [];
-  const selections = selectedRanges(view);
+  const selections = view.state.selection.ranges.map(({ from, to }) => ({ from, to }));
   const seen = new Set<number>();
 
   for (const selection of selections) {
