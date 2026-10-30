@@ -2,7 +2,7 @@ import type { Platform, WorkspaceRef } from '../platform/types';
 import { projectSession } from '../services/ProjectSessionStore';
 import { describeWorkspaceError } from '../services/project-runtime-feedback';
 import { describeBytes } from '../backup/format';
-import { BackupError, checkBackupFileSize, checkStorageFor, describeBackupFailure, restoreProjectBackup } from '../backup/project-backup';
+import { BackupError, checkBackupFileSize, checkStorageFor, describeBackupFailure } from '../backup/document-errors';
 import { DOCUMENT_EXTENSION, DOCUMENT_MIME_TYPE, createDocumentFromSource, parseDocumentBundle, writeDocumentFiles } from '../backup/document-bundle';
 import { PROJECT_SETTINGS_SCHEMA_VERSION } from '../project-settings/project-settings';
 import { CwdocFileWorkspace, writeHandle } from '../platform/CwdocFileWorkspace';
@@ -131,7 +131,7 @@ async function freeProjectName(platform: Platform, wanted: string): Promise<stri
 }
 
 /**
- * Opens a `.cwdoc`, or a ZIP backup from before it, as a new document in browser storage. The file is checked in
+ * Opens a `.cwdoc` as a new document in browser storage. The file is checked in
  * full before anything is created, and a document that fails part-way is removed, so a bad file never leaves a
  * broken document behind. Returns the new document, or null after telling the user why not.
  */
@@ -142,19 +142,13 @@ export async function openProjectDocument(platform: Platform, file: File): Promi
     let buffer: ArrayBuffer;
     try { buffer = await file.arrayBuffer(); } catch (error) { throw describeBackupFailure(error, 'read') ?? new BackupError('This file could not be read. It may have been moved or deleted; choose it again.'); }
     const parsed = await parseDocumentBundle(new Uint8Array(buffer), { supportedSettingsSchemaVersion: PROJECT_SETTINGS_SCHEMA_VERSION });
-    const title = parsed.kind === 'document' ? parsed.manifest.title : parsed.manifest.projectName;
     await checkStorageFor(parsed.files.reduce((sum, entry) => sum + entry.data.length, 0));
-    const name = await freeProjectName(platform, title);
+    const name = await freeProjectName(platform, parsed.manifest.title);
     created = await platform.workspaceRepository.selectDirectory({ kind: 'opfs', name });
     if (!created) throw new Error('The new document could not be created.');
     const session = await platform.workspaceRepository.open(created);
-    if (parsed.kind === 'document') {
-      await writeDocumentFiles(session, parsed.files);
-      showNotice(`Opened "${name}" (${parsed.files.length} files).`, 'info');
-    } else {
-      await restoreProjectBackup(session, { manifest: parsed.manifest, files: parsed.files, ignored: [] });
-      showNotice(`Opened "${name}" from an older backup (${parsed.files.length} files). Save it as a .cwdoc to keep it in the new format.`, 'info');
-    }
+    await writeDocumentFiles(session, parsed.files);
+    showNotice(`Opened "${name}" (${parsed.files.length} files).`, 'info');
     return created;
   } catch (error) {
     console.error('[Document] The document could not be opened.', error);

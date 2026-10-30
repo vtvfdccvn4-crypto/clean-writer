@@ -1,5 +1,5 @@
 import { createDocumentFromSource } from '../backup/document-bundle';
-import { BackupError } from '../backup/project-backup';
+import { BackupError } from '../backup/document-errors';
 import { InMemoryWorkspaceSession } from './InMemoryWorkspace';
 
 /** How long a change waits before it is written to the file, so a run of edits becomes one write. */

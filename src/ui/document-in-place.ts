@@ -1,11 +1,10 @@
-import type { Platform, WorkspaceRef } from '../platform/types';
+import type { WorkspaceRef } from '../platform/types';
 import { CwdocFileWorkspace } from '../platform/CwdocFileWorkspace';
 import { projectSession } from '../services/ProjectSessionStore';
 import { describeWorkspaceError } from '../services/project-runtime-feedback';
 import { DOCUMENT_EXTENSION, DOCUMENT_MIME_TYPE, parseDocumentBundle, writeDocumentFiles } from '../backup/document-bundle';
-import { BackupError, describeBackupFailure } from '../backup/project-backup';
+import { BackupError, describeBackupFailure } from '../backup/document-errors';
 import { PROJECT_SETTINGS_SCHEMA_VERSION } from '../project-settings/project-settings';
-import { openProjectDocument } from './project-backup-actions';
 import { showNotice } from './components/Notice';
 
 type OpenFilePicker = (options: {
@@ -38,7 +37,7 @@ function registerFlushOnHide(): void {
  * into browser storage. Returns true when the document is open. A ZIP backup cannot be written back to, so it opens
  * as a copy, as it did before.
  */
-export async function openDocumentInPlace(platform: Platform): Promise<boolean> {
+export async function openDocumentInPlace(): Promise<boolean> {
   const picker = (window as unknown as { showOpenFilePicker?: OpenFilePicker }).showOpenFilePicker;
   if (!picker) return false;
   let handle: FileSystemFileHandle;
@@ -59,10 +58,6 @@ export async function openDocumentInPlace(platform: Platform): Promise<boolean> 
     }
     const file = await handle.getFile();
     const parsed = await parseDocumentBundle(new Uint8Array(await file.arrayBuffer()), { supportedSettingsSchemaVersion: PROJECT_SETTINGS_SCHEMA_VERSION });
-    if (parsed.kind === 'legacy-backup') {
-      showNotice(`${handle.name} is an older ZIP backup, which cannot be changed in place. It opens as a new copy.`, 'info');
-      return (await openProjectDocument(platform, file)) !== null;
-    }
 
     const session = new CwdocFileWorkspace(`file-${handle.name}-${Date.now()}`, parsed.manifest.title);
     await session.initialize();

@@ -33,23 +33,13 @@ export function initTaskPanelActions(platform: Platform, hooks: TaskPanelActionH
   });
 
   btnOpen?.addEventListener('click', async () => {
-    const recents = platform.workspaceRepository.listKnownBrowserWorkspaces
-      ? await platform.workspaceRepository.listKnownBrowserWorkspaces()
-      : [];
-    const choice = await showOpenProjectModal(recents);
+    const choice = await showOpenProjectModal();
     if (!choice) return;
     if (choice.action === 'open-in-place') {
-      await openDocumentInPlace(platform);
+      await openDocumentInPlace();
       return;
     }
-    let ref: import('../../platform/types').WorkspaceRef | null = null;
-    if (choice.action === 'directory-picker') {
-      ref = await platform.workspaceRepository.selectDirectory({ kind: 'directory' });
-    } else if (choice.action === 'open-ref') {
-      ref = choice.ref;
-    } else if (choice.action === 'import-backup') {
-      ref = await openProjectDocument(platform, choice.file);
-    }
+    const ref = await openProjectDocument(platform, choice.file);
     if (!ref) return;
     await openProjectWithRecovery(platform, ref);
   });

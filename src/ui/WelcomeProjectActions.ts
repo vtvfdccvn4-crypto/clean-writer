@@ -25,23 +25,13 @@ export function createWelcomeProjectActions(platform: Platform): WelcomeProjectA
       if (ref) await openProjectWithRecovery(platform, ref);
     },
     onOpenDocument: async () => {
-      const recents = platform.workspaceRepository.listKnownBrowserWorkspaces
-        ? await platform.workspaceRepository.listKnownBrowserWorkspaces()
-        : [];
-      const choice = await showOpenProjectModal(recents);
+      const choice = await showOpenProjectModal();
       if (!choice) return;
       if (choice.action === 'open-in-place') {
-        await openDocumentInPlace(platform);
+        await openDocumentInPlace();
         return;
       }
-      let ref: WorkspaceRef | null = null;
-      if (choice.action === 'directory-picker') {
-        ref = await platform.workspaceRepository.selectDirectory({ kind: 'directory' });
-      } else if (choice.action === 'open-ref') {
-        ref = choice.ref;
-      } else if (choice.action === 'import-backup') {
-        ref = await openProjectDocument(platform, choice.file);
-      }
+      const ref = await openProjectDocument(platform, choice.file);
       if (ref) await openProjectWithRecovery(platform, ref);
     },
     onOpenRecent: async ref => {

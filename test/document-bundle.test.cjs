@@ -5,14 +5,12 @@ const { createTestServer } = require('./helpers/vite-test-server.cjs');
 let server;
 let bundle;
 let zip;
-let backup;
 let memory;
 
 before(async () => {
   server = await createTestServer();
   bundle = await server.ssrLoadModule('/src/backup/document-bundle.ts');
   zip = await server.ssrLoadModule('/src/backup/zip.ts');
-  backup = await server.ssrLoadModule('/src/backup/project-backup.ts');
   memory = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts');
 });
 
@@ -55,7 +53,6 @@ const parse = bytes => bundle.parseDocumentBundle(bytes, { supportedSettingsSche
 
 test('a created document round-trips with its title and every file', async () => {
   const parsed = await parse(await make());
-  assert.equal(parsed.kind, 'document');
   assert.equal(parsed.manifest.title, 'My Essay');
   assert.equal(parsed.manifest.files.length, 3);
   assert.deepEqual(parsed.files.map(file => file.path).sort(), ['images/fig-1.png', 'sections/intro.md', 'settings.json']);
@@ -99,18 +96,6 @@ test('a listed file that is missing is reported as incomplete', async () => {
 
 test('a ZIP with no manifest is not a document', async () => {
   await assert.rejects(parse(zip.createZip([{ path: 'settings.json', data: SETTINGS }])), /not a Clear Writer document/);
-});
-
-test('a legacy ZIP backup still opens, as a legacy backup', async () => {
-  const source = {
-    displayName: 'Old Project',
-    listProjectFiles: async () => ['settings.json', 'sections/intro.md'],
-    readProjectFile: async path => (path === 'settings.json' ? SETTINGS : text('# Intro\n'))
-  };
-  const created = await backup.createProjectBackup(source, new Date(0));
-  const parsed = await parse(created.bytes);
-  assert.equal(parsed.kind, 'legacy-backup');
-  assert.equal(parsed.files.length, 2);
 });
 
 function projectSource(files, displayName = 'My Essay') {
@@ -161,7 +146,6 @@ test('a project saved as a .cwdoc opens back with the same sections and images',
 
   const saved = await bundle.createDocumentFromSource(original, new Date(0));
   const opened = await parse(saved.bytes);
-  assert.equal(opened.kind, 'document');
 
   const restored = new memory.InMemoryWorkspaceSession('restored', 'Round Trip');
   await restored.initialize();
@@ -174,14 +158,3 @@ test('a project saved as a .cwdoc opens back with the same sections and images',
   assert.ok(images.includes('images/fig.png'), `images were ${images.join(', ')}`);
 });
 
-test('an older ZIP backup still reads as a legacy backup and keeps its files', async () => {
-  const source = {
-    displayName: 'Old',
-    listProjectFiles: async () => ['settings.json', 'sections/a.md'],
-    readProjectFile: async path => (path === 'settings.json' ? SETTINGS : text('old'))
-  };
-  const created = await backup.createProjectBackup(source, new Date(0));
-  const opened = await parse(created.bytes);
-  assert.equal(opened.kind, 'legacy-backup');
-  assert.deepEqual(opened.files.map(file => file.path).sort(), ['sections/a.md', 'settings.json']);
-});
