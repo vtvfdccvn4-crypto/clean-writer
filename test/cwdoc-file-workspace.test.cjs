@@ -92,3 +92,20 @@ test('loading a document is not a change, so nothing is written', async () => {
   await new Promise(resolve => setTimeout(resolve, 1700));
   assert.equal(handle.disk.writes, 0);
 });
+
+test('save as: the copy is written to the new file, and later changes go there', async () => {
+  const { session, handle: original } = await openedDocument();
+  const copy = fakeHandle('copy.cwdoc', original.disk.bytes);
+  const copyBytes = (await bundle.createDocumentFromSource(session, new Date(0))).bytes;
+  await fileWorkspace.writeHandle(copy, copyBytes);
+  session.attachFile(copy, (await copy.getFile()).lastModified);
+
+  await session.writeSection('intro.md', '# After save as\n');
+  await session.flush();
+
+  assert.equal(original.disk.writes, 0, 'the original file is not written after the save as');
+  assert.equal(copy.disk.writes, 2, 'the copy gets the save as write and the later change');
+  const reopened = await bundle.parseDocumentBundle(copy.disk.bytes, { supportedSettingsSchemaVersion: 5 });
+  const section = reopened.files.find(file => file.path === 'sections/intro.md');
+  assert.equal(new TextDecoder().decode(section.data), '# After save as\n');
+});

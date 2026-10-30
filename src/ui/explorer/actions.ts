@@ -5,7 +5,7 @@ import { ProjectService } from '../../services/ProjectService';
 import { showNewProjectModal, showOpenProjectModal } from '../project-flow-modal';
 import { openProjectWithRecovery } from '../project-opening';
 import { showTrashDialog } from '../trash-dialog';
-import { saveProjectDocument, openProjectDocument } from '../project-backup-actions';
+import { saveProjectDocument, openProjectDocument, saveProjectDocumentAs } from '../project-backup-actions';
 import { openDocumentInPlace } from '../document-in-place';
 
 export interface TaskPanelActionHooks {
@@ -56,6 +56,10 @@ export function initTaskPanelActions(platform: Platform, hooks: TaskPanelActionH
 
   document.getElementById('btn-project-backup')?.addEventListener('click', () => {
     void saveProjectDocument(hooks.flushCurrentDocument ?? (async () => undefined));
+  });
+
+  document.getElementById('btn-project-save-as')?.addEventListener('click', () => {
+    void saveProjectDocumentAs(hooks.flushCurrentDocument ?? (async () => undefined));
   });
 
   document.getElementById('btn-task-trash')?.addEventListener('click', () => {

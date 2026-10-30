@@ -66,14 +66,19 @@ export class CwdocFileWorkspace extends InMemoryWorkspaceSession {
       throw new BackupError(`${handle.name} changed on disk after it was opened, so your changes were not written to it. Keep the file that is on disk, then open it again to continue.`);
     }
     const saved = await createDocumentFromSource(this);
-    const writable = await handle.createWritable();
-    try {
-      await writable.write(saved.bytes as Uint8Array<ArrayBuffer>);
-      await writable.close();
-    } catch (error) {
-      await writable.abort?.().catch(() => undefined);
-      throw error;
-    }
+    await writeHandle(handle, saved.bytes);
     this.knownModified = (await handle.getFile()).lastModified;
+  }
+}
+
+/** Replaces the contents of a file on disk. The browser keeps the old contents unless the write completes. */
+export async function writeHandle(handle: FileSystemFileHandle, bytes: Uint8Array): Promise<void> {
+  const writable = await handle.createWritable();
+  try {
+    await writable.write(bytes as Uint8Array<ArrayBuffer>);
+    await writable.close();
+  } catch (error) {
+    await writable.abort?.().catch(() => undefined);
+    throw error;
   }
 }

@@ -5,7 +5,7 @@ import { describeBytes } from '../backup/format';
 import { BackupError, checkBackupFileSize, checkStorageFor, describeBackupFailure, restoreProjectBackup } from '../backup/project-backup';
 import { DOCUMENT_EXTENSION, DOCUMENT_MIME_TYPE, createDocumentFromSource, parseDocumentBundle, writeDocumentFiles } from '../backup/document-bundle';
 import { PROJECT_SETTINGS_SCHEMA_VERSION } from '../project-settings/project-settings';
-import { CwdocFileWorkspace } from '../platform/CwdocFileWorkspace';
+import { CwdocFileWorkspace, writeHandle } from '../platform/CwdocFileWorkspace';
 import { showNotice } from './components/Notice';
 
 /** Hands a file to the browser's download, which saves it to the user's downloads folder. */
@@ -22,43 +22,43 @@ export function saveBlobAs(blob: Blob, fileName: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-interface SaveFileHandle {
-  createWritable(): Promise<{ write(data: BlobPart): Promise<void>; close(): Promise<void> }>;
-}
+/** Where a save goes: a file the person picked (Chromium), or a download everywhere else. Null means they cancelled. */
+type SaveTarget = { readonly handle: FileSystemFileHandle } | { readonly handle: null };
 
-type SaveFilePicker = (options: {
-  suggestedName: string;
-  types: Array<{ description: string; accept: Record<string, string[]> }>;
-}) => Promise<SaveFileHandle>;
-
-/**
- * Saves the `.cwdoc` where the browser lets the person choose the place and name (Chromium desktop). Everywhere
- * else it is a download. Returns false only when the person cancels the save dialog.
- */
-async function saveDocumentBytes(bytes: Uint8Array, fileName: string): Promise<boolean> {
-  const picker = (window as unknown as { showSaveFilePicker?: SaveFilePicker }).showSaveFilePicker;
-  if (!picker) {
-    saveBlobAs(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: DOCUMENT_MIME_TYPE }), fileName);
-    return true;
-  }
+async function chooseSaveTarget(fileName: string): Promise<SaveTarget | null> {
+  const picker = (window as unknown as { showSaveFilePicker?: (options: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker;
+  if (!picker) return { handle: null };
   try {
     const handle = await picker({
       suggestedName: fileName,
       types: [{ description: 'Clear Writer document', accept: { [DOCUMENT_MIME_TYPE]: [DOCUMENT_EXTENSION] } }]
     });
-    const writable = await handle.createWritable();
-    await writable.write(bytes as Uint8Array<ArrayBuffer>);
-    await writable.close();
-    return true;
+    return { handle };
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') return false;
+    if (error instanceof DOMException && error.name === 'AbortError') return null;
     throw error;
   }
 }
 
 /**
- * Saves the open document as a `.cwdoc`. The document being edited is saved first, so the file holds the text on
- * screen. Works in every browser: it needs no local-folder access.
+ * Saves the document bytes where the person chooses. Returns false only when they cancel the save dialog. A
+ * download (no picker) cannot be followed by a hand-over, so the chosen file is returned for callers that need it.
+ */
+async function saveDocumentBytes(bytes: Uint8Array, fileName: string): Promise<FileSystemFileHandle | 'download' | null> {
+  const target = await chooseSaveTarget(fileName);
+  if (!target) return null;
+  if (!target.handle) {
+    saveBlobAs(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: DOCUMENT_MIME_TYPE }), fileName);
+    return 'download';
+  }
+  await writeHandle(target.handle, bytes);
+  return target.handle;
+}
+
+/**
+ * Saves the open document as a `.cwdoc`. For a document opened from the computer, Save writes to that file.
+ * Otherwise it saves a copy where the person chooses. The document being edited is saved first, so the file holds
+ * the text on screen.
  */
 export async function saveProjectDocument(flushCurrentDocument: () => Promise<void>): Promise<void> {
   const session = projectSession.getSession();
@@ -68,20 +68,52 @@ export async function saveProjectDocument(flushCurrentDocument: () => Promise<vo
   }
   try {
     await flushCurrentDocument();
-    if (session instanceof CwdocFileWorkspace) {
+    if (session instanceof CwdocFileWorkspace && session.fileName) {
       await session.flush();
-      showNotice(`Saved ${session.fileName ?? 'the document'}.`, 'info');
+      showNotice(`Saved ${session.fileName}.`, 'info');
       return;
     }
-    const saved = await createDocumentFromSource(session);
-    if (await saveDocumentBytes(saved.bytes, saved.fileName)) {
-      showNotice(`Saved ${saved.fileName} (${describeBytes(saved.bytes.length)}). Keep it somewhere safe.`, 'info');
-    }
+    await saveCopy(session);
   } catch (error) {
     console.error('[Document] The document could not be saved.', error);
     const known = describeBackupFailure(error, 'make');
     showNotice(known ? known.message : `The document could not be saved. ${describeWorkspaceError(error, 'project')}`, 'error');
   }
+}
+
+/**
+ * Saves a copy of the open document where the person chooses, then keeps working in that copy when the document is
+ * open from the computer. The file that was open keeps the contents it had at this save.
+ */
+export async function saveProjectDocumentAs(flushCurrentDocument: () => Promise<void>): Promise<void> {
+  const session = projectSession.getSession();
+  if (!session) {
+    showNotice('Open a document to save a copy of it.', 'info');
+    return;
+  }
+  try {
+    await flushCurrentDocument();
+    await saveCopy(session);
+  } catch (error) {
+    console.error('[Document] The document could not be saved as a copy.', error);
+    const known = describeBackupFailure(error, 'make');
+    showNotice(known ? known.message : `The document could not be saved as a copy. ${describeWorkspaceError(error, 'project')}`, 'error');
+  }
+}
+
+async function saveCopy(session: NonNullable<ReturnType<typeof projectSession.getSession>>): Promise<void> {
+  if (session instanceof CwdocFileWorkspace) await session.flush();
+  const saved = await createDocumentFromSource(session);
+  const result = await saveDocumentBytes(saved.bytes, saved.fileName);
+  if (result === null) return;
+  if (result === 'download') {
+    showNotice(`Saved ${saved.fileName} (${describeBytes(saved.bytes.length)}). Keep it somewhere safe.`, 'info');
+    return;
+  }
+  if (session instanceof CwdocFileWorkspace) {
+    session.attachFile(result, (await result.getFile()).lastModified);
+  }
+  showNotice(`Saved ${result.name}. Changes now go to that file.`, 'info');
 }
 
 /** A project name that is not already in use: the document's own name, or that name with "(imported)" added. */
