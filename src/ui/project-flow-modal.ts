@@ -1,4 +1,5 @@
 import { localFolderProjectsEnabled } from '../config/mvp-scope';
+import { canOpenInPlace } from './document-in-place';
 import type { WorkspaceRef } from '../platform';
 import { escapeHtml } from '../utils/escapeHtml';
 
@@ -99,6 +100,7 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
   | { action: 'directory-picker' }
   | { action: 'open-ref'; ref: WorkspaceRef }
   | { action: 'import-backup'; file: File }
+  | { action: 'open-in-place' }
   | null
 > {
   return new Promise((resolve) => {
@@ -106,6 +108,7 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
     if (!modalHost) return resolve(null);
 
     const hasDirectoryPicker = localFolderProjectsEnabled() && 'showDirectoryPicker' in window;
+    const openInPlace = canOpenInPlace();
 
     const renderRecentItem = (entry: { ref: WorkspaceRef, displayName: string, time: number }, index: number) => {
       const icon = entry.ref.kind === 'directory' ? '📁' : '☁️';
@@ -132,10 +135,16 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
             ` : '<p>No recent projects found.</p>'}
 
             <div class="modal-divider"></div>
-            <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-import-backup">
-              <span class="ui-button-icon">📦</span> Open a document (.cwdoc) as a new project...
-            </button>
-            <input type="file" id="input-import-backup" accept=".cwdoc,.zip,application/zip" hidden>
+            ${openInPlace ? `
+              <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-open-file">
+                <span class="ui-button-icon">📄</span> Open a document (.cwdoc) from this computer...
+              </button>
+            ` : `
+              <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-import-backup">
+                <span class="ui-button-icon">📦</span> Open a copy of a document (.cwdoc or .zip) as a new project...
+              </button>
+              <input type="file" id="input-import-backup" accept=".cwdoc,.zip,application/zip" hidden>
+            `}
 
             ${hasDirectoryPicker ? `
               <div class="modal-divider"></div>
@@ -161,15 +170,23 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
       resolve(null);
     });
 
-    const importButton = modalHost.querySelector('#btn-modal-import-backup') as HTMLButtonElement;
-    const importInput = modalHost.querySelector('#input-import-backup') as HTMLInputElement;
-    importButton.addEventListener('click', () => importInput.click());
-    importInput.addEventListener('change', () => {
-      const file = importInput.files?.[0];
-      if (!file) return;
-      cleanup();
-      resolve({ action: 'import-backup', file });
-    });
+    if (openInPlace) {
+      const openFileButton = modalHost.querySelector('#btn-modal-open-file') as HTMLButtonElement;
+      openFileButton.addEventListener('click', () => {
+        cleanup();
+        resolve({ action: 'open-in-place' });
+      });
+    } else {
+      const importButton = modalHost.querySelector('#btn-modal-import-backup') as HTMLButtonElement;
+      const importInput = modalHost.querySelector('#input-import-backup') as HTMLInputElement;
+      importButton.addEventListener('click', () => importInput.click());
+      importInput.addEventListener('change', () => {
+        const file = importInput.files?.[0];
+        if (!file) return;
+        cleanup();
+        resolve({ action: 'import-backup', file });
+      });
+    }
 
     const btnOpenDir = modalHost.querySelector('#btn-modal-open-dir') as HTMLButtonElement | null;
     if (btnOpenDir) {

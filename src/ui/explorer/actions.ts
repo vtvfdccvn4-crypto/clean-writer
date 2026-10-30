@@ -6,6 +6,7 @@ import { showNewProjectModal, showOpenProjectModal } from '../project-flow-modal
 import { openProjectWithRecovery } from '../project-opening';
 import { showTrashDialog } from '../trash-dialog';
 import { saveProjectDocument, openProjectDocument } from '../project-backup-actions';
+import { openDocumentInPlace } from '../document-in-place';
 
 export interface TaskPanelActionHooks {
   /** Saves the document being edited, so a backup holds the text on screen. */
@@ -37,6 +38,10 @@ export function initTaskPanelActions(platform: Platform, hooks: TaskPanelActionH
       : [];
     const choice = await showOpenProjectModal(recents);
     if (!choice) return;
+    if (choice.action === 'open-in-place') {
+      await openDocumentInPlace(platform);
+      return;
+    }
     let ref: import('../../platform/types').WorkspaceRef | null = null;
     if (choice.action === 'directory-picker') {
       ref = await platform.workspaceRepository.selectDirectory({ kind: 'directory' });

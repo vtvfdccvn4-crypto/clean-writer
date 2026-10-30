@@ -14,7 +14,7 @@ export interface FileNode {
 
 export interface WorkspaceRef {
   id: string;
-  kind: 'memory' | 'opfs' | 'directory';
+  kind: 'memory' | 'opfs' | 'directory' | 'file';
   displayName: string;
 }
 

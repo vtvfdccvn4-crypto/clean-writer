@@ -5,6 +5,7 @@ import { describeBytes } from '../backup/format';
 import { BackupError, checkBackupFileSize, checkStorageFor, describeBackupFailure, restoreProjectBackup } from '../backup/project-backup';
 import { DOCUMENT_EXTENSION, DOCUMENT_MIME_TYPE, createDocumentFromSource, parseDocumentBundle, writeDocumentFiles } from '../backup/document-bundle';
 import { PROJECT_SETTINGS_SCHEMA_VERSION } from '../project-settings/project-settings';
+import { CwdocFileWorkspace } from '../platform/CwdocFileWorkspace';
 import { showNotice } from './components/Notice';
 
 /** Hands a file to the browser's download, which saves it to the user's downloads folder. */
@@ -67,6 +68,11 @@ export async function saveProjectDocument(flushCurrentDocument: () => Promise<vo
   }
   try {
     await flushCurrentDocument();
+    if (session instanceof CwdocFileWorkspace) {
+      await session.flush();
+      showNotice(`Saved ${session.fileName ?? 'the document'}.`, 'info');
+      return;
+    }
     const saved = await createDocumentFromSource(session);
     if (await saveDocumentBytes(saved.bytes, saved.fileName)) {
       showNotice(`Saved ${saved.fileName} (${describeBytes(saved.bytes.length)}). Keep it somewhere safe.`, 'info');
