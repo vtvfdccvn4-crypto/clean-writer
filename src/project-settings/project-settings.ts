@@ -5,7 +5,7 @@ import { resolveFontFamily } from '../config/font-families';
 import { safeText, safeNumber, safeBoolAlias, safeBoolWithFallback, safeBoolAliasWithFallback, safeColor } from './coerce';
 import { migratePageSetupInput } from './migrations';
 
-const PROJECT_SETTINGS_SCHEMA_VERSION = 5;
+export const PROJECT_SETTINGS_SCHEMA_VERSION = 5;
 
 export type ProjectSettingsInput = Partial<ProjectSettingsData> & Record<string, unknown>;
 

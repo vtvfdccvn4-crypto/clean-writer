@@ -32,7 +32,7 @@ const MAX_MAX_WAIT_MS = 5_000;
 /** Above this many characters, continuous typing may wait longer for a recovery draft. */
 export const LARGE_DRAFT_DOCUMENT_CHARACTERS = 200_000;
 /** Shown once for each large section, so the longer window is stated where the writer sees it. */
-export const LARGE_DRAFT_NOTICE = 'This section is over 200,000 characters. If the browser crashes while you type without pausing, up to 5 seconds of typing may not be recovered (1 second in shorter sections). Download a backup from the project toolbar to keep a copy.';
+export const LARGE_DRAFT_NOTICE = 'This section is over 200,000 characters. If the browser crashes while you type without pausing, up to 5 seconds of typing may not be recovered (1 second in shorter sections). Save the document from the toolbar to keep a copy.';
 const SLOWEST_DOCUMENT_CHARACTERS = 1_000_000;
 
 /** How long a draft may wait, by document size: one second up to 200,000 characters, rising to five at 1,000,000. */

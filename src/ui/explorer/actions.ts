@@ -5,7 +5,7 @@ import { ProjectService } from '../../services/ProjectService';
 import { showNewProjectModal, showOpenProjectModal } from '../project-flow-modal';
 import { openProjectWithRecovery } from '../project-opening';
 import { showTrashDialog } from '../trash-dialog';
-import { downloadProjectBackup, importProjectBackup } from '../project-backup-actions';
+import { saveProjectDocument, openProjectDocument } from '../project-backup-actions';
 
 export interface TaskPanelActionHooks {
   /** Saves the document being edited, so a backup holds the text on screen. */
@@ -43,14 +43,14 @@ export function initTaskPanelActions(platform: Platform, hooks: TaskPanelActionH
     } else if (choice.action === 'open-ref') {
       ref = choice.ref;
     } else if (choice.action === 'import-backup') {
-      ref = await importProjectBackup(platform, choice.file);
+      ref = await openProjectDocument(platform, choice.file);
     }
     if (!ref) return;
     await openProjectWithRecovery(platform, ref);
   });
 
   document.getElementById('btn-project-backup')?.addEventListener('click', () => {
-    void downloadProjectBackup(hooks.flushCurrentDocument ?? (async () => undefined));
+    void saveProjectDocument(hooks.flushCurrentDocument ?? (async () => undefined));
   });
 
   document.getElementById('btn-task-trash')?.addEventListener('click', () => {
