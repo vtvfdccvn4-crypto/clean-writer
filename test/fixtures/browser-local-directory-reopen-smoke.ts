@@ -59,8 +59,7 @@ async function run() {
   await click('#btn-task-close-project');
   await waitFor('project closed', () => state.current.projectRef === null ? true : null);
 
-  await click('#btn-task-open-project');
-  await click('.recent-item-btn');
+  await click('.welcome-recent-item');
   await waitFor('directory reopened from recent', () => state.current.projectRef?.id === initialProjectId ? true : null);
   await waitFor('section restored', () => state.current.sections.some(section => section.path === 'sections/FolderSaved.md') ? true : null);
   state.setActiveFile('sections/FolderSaved.md');

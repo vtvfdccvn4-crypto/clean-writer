@@ -54,8 +54,8 @@ async function run() {
     throw new Error(window.__CLEAR_WRITER_BOOT_ERROR__);
   }
 
-  await click('#btn-task-open-project');
-  await click('#btn-modal-open-dir');
+  await click('#btn-task-new-project');
+  await click('#btn-modal-new-dir');
 
   const confirmTitle = await waitFor('settings recovery confirm title', () => {
     const value = getText(document.getElementById('confirm-modal-title'));
