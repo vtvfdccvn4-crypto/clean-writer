@@ -6,12 +6,14 @@ let server;
 let bundle;
 let zip;
 let backup;
+let memory;
 
 before(async () => {
   server = await createTestServer();
   bundle = await server.ssrLoadModule('/src/backup/document-bundle.ts');
   zip = await server.ssrLoadModule('/src/backup/zip.ts');
   backup = await server.ssrLoadModule('/src/backup/project-backup.ts');
+  memory = await server.ssrLoadModule('/src/platform/InMemoryWorkspace.ts');
 });
 
 after(async () => {
@@ -149,4 +151,37 @@ test('opening writes the document content first and the settings last', async ()
   await bundle.writeDocumentFiles(target, parsed.files);
   assert.equal(order[order.length - 1], 'settings.json');
   assert.equal(order.length, 3);
+});
+
+test('a project saved as a .cwdoc opens back with the same sections and images', async () => {
+  const original = new memory.InMemoryWorkspaceSession('original', 'Round Trip');
+  await original.initialize();
+  original.seedSection('intro.md', '# Intro\n\nSome text.\n');
+  original.seedImage('fig.png', new Blob([new Uint8Array([137, 80, 78, 71, 9])]));
+
+  const saved = await bundle.createDocumentFromSource(original, new Date(0));
+  const opened = await parse(saved.bytes);
+  assert.equal(opened.kind, 'document');
+
+  const restored = new memory.InMemoryWorkspaceSession('restored', 'Round Trip');
+  await restored.initialize();
+  await bundle.writeDocumentFiles(restored, opened.files);
+
+  const sections = (await restored.listSections()).map(node => node.path);
+  assert.ok(sections.includes('sections/intro.md'), `sections were ${sections.join(', ')}`);
+  assert.equal(await restored.readSection('sections/intro.md'), '# Intro\n\nSome text.\n');
+  const images = (await restored.listImages()).map(node => node.path);
+  assert.ok(images.includes('images/fig.png'), `images were ${images.join(', ')}`);
+});
+
+test('an older ZIP backup still reads as a legacy backup and keeps its files', async () => {
+  const source = {
+    displayName: 'Old',
+    listProjectFiles: async () => ['settings.json', 'sections/a.md'],
+    readProjectFile: async path => (path === 'settings.json' ? SETTINGS : text('old'))
+  };
+  const created = await backup.createProjectBackup(source, new Date(0));
+  const opened = await parse(created.bytes);
+  assert.equal(opened.kind, 'legacy-backup');
+  assert.deepEqual(opened.files.map(file => file.path).sort(), ['sections/a.md', 'settings.json']);
 });
