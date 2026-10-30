@@ -3,6 +3,7 @@ import type { Platform } from '../platform/types';
 import type { EditorManager } from './editor-manager';
 import { closeDrawer, toggleDrawer } from './drawer-manager';
 import { reviewProject, type ProjectReviewResult } from '../services/project-review';
+import { openSessionForRef } from '../services/open-session-for-ref';
 
 export function initProjectReviewDrawer(platform: Platform, editorManager: EditorManager) {
   const button = document.getElementById('btn-open-project-review');
@@ -38,7 +39,7 @@ export function initProjectReviewDrawer(platform: Platform, editorManager: Edito
     reviewResults.innerHTML = '';
     reviewEmpty.classList.add('hidden');
     try {
-      const session = await platform.workspaceRepository.open(projectRef);
+      const session = await openSessionForRef(projectRef, platform.workspaceRepository);
       const findings = await reviewProject(session, sections);
       if (currentRun !== runId) return;
       render(findings);

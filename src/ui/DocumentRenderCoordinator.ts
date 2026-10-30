@@ -24,6 +24,7 @@ import { isLargeDocument } from '../preview/PreviewPolicy';
 import type { CompiledPreview } from '../compiler';
 import { updatePreviewFreshness, updateLivePreviewStatus } from './preview-freshness';
 import { LivePreviewFreshness } from './live-preview-freshness';
+import { openSessionForRef } from '../services/open-session-for-ref';
 
 /** Preview refresh pauses. Live preview is cheap enough to follow typing closely; the paginated preview runs a full layout, so it waits as long as it did when it followed autosave. */
 const LIVE_PREVIEW_DELAY_MS = 250;
@@ -155,7 +156,7 @@ export class DocumentRenderCoordinator {
       if (!sections.some(section => !section.isDir)) return;
 
       const endSnapshotLoad = timing.start('snapshot-load');
-      const session = await this.platform.workspaceRepository.open(projectRef);
+      const session = await openSessionForRef(projectRef, this.platform.workspaceRepository);
       endSnapshotLoad();
       const initialDocument = await compileSnapshot<import('../compiler').CompiledPreview>({
         session,
@@ -237,7 +238,7 @@ export class DocumentRenderCoordinator {
     const { projectRef } = state.current;
     if (!projectRef) throw new Error('No project is open.');
 
-    const session = await this.platform.workspaceRepository.open(projectRef);
+    const session = await openSessionForRef(projectRef, this.platform.workspaceRepository);
     const diskContent = await session.readSection(filename);
     let content = diskContent;
     if (!isLatest()) return;
@@ -322,7 +323,7 @@ export class DocumentRenderCoordinator {
         try {
           let outcome = await session.writeSectionChecked(filename, newDoc);
           if (outcome === 'failed') {
-            const refreshedSession = await this.platform.workspaceRepository.open(projectRef);
+            const refreshedSession = await openSessionForRef(projectRef, this.platform.workspaceRepository);
             outcome = await refreshedSession.writeSectionChecked(filename, newDoc);
           }
           if (outcome === 'conflict') {

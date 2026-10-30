@@ -25,6 +25,7 @@ import { PreviewPipeline } from './PreviewPipeline';
 import type { IsolatedPaginationHost } from '../pdf-preview/IsolatedPaginationHost';
 import { captureCurrentPrintLayout } from './CompiledPreviewCache';
 import type { PreviewNavigator } from './preview-navigation-controls';
+import { openSessionForRef } from '../services/open-session-for-ref';
 
 export class EditorManager {
   private preview: PreviewCoordinator;
@@ -438,7 +439,7 @@ export class EditorManager {
     if (!projectRef) throw new Error('No project is open.');
     // Captured with the sections, so the whole export compiles one settings snapshot.
     const compileSettings = documentCompileSettings(state.current);
-    const session = await this.platform.workspaceRepository.open(projectRef);
+    const session = await openSessionForRef(projectRef, this.platform.workspaceRepository);
     return compileSnapshot({
       session,
       assetResolver: this.platform.assetResolver,
