@@ -3,6 +3,7 @@ import type { WelcomeControllerDependencies } from './WelcomeController';
 import { showNewProjectModal, showOpenProjectModal } from './project-flow-modal';
 import { openProjectWithRecovery } from './project-opening';
 import { openProjectDocument } from './project-backup-actions';
+import { openDocumentInPlace } from './document-in-place';
 
 type WelcomeProjectActions = Pick<
   WelcomeControllerDependencies,
@@ -24,19 +25,13 @@ export function createWelcomeProjectActions(platform: Platform): WelcomeProjectA
       if (ref) await openProjectWithRecovery(platform, ref);
     },
     onOpenDocument: async () => {
-      const recents = platform.workspaceRepository.listKnownBrowserWorkspaces
-        ? await platform.workspaceRepository.listKnownBrowserWorkspaces()
-        : [];
-      const choice = await showOpenProjectModal(recents);
+      const choice = await showOpenProjectModal();
       if (!choice) return;
-      let ref: WorkspaceRef | null = null;
-      if (choice.action === 'directory-picker') {
-        ref = await platform.workspaceRepository.selectDirectory({ kind: 'directory' });
-      } else if (choice.action === 'open-ref') {
-        ref = choice.ref;
-      } else if (choice.action === 'import-backup') {
-        ref = await openProjectDocument(platform, choice.file);
+      if (choice.action === 'open-in-place') {
+        await openDocumentInPlace();
+        return;
       }
+      const ref = await openProjectDocument(platform, choice.file);
       if (ref) await openProjectWithRecovery(platform, ref);
     },
     onOpenRecent: async ref => {

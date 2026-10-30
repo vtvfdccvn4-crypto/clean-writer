@@ -1,22 +1,18 @@
 /**
  * The document bundle (`.cwdoc`): one document, stored as a ZIP archive with a manifest at its root. It is the
  * single save for a document, so it travels between browsers and devices. Every listed file carries a SHA-256
- * hash, so a damaged file is caught even when its size is right. Archives written by the ZIP backup
- * (`clear-writer-backup` version 1) are still read, through the same parser, and are never written again.
+ * hash, so a damaged file is caught even when its size is right.
  */
 
+import type { WorkspaceSession } from '../platform/types';
 import { createZip, readZip, safeArchivePath, ZipError, type ZipEntry } from './zip';
 import { PROJECT_SETTINGS_SCHEMA_VERSION } from '../project-settings/project-settings';
-import {
-  BACKUP_MANIFEST_PATH,
-  BackupError,
-  checkBackupFileSize,
-  describeBackupFailure,
-  parseProjectBackup,
-  type BackupManifest,
-  type BackupSource,
-  type BackupTarget
-} from './project-backup';
+import { BackupError, checkBackupFileSize, describeBackupFailure } from './document-errors';
+
+/** What a document is read from when it is saved: the open project, through its session. */
+export type BackupSource = Pick<WorkspaceSession, 'displayName' | 'listProjectFiles' | 'readProjectFile'>;
+/** What an opened document is written into. */
+export type BackupTarget = Pick<WorkspaceSession, 'writeProjectFile'>;
 
 export const DOCUMENT_EXTENSION = '.cwdoc';
 export const DOCUMENT_MIME_TYPE = 'application/vnd.clearwriter.document+zip';
@@ -50,9 +46,10 @@ export interface DocumentFileInput {
   readonly data: Uint8Array<ArrayBuffer>;
 }
 
-export type ParsedDocumentBundle =
-  | { readonly kind: 'document'; readonly manifest: DocumentManifest; readonly files: readonly ZipEntry[] }
-  | { readonly kind: 'legacy-backup'; readonly manifest: BackupManifest; readonly files: readonly ZipEntry[] };
+export interface ParsedDocumentBundle {
+  readonly manifest: DocumentManifest;
+  readonly files: readonly ZipEntry[];
+}
 
 const isProjectPath = (path: string): boolean => path === SETTINGS_PATH || FILE_ROOTS.some(root => path.startsWith(`${root}/`));
 
@@ -112,8 +109,8 @@ export interface ParseDocumentBundleOptions {
 }
 
 /**
- * Reads and checks a `.cwdoc` file, or a legacy ZIP backup, before anything is created from it. Nothing is
- * written here: the caller creates a document only from a bundle that comes back without error.
+ * Reads and checks a `.cwdoc` file before anything is created from it. Nothing is written here: the caller
+ * creates a document only from a bundle that comes back without error.
  */
 export async function parseDocumentBundle(bytes: Uint8Array, options: ParseDocumentBundleOptions): Promise<ParsedDocumentBundle> {
   checkBackupFileSize(bytes.length);
@@ -127,10 +124,6 @@ export async function parseDocumentBundle(bytes: Uint8Array, options: ParseDocum
   const byPath = new Map(entries.map(entry => [entry.path, entry]));
 
   const manifestEntry = byPath.get(DOCUMENT_MANIFEST_PATH);
-  if (!manifestEntry && byPath.has(BACKUP_MANIFEST_PATH)) {
-    const legacy = await parseProjectBackup(bytes);
-    return { kind: 'legacy-backup', manifest: legacy.manifest, files: legacy.files };
-  }
   if (!manifestEntry) throw new BackupError('This ZIP file is not a Clear Writer document: it has no document manifest.');
 
   let manifest: DocumentManifest;
@@ -168,7 +161,7 @@ export async function parseDocumentBundle(bytes: Uint8Array, options: ParseDocum
     throw new BackupError('This document is damaged: its settings cannot be read.');
   }
 
-  return { kind: 'document', manifest, files };
+  return { manifest, files };
 }
 
 /** A `.cwdoc` file name for a document title, with characters that are not safe in file names replaced. */

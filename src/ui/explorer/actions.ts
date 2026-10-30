@@ -5,7 +5,8 @@ import { ProjectService } from '../../services/ProjectService';
 import { showNewProjectModal, showOpenProjectModal } from '../project-flow-modal';
 import { openProjectWithRecovery } from '../project-opening';
 import { showTrashDialog } from '../trash-dialog';
-import { saveProjectDocument, openProjectDocument } from '../project-backup-actions';
+import { saveProjectDocument, openProjectDocument, saveProjectDocumentAs } from '../project-backup-actions';
+import { openDocumentInPlace } from '../document-in-place';
 
 export interface TaskPanelActionHooks {
   /** Saves the document being edited, so a backup holds the text on screen. */
@@ -32,25 +33,23 @@ export function initTaskPanelActions(platform: Platform, hooks: TaskPanelActionH
   });
 
   btnOpen?.addEventListener('click', async () => {
-    const recents = platform.workspaceRepository.listKnownBrowserWorkspaces
-      ? await platform.workspaceRepository.listKnownBrowserWorkspaces()
-      : [];
-    const choice = await showOpenProjectModal(recents);
+    const choice = await showOpenProjectModal();
     if (!choice) return;
-    let ref: import('../../platform/types').WorkspaceRef | null = null;
-    if (choice.action === 'directory-picker') {
-      ref = await platform.workspaceRepository.selectDirectory({ kind: 'directory' });
-    } else if (choice.action === 'open-ref') {
-      ref = choice.ref;
-    } else if (choice.action === 'import-backup') {
-      ref = await openProjectDocument(platform, choice.file);
+    if (choice.action === 'open-in-place') {
+      await openDocumentInPlace();
+      return;
     }
+    const ref = await openProjectDocument(platform, choice.file);
     if (!ref) return;
     await openProjectWithRecovery(platform, ref);
   });
 
   document.getElementById('btn-project-backup')?.addEventListener('click', () => {
     void saveProjectDocument(hooks.flushCurrentDocument ?? (async () => undefined));
+  });
+
+  document.getElementById('btn-project-save-as')?.addEventListener('click', () => {
+    void saveProjectDocumentAs(hooks.flushCurrentDocument ?? (async () => undefined));
   });
 
   document.getElementById('btn-task-trash')?.addEventListener('click', () => {

@@ -64,8 +64,7 @@ async function run() {
   await click('#btn-task-close-project');
   await waitFor('project closed', () => state.current.projectRef === null ? true : null);
 
-  await click('#btn-task-open-project');
-  await click('.recent-item-btn');
+  await click('.welcome-recent-item');
   await waitFor('project reopened', () => state.current.projectRef?.id === projectId ? true : null);
   await waitFor('tree restored', () => state.current.sections.some(section => section.path === 'sections/SavedDraftState.md') ? true : null);
 

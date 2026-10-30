@@ -3,6 +3,7 @@ import { closeDrawer, toggleDrawer } from './drawer-manager';
 import type { EditorManager } from './editor-manager';
 import type { Platform } from '../platform/types';
 import { searchProject, type ProjectSearchResult } from '../services/project-search';
+import { openSessionForRef } from '../services/open-session-for-ref';
 
 export function initProjectSearchDrawer(platform: Platform, editorManager: EditorManager) {
   const btnOpen = document.getElementById('btn-open-project-search');
@@ -102,7 +103,7 @@ export function initProjectSearchDrawer(platform: Platform, editorManager: Edito
     resultsContainer!.innerHTML = '';
 
     try {
-      const session = await platform.workspaceRepository.open(projectRef);
+      const session = await openSessionForRef(projectRef, platform.workspaceRepository);
       if (signal.aborted) return;
 
       const results = await searchProject(session, sections, query, signal, 100);

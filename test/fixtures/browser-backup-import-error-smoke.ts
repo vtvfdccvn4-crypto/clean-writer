@@ -1,9 +1,11 @@
 /**
- * Verifies that the backup import flow produces clear user-facing error messages
+ * Verifies that the document open flow produces clear user-facing error messages
  * for common failure cases, exercised in a real browser against the real
- * checkBackupFileSize / parseProjectBackup / checkStorageFor pipeline.
+ * checkBackupFileSize / parseDocumentBundle / checkStorageFor pipeline.
  */
-import { BackupError, checkBackupFileSize, describeBackupFailure, parseProjectBackup } from '../../src/backup/project-backup';
+import { BackupError, checkBackupFileSize, describeBackupFailure } from '../../src/backup/document-errors';
+import { parseDocumentBundle } from '../../src/backup/document-bundle';
+import { PROJECT_SETTINGS_SCHEMA_VERSION } from '../../src/project-settings/project-settings';
 import { BACKUP_LIMITS_BYTES } from '../../src/backup/zip';
 
 declare global {
@@ -26,7 +28,7 @@ async function run(): Promise<void> {
   // ── 2. Non-ZIP file (random bytes) ───────────────────────────────────────
   let notZipMessage = '';
   try {
-    await parseProjectBackup(new Uint8Array([0x00, 0x01, 0x02, 0x03, 0x04]));
+    await parseDocumentBundle(new Uint8Array([0x00, 0x01, 0x02, 0x03, 0x04]), { supportedSettingsSchemaVersion: PROJECT_SETTINGS_SCHEMA_VERSION });
   } catch (error) {
     notZipMessage = error instanceof BackupError ? error.message : '';
   }
@@ -40,7 +42,7 @@ async function run(): Promise<void> {
   ]);
   let notBackupMessage = '';
   try {
-    await parseProjectBackup(emptyZip);
+    await parseDocumentBundle(emptyZip, { supportedSettingsSchemaVersion: PROJECT_SETTINGS_SCHEMA_VERSION });
   } catch (error) {
     notBackupMessage = error instanceof BackupError ? error.message : '';
   }
@@ -60,7 +62,7 @@ async function run(): Promise<void> {
   const realEstimate = navigator.storage.estimate.bind(navigator.storage);
   (navigator.storage as StorageManager & { estimate(): Promise<StorageEstimate> }).estimate =
     async () => ({ usage: 990, quota: 1_000 });
-  const { checkStorageFor } = await import('../../src/backup/project-backup');
+  const { checkStorageFor } = await import('../../src/backup/document-errors');
   let storageMessage = '';
   try {
     await checkStorageFor(100); // needs 100 bytes but only 10 available
@@ -69,7 +71,7 @@ async function run(): Promise<void> {
   }
   (navigator.storage as StorageManager & { estimate(): Promise<StorageEstimate> }).estimate = realEstimate;
   results.storageFullError = storageMessage.length > 0;
-  results.storageFullMentionsBackup = storageMessage.toLowerCase().includes('backup') || storageMessage.toLowerCase().includes('space');
+  results.storageFullMentionsBackup = storageMessage.toLowerCase().includes('document') || storageMessage.toLowerCase().includes('space');
 
   const ok = (
     results.oversizedError === true &&

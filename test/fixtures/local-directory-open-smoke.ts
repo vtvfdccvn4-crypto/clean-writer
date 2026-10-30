@@ -27,8 +27,8 @@ async function run() {
     throw new Error(window.__CLEAR_WRITER_BOOT_ERROR__);
   }
 
-  await click('#btn-task-open-project');
-  await click('#btn-modal-open-dir');
+  await click('#btn-task-new-project');
+  await click('#btn-modal-new-dir');
   await waitFor('directory project ref', () => state.current.projectRef?.kind === 'directory' ? state.current.projectRef : null);
   await waitFor('project explorer ready', () => document.querySelector('#task-explorer-view:not(.hidden)') ? true : null);
 

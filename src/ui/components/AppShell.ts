@@ -42,6 +42,7 @@ const appShellTemplate = (): string => `
         ${toolbarButton({ id: 'btn-task-close-project', variant: 'icon', ariaLabel: 'Close project', title: 'Close project', content: '<span aria-hidden="true">×</span>' })}
         ${toolbarButton({ id: 'btn-task-refresh-project', variant: 'icon', ariaLabel: 'Refresh project files', title: 'Refresh project files (Ctrl+Shift+I)', icon: materialIcon('rotate_left') })}
         ${toolbarButton({ id: 'btn-project-backup', variant: 'icon', ariaLabel: 'Save document', title: 'Save document as a .cwdoc file. It holds the whole document. After a crash, recent typing may be lost: up to 1 second, or up to 5 seconds in a section over 200,000 characters.', icon: materialIcon('download') })}
+        ${toolbarButton({ id: 'btn-project-save-as', variant: 'icon', ariaLabel: 'Save a copy', title: 'Save a copy of the document as a new .cwdoc file. Future changes go to the copy.', icon: materialIcon('save_as') })}
         ${toolbarButton({ id: 'btn-project-metadata', variant: 'icon', ariaLabel: 'Project metadata', title: 'Project metadata', icon: materialIcon('info') })}
       </div>
     </header>

@@ -1,6 +1,5 @@
 import { localFolderProjectsEnabled } from '../config/mvp-scope';
-import type { WorkspaceRef } from '../platform';
-import { escapeHtml } from '../utils/escapeHtml';
+import { canOpenInPlace } from './document-in-place';
 
 export function showNewProjectModal(): Promise<
   | { action: 'directory' }
@@ -95,9 +94,12 @@ export function showNewProjectModal(): Promise<
   });
 }
 
-export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef, displayName: string, time: number}>): Promise<
-  | { action: 'directory-picker' }
-  | { action: 'open-ref'; ref: WorkspaceRef }
+/**
+ * Asks where to open a document from. The recent-projects list lives on the welcome screen, so this dialog offers
+ * only the two places a document can come from. Browser storage is a placeholder until it is redeveloped.
+ */
+export function showOpenProjectModal(): Promise<
+  | { action: 'open-in-place' }
   | { action: 'import-backup'; file: File }
   | null
 > {
@@ -105,44 +107,30 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
     const modalHost = document.getElementById('project-flow-modal');
     if (!modalHost) return resolve(null);
 
-    const hasDirectoryPicker = localFolderProjectsEnabled() && 'showDirectoryPicker' in window;
-
-    const renderRecentItem = (entry: { ref: WorkspaceRef, displayName: string, time: number }, index: number) => {
-      const icon = entry.ref.kind === 'directory' ? '📁' : '☁️';
-      const kindLabel = entry.ref.kind === 'directory' ? 'Local folder' : 'Browser storage';
-      return `
-        <button type="button" class="ui-button ui-button--modal ui-button--full recent-item-btn" data-index="${index}">
-          <span class="ui-button-icon">${icon}</span>
-          <span class="recent-item-name">${escapeHtml(entry.displayName)}</span>
-          <span class="recent-item-kind">${kindLabel}</span>
-        </button>
-      `;
-    };
+    // Browsers without the file picker that edits in place (Safari) get a copy instead.
+    const openInPlace = canOpenInPlace();
 
     modalHost.innerHTML = `
       <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="project-flow-modal-title">
         <div class="modal-dialog">
-          <h2 id="project-flow-modal-title" class="modal-title">Open Project</h2>
+          <h2 id="project-flow-modal-title" class="modal-title">Open Document</h2>
           <div id="project-flow-modal-body" class="modal-body">
-            ${recentWorkspaces.length > 0 ? `
-              <p>Recent projects:</p>
-              <div class="modal-recent-list">
-                ${recentWorkspaces.map(renderRecentItem).join('')}
-              </div>
-            ` : '<p>No recent projects found.</p>'}
-
-            <div class="modal-divider"></div>
-            <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-import-backup">
-              <span class="ui-button-icon">📦</span> Open a document (.cwdoc) as a new project...
-            </button>
-            <input type="file" id="input-import-backup" accept=".cwdoc,.zip,application/zip" hidden>
-
-            ${hasDirectoryPicker ? `
-              <div class="modal-divider"></div>
-              <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-open-dir">
-                <span class="ui-button-icon">📁</span> Open a local folder...
+            <p>Choose where the document is:</p>
+            <div class="modal-options">
+              ${openInPlace ? `
+                <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-open-file">
+                  <span class="ui-button-icon">💻</span> Local computer (.cwdoc)
+                </button>
+              ` : `
+                <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-import-backup">
+                  <span class="ui-button-icon">💻</span> Local computer (.cwdoc, opened as a copy)
+                </button>
+                <input type="file" id="input-import-backup" accept=".cwdoc" hidden>
+              `}
+              <button type="button" class="ui-button ui-button--modal ui-button--full" id="btn-modal-browser-storage" disabled>
+                <span class="ui-button-icon">☁️</span> Browser storage (coming later)
               </button>
-            ` : ''}
+            </div>
           </div>
           <div id="project-flow-modal-actions" class="modal-actions">
             <button type="button" class="ui-button ui-button--modal" id="btn-modal-cancel">Cancel</button>
@@ -161,37 +149,22 @@ export function showOpenProjectModal(recentWorkspaces: Array<{ref: WorkspaceRef,
       resolve(null);
     });
 
-    const importButton = modalHost.querySelector('#btn-modal-import-backup') as HTMLButtonElement;
-    const importInput = modalHost.querySelector('#input-import-backup') as HTMLInputElement;
-    importButton.addEventListener('click', () => importInput.click());
-    importInput.addEventListener('change', () => {
-      const file = importInput.files?.[0];
-      if (!file) return;
-      cleanup();
-      resolve({ action: 'import-backup', file });
-    });
-
-    const btnOpenDir = modalHost.querySelector('#btn-modal-open-dir') as HTMLButtonElement | null;
-    if (btnOpenDir) {
-      btnOpenDir.addEventListener('click', () => {
+    if (openInPlace) {
+      const openFileButton = modalHost.querySelector('#btn-modal-open-file') as HTMLButtonElement;
+      openFileButton.addEventListener('click', () => {
         cleanup();
-        resolve({ action: 'directory-picker' });
+        resolve({ action: 'open-in-place' });
+      });
+    } else {
+      const importButton = modalHost.querySelector('#btn-modal-import-backup') as HTMLButtonElement;
+      const importInput = modalHost.querySelector('#input-import-backup') as HTMLInputElement;
+      importButton.addEventListener('click', () => importInput.click());
+      importInput.addEventListener('change', () => {
+        const file = importInput.files?.[0];
+        if (!file) return;
+        cleanup();
+        resolve({ action: 'import-backup', file });
       });
     }
-
-    const recentBtns = modalHost.querySelectorAll('.recent-item-btn');
-    recentBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const indexStr = btn.getAttribute('data-index');
-        if (indexStr !== null) {
-          const index = parseInt(indexStr, 10);
-          const entry = recentWorkspaces[index];
-          if (entry) {
-            cleanup();
-            resolve({ action: 'open-ref', ref: entry.ref });
-          }
-        }
-      });
-    });
   });
 }

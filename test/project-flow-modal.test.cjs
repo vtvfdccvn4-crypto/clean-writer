@@ -17,7 +17,13 @@ after(async () => {
   await server?.close();
 });
 
-test('recent project names are HTML-escaped before modal rendering', () => {
+test('the open dialog offers only the local computer and browser storage, not recent projects', () => {
+  assert.match(modal, /btn-modal-open-file/);
+  assert.match(modal, /btn-modal-browser-storage/);
+  assert.doesNotMatch(modal, /recentWorkspaces|recent-item|btn-modal-open-dir/);
+});
+
+test('recent project names are HTML-escaped wherever they are rendered', () => {
   const escaped = escapeHtml('<img src=x onerror=alert(1)>"quoted"&\'single\'');
 
   assert.equal(
@@ -25,5 +31,4 @@ test('recent project names are HTML-escaped before modal rendering', () => {
     '&lt;img src=x onerror=alert(1)&gt;&quot;quoted&quot;&amp;&#39;single&#39;'
   );
   assert.doesNotMatch(escaped, /<|>/);
-  assert.match(modal, /\$\{escapeHtml\(entry\.displayName\)\}/);
 });

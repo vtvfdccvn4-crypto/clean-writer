@@ -6,6 +6,7 @@ import { extractWritingStatistics, calculateReadingTime } from '../editor/writin
 import { outlineSectionHtml, createOutlineView, type OutlineSectionChunk } from './outline-view';
 import { normalizeExplorerPath } from '../utils/path-utils';
 import { OUTLINE_ACTIVATED_EVENT, PROJECT_STATS_REFRESH_EVENT, type ProjectStatsRefreshDetail } from './outline-events';
+import { openSessionForRef } from '../services/open-session-for-ref';
 
 interface SectionOutline {
   headings: MarkdownHeading[];
@@ -143,7 +144,7 @@ export function initDocumentOutlineDrawer(platform: Platform, editorManager: Edi
         if (!outline) {
           const version = sectionVersions.get(key) ?? 0;
           const epoch = cacheEpoch;
-          session ??= await platform.workspaceRepository.open(projectRef);
+          session ??= await openSessionForRef(projectRef, platform.workspaceRepository);
           const text = await session.readSection(section.path);
           outline = { headings: extractMarkdownHeadings(text), words: extractWritingStatistics(text).words };
           if (epoch === cacheEpoch && (sectionVersions.get(key) ?? 0) === version) sectionCache.set(key, outline);
